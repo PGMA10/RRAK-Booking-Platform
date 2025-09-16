@@ -22,9 +22,9 @@ export default function AuthPage() {
     phone: "",
   });
 
-  // Redirect if already logged in - admin users go to admin panel
+  // Redirect if already logged in - admin users go to admin panel, customers go to booking
   if (user) {
-    return <Redirect to={user.role === "admin" ? "/admin" : "/"} />;
+    return <Redirect to={user.role === "admin" ? "/admin" : "/customer/booking"} />;
   }
 
   const handleLogin = (e: React.FormEvent) => {
@@ -176,13 +176,20 @@ export default function AuthPage() {
                   </div>
                   
                   <div className="space-y-3">
-                    <Link href="/customer/register">
-                      <Button variant="default" className="w-full" data-testid="button-business-registration">
-                        <Building className="h-4 w-4 mr-2" />
-                        Business Registration
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="default" 
+                      className="w-full" 
+                      data-testid="button-business-registration"
+                      onClick={() => {
+                        // Switch to register tab
+                        const registerTab = document.querySelector('[data-testid="tab-register"]') as HTMLElement;
+                        registerTab?.click();
+                      }}
+                    >
+                      <Building className="h-4 w-4 mr-2" />
+                      Business Registration
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
                     
                     <div className="text-center">
                       <span className="text-xs text-muted-foreground">OR</span>
