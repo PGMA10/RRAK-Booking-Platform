@@ -50,6 +50,26 @@ export interface IStorage {
   getBookingsByCampaign(campaignId: string): Promise<Booking[]>;
   getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
+  deleteBooking(id: string): Promise<boolean>;
+  
+  // Slot Grid Operations
+  getSlotGrid(campaignId: string): Promise<{
+    slots: Array<{
+      routeId: string;
+      industryId: string;
+      route: Route;
+      industry: Industry;
+      booking?: Booking;
+      status: 'available' | 'booked' | 'pending';
+    }>;
+    summary: {
+      totalSlots: number;
+      availableSlots: number;
+      bookedSlots: number;
+      pendingSlots: number;
+      totalRevenue: number;
+    };
+  }>;
   
   sessionStore: session.Store;
 }
@@ -326,14 +346,90 @@ export class MemStorage implements IStorage {
     };
     this.bookings.set(id, booking);
     
-    // Update campaign booked slots count
+    // Update campaign booked slots count and revenue
     const campaign = this.campaigns.get(insertBooking.campaignId);
     if (campaign) {
-      const updatedCampaign = { ...campaign, bookedSlots: campaign.bookedSlots + 1 };
+      const updatedCampaign = { 
+        ...campaign, 
+        bookedSlots: campaign.bookedSlots + 1,
+        revenue: campaign.revenue + booking.amount
+      };
       this.campaigns.set(campaign.id, updatedCampaign);
     }
     
     return booking;
+  }
+
+  async deleteBooking(id: string): Promise<boolean> {
+    const booking = this.bookings.get(id);
+    if (!booking) {
+      return false;
+    }
+    
+    // Update campaign booked slots count and revenue
+    const campaign = this.campaigns.get(booking.campaignId);
+    if (campaign) {
+      const updatedCampaign = { 
+        ...campaign, 
+        bookedSlots: Math.max(0, campaign.bookedSlots - 1),
+        revenue: Math.max(0, campaign.revenue - booking.amount)
+      };
+      this.campaigns.set(campaign.id, updatedCampaign);
+    }
+    
+    this.bookings.delete(id);
+    return true;
+  }
+
+  async getSlotGrid(campaignId: string) {
+    const routes = Array.from(this.routes.values()).filter(r => r.status === 'active');
+    const industries = Array.from(this.industries.values()).filter(i => i.status === 'active');
+    const bookings = Array.from(this.bookings.values()).filter(b => b.campaignId === campaignId);
+    
+    const slots = [];
+    let availableSlots = 0;
+    let bookedSlots = 0;
+    let pendingSlots = 0;
+    let totalRevenue = 0;
+    
+    for (const route of routes) {
+      for (const industry of industries) {
+        const booking = bookings.find(b => b.routeId === route.id && b.industryId === industry.id);
+        
+        let status: 'available' | 'booked' | 'pending' = 'available';
+        if (booking) {
+          status = booking.status === 'pending' ? 'pending' : 'booked';
+          if (status === 'booked') {
+            bookedSlots++;
+            totalRevenue += booking.amount;
+          } else {
+            pendingSlots++;
+          }
+        } else {
+          availableSlots++;
+        }
+        
+        slots.push({
+          routeId: route.id,
+          industryId: industry.id,
+          route,
+          industry,
+          booking,
+          status,
+        });
+      }
+    }
+    
+    return {
+      slots,
+      summary: {
+        totalSlots: routes.length * industries.length,
+        availableSlots,
+        bookedSlots,
+        pendingSlots,
+        totalRevenue,
+      },
+    };
   }
 }
 
