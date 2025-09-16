@@ -12,6 +12,7 @@ import CalendarPage from "@/pages/calendar-page";
 import AdminPage from "@/pages/admin-page";
 import RouteManagementPage from "@/pages/route-management-page";
 import IndustryManagementPage from "@/pages/industry-management-page";
+import CampaignManagementPage from "@/pages/campaign-management-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <ProtectedRoute path="/admin" component={AdminPage} />
       <ProtectedRoute path="/admin/routes" component={RouteManagementPage} />
       <ProtectedRoute path="/admin/industries" component={IndustryManagementPage} />
+      <ProtectedRoute path="/admin/campaigns" component={CampaignManagementPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

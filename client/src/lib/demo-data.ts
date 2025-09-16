@@ -95,17 +95,17 @@ export const demoRoutes = [
 
 export const demoQuickActions = [
   {
-    id: 'create-campaign',
-    label: 'Create New Campaign',
-    description: 'Set up a new monthly mailing campaign',
-    icon: 'plus',
+    id: 'manage-campaigns',
+    label: 'Manage Campaigns',
+    description: 'Create and manage monthly campaigns',
+    icon: 'calendar',
     color: 'primary'
   },
   {
     id: 'view-bookings',
     label: 'View All Bookings',
     description: 'Review current and past bookings',
-    icon: 'calendar',
+    icon: 'calendar-check',
     color: 'secondary'
   },
   {
