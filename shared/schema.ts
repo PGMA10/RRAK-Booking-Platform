@@ -19,6 +19,8 @@ export const routes = pgTable("routes", {
   zipCode: text("zip_code").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
+  householdCount: integer("household_count").notNull().default(0),
+  status: text("status").notNull().default("active"), // 'active' or 'inactive'
 });
 
 export const industries = pgTable("industries", {

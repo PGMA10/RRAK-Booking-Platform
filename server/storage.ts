@@ -27,6 +27,8 @@ export interface IStorage {
   getAllRoutes(): Promise<Route[]>;
   getRoute(id: string): Promise<Route | undefined>;
   createRoute(route: InsertRoute): Promise<Route>;
+  updateRoute(id: string, updates: Partial<Route>): Promise<Route | undefined>;
+  deleteRoute(id: string): Promise<boolean>;
   
   // Industries
   getAllIndustries(): Promise<Industry[]>;
@@ -68,10 +70,10 @@ export class MemStorage implements IStorage {
   private initializeData() {
     // Initialize routes
     const routeData = [
-      { zipCode: "99502", name: "Downtown/Midtown", description: "Central Anchorage business district" },
-      { zipCode: "99507", name: "South Anchorage", description: "Residential and commercial areas" },
-      { zipCode: "99515", name: "Hillside", description: "Hillside residential area" },
-      { zipCode: "99516", name: "Abbott Loop", description: "Abbott Loop area" },
+      { zipCode: "99502", name: "Downtown/Midtown", description: "Central Anchorage business district", householdCount: 18500, status: "active" },
+      { zipCode: "99507", name: "South Anchorage", description: "Residential and commercial areas", householdCount: 22300, status: "active" },
+      { zipCode: "99515", name: "Hillside", description: "Hillside residential area", householdCount: 12800, status: "active" },
+      { zipCode: "99516", name: "Abbott Loop", description: "Abbott Loop area", householdCount: 15600, status: "active" },
     ];
 
     routeData.forEach(data => {
@@ -174,6 +176,19 @@ export class MemStorage implements IStorage {
     const route: Route = { ...insertRoute, id, description: insertRoute.description || null };
     this.routes.set(id, route);
     return route;
+  }
+
+  async updateRoute(id: string, updates: Partial<Route>): Promise<Route | undefined> {
+    const existingRoute = this.routes.get(id);
+    if (!existingRoute) return undefined;
+    
+    const updatedRoute: Route = { ...existingRoute, ...updates, id }; // Ensure ID cannot be changed
+    this.routes.set(id, updatedRoute);
+    return updatedRoute;
+  }
+
+  async deleteRoute(id: string): Promise<boolean> {
+    return this.routes.delete(id);
   }
 
   // Industries
