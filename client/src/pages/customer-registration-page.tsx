@@ -408,10 +408,10 @@ export default function CustomerRegistrationPage() {
                     </Link>
                     <Button 
                       type="submit" 
-                      disabled={registrationMutation.isPending || !licenseVerified}
+                      disabled={registerMutation.isPending || !licenseVerified}
                       data-testid="button-submit-registration"
                     >
-                      {registrationMutation.isPending ? (
+                      {registerMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Registering...

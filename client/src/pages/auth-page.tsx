@@ -40,7 +40,12 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Login Form */}
+                {/* Admin Login Section */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Admin Login</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Access admin dashboard and campaign management</p>
+                </div>
+                
                 <form onSubmit={handleLogin} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="login-username">Username</Label>
@@ -75,18 +80,18 @@ export default function AuthPage() {
                       </Button>
                 </form>
                 <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Demo credentials:</p>
+                  <p className="text-sm text-muted-foreground">Admin Demo Credentials:</p>
                   <p className="text-sm font-mono">Username: admin</p>
                   <p className="text-sm font-mono">Password: admin</p>
                 </div>
 
                 
-                {/* Customer Registration & Booking Options */}
+                {/* Customer Options */}
                 <div className="mt-8">
                   <Separator className="mb-6" />
                   <div className="text-center mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">New Business?</h3>
-                    <p className="text-sm text-muted-foreground">Get started with our complete registration process</p>
+                    <h3 className="text-lg font-semibold text-foreground">Customer Access</h3>
+                    <p className="text-sm text-muted-foreground">New business registration or returning customer login</p>
                   </div>
                   
                   <div className="space-y-3">
@@ -97,7 +102,7 @@ export default function AuthPage() {
                         data-testid="button-business-registration"
                       >
                         <Building className="h-4 w-4 mr-2" />
-                        Business Registration
+                        New Business Registration
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
                     </Link>
@@ -107,9 +112,9 @@ export default function AuthPage() {
                     </div>
                     
                     <Link href="/customer/booking">
-                      <Button variant="outline" className="w-full" data-testid="button-book-now">
+                      <Button variant="outline" className="w-full" data-testid="button-returning-customer">
                         <Calendar className="h-4 w-4 mr-2" />
-                        Book Campaign Slot
+                        Returning Customer Login
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
                     </Link>
