@@ -530,7 +530,7 @@ export default function SlotGridPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Booked Date</p>
                     <p className="font-medium" data-testid="text-booking-date">
-                      {new Date(selectedSlot.booking.createdAt).toLocaleDateString()}
+                      {selectedSlot.booking.createdAt ? new Date(selectedSlot.booking.createdAt).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                 </div>

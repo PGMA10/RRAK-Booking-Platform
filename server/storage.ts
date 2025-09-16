@@ -226,7 +226,8 @@ export class MemStorage implements IStorage {
       ...insertRoute, 
       id, 
       description: insertRoute.description || null,
-      status: insertRoute.status || "active"
+      status: insertRoute.status || "active",
+      householdCount: insertRoute.householdCount || 0
     };
     this.routes.set(id, route);
     return route;
