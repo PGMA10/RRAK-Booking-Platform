@@ -5,22 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Building, Calendar, ArrowRight, Star } from "lucide-react";
 import { DemoBanner } from "@/components/demo-banner";
 
 export default function AuthPage() {
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, loginMutation } = useAuth();
   const [loginData, setLoginData] = useState({ username: "", password: "" });
-  const [registerData, setRegisterData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    businessName: "",
-    phone: "",
-  });
 
   // Redirect if already logged in - admin users go to admin panel, customers go to booking
   if (user) {
@@ -32,10 +24,6 @@ export default function AuthPage() {
     loginMutation.mutate(loginData);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    registerMutation.mutate(registerData);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,14 +40,8 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="login" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-                    <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="login">
-                    <form onSubmit={handleLogin} className="space-y-4">
+                {/* Login Form */}
+                <form onSubmit={handleLogin} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="login-username">Username</Label>
                         <Input
@@ -91,81 +73,13 @@ export default function AuthPage() {
                         {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Login
                       </Button>
-                    </form>
-                    <div className="mt-4 p-3 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">Demo credentials:</p>
-                      <p className="text-sm font-mono">Username: admin</p>
-                      <p className="text-sm font-mono">Password: admin</p>
-                    </div>
-                  </TabsContent>
+                </form>
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Demo credentials:</p>
+                  <p className="text-sm font-mono">Username: admin</p>
+                  <p className="text-sm font-mono">Password: admin</p>
+                </div>
 
-                  <TabsContent value="register">
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="register-username">Username</Label>
-                        <Input
-                          id="register-username"
-                          data-testid="input-register-username"
-                          type="text"
-                          value={registerData.username}
-                          onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-email">Email</Label>
-                        <Input
-                          id="register-email"
-                          data-testid="input-register-email"
-                          type="email"
-                          value={registerData.email}
-                          onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-password">Password</Label>
-                        <Input
-                          id="register-password"
-                          data-testid="input-register-password"
-                          type="password"
-                          value={registerData.password}
-                          onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-business">Business Name</Label>
-                        <Input
-                          id="register-business"
-                          data-testid="input-register-business"
-                          type="text"
-                          value={registerData.businessName}
-                          onChange={(e) => setRegisterData({ ...registerData, businessName: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-phone">Phone</Label>
-                        <Input
-                          id="register-phone"
-                          data-testid="input-register-phone"
-                          type="tel"
-                          value={registerData.phone}
-                          onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                        />
-                      </div>
-                      <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={registerMutation.isPending}
-                        data-testid="button-register-submit"
-                      >
-                        {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Register
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
                 
                 {/* Customer Registration & Booking Options */}
                 <div className="mt-8">
@@ -176,20 +90,17 @@ export default function AuthPage() {
                   </div>
                   
                   <div className="space-y-3">
-                    <Button 
-                      variant="default" 
-                      className="w-full" 
-                      data-testid="button-business-registration"
-                      onClick={() => {
-                        // Switch to register tab
-                        const registerTab = document.querySelector('[data-testid="tab-register"]') as HTMLElement;
-                        registerTab?.click();
-                      }}
-                    >
-                      <Building className="h-4 w-4 mr-2" />
-                      Business Registration
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
+                    <Link href="/customer/register">
+                      <Button 
+                        variant="default" 
+                        className="w-full" 
+                        data-testid="button-business-registration"
+                      >
+                        <Building className="h-4 w-4 mr-2" />
+                        Business Registration
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
                     
                     <div className="text-center">
                       <span className="text-xs text-muted-foreground">OR</span>
