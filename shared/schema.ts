@@ -25,7 +25,9 @@ export const routes = pgTable("routes", {
 
 export const industries = pgTable("industries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  status: text("status").notNull().default("active"), // 'active' or 'inactive'
   icon: text("icon").notNull(),
 });
 

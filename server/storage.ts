@@ -34,6 +34,8 @@ export interface IStorage {
   getAllIndustries(): Promise<Industry[]>;
   getIndustry(id: string): Promise<Industry | undefined>;
   createIndustry(industry: InsertIndustry): Promise<Industry>;
+  updateIndustry(id: string, updates: Partial<Industry>): Promise<Industry | undefined>;
+  deleteIndustry(id: string): Promise<boolean>;
   
   // Campaigns
   getAllCampaigns(): Promise<Campaign[]>;
@@ -82,24 +84,24 @@ export class MemStorage implements IStorage {
       this.routes.set(id, route);
     });
 
-    // Initialize industries
+    // Initialize industries with the 16 standard categories
     const industryData = [
-      { name: "Financial Services", icon: "fas fa-dollar-sign" },
-      { name: "Electricians", icon: "fas fa-bolt" },
-      { name: "Plumbers", icon: "fas fa-wrench" },
-      { name: "Construction", icon: "fas fa-hammer" },
-      { name: "Auto Services", icon: "fas fa-car" },
-      { name: "Real Estate", icon: "fas fa-home" },
-      { name: "Healthcare", icon: "fas fa-heartbeat" },
-      { name: "Legal Services", icon: "fas fa-gavel" },
-      { name: "Insurance", icon: "fas fa-shield-alt" },
-      { name: "HVAC", icon: "fas fa-temperature-high" },
-      { name: "Roofing", icon: "fas fa-house-damage" },
-      { name: "Landscaping", icon: "fas fa-tree" },
-      { name: "Cleaning Services", icon: "fas fa-broom" },
-      { name: "Security", icon: "fas fa-shield" },
-      { name: "IT Services", icon: "fas fa-laptop" },
-      { name: "Restaurants", icon: "fas fa-utensils" },
+      { name: "Financial Advisors", description: "Financial planning and investment advisory services", icon: "fas fa-dollar-sign", status: "active" },
+      { name: "Accountants", description: "Tax preparation, bookkeeping, and accounting services", icon: "fas fa-calculator", status: "active" },
+      { name: "Electricians", description: "Electrical installation, repair, and maintenance services", icon: "fas fa-bolt", status: "active" },
+      { name: "Plumbers/HVAC", description: "Plumbing and heating, ventilation, air conditioning services", icon: "fas fa-wrench", status: "active" },
+      { name: "Clothing Stores", description: "Retail clothing and fashion merchandise businesses", icon: "fas fa-tshirt", status: "active" },
+      { name: "Residential Cleaners", description: "House cleaning and residential maintenance services", icon: "fas fa-broom", status: "active" },
+      { name: "Dog Walkers", description: "Pet walking and basic pet care services", icon: "fas fa-dog", status: "active" },
+      { name: "Restaurants", description: "Food service establishments and dining businesses", icon: "fas fa-utensils", status: "active" },
+      { name: "Auto Services", description: "Vehicle repair, maintenance, and automotive services", icon: "fas fa-car", status: "active" },
+      { name: "Hair/Beauty Salons", description: "Hair styling, beauty treatments, and salon services", icon: "fas fa-cut", status: "active" },
+      { name: "Home Services", description: "General home improvement and maintenance contractors", icon: "fas fa-home", status: "active" },
+      { name: "Health/Fitness", description: "Fitness centers, personal training, and wellness services", icon: "fas fa-heartbeat", status: "active" },
+      { name: "Real Estate", description: "Property sales, rental, and real estate brokerage services", icon: "fas fa-house-user", status: "active" },
+      { name: "Legal Services", description: "Attorney services, legal consultation, and law practices", icon: "fas fa-gavel", status: "active" },
+      { name: "Pet Services", description: "Veterinary care, grooming, and comprehensive pet services", icon: "fas fa-paw", status: "active" },
+      { name: "Other Services", description: "Miscellaneous professional and business services", icon: "fas fa-briefcase", status: "active" },
     ];
 
     industryData.forEach(data => {
@@ -202,9 +204,27 @@ export class MemStorage implements IStorage {
 
   async createIndustry(insertIndustry: InsertIndustry): Promise<Industry> {
     const id = randomUUID();
-    const industry: Industry = { ...insertIndustry, id };
+    const industry: Industry = { 
+      ...insertIndustry, 
+      id,
+      description: insertIndustry.description || null,
+      status: insertIndustry.status || "active"
+    };
     this.industries.set(id, industry);
     return industry;
+  }
+
+  async updateIndustry(id: string, updates: Partial<Industry>): Promise<Industry | undefined> {
+    const existingIndustry = this.industries.get(id);
+    if (!existingIndustry) return undefined;
+    
+    const updatedIndustry: Industry = { ...existingIndustry, ...updates, id }; // Ensure ID cannot be changed
+    this.industries.set(id, updatedIndustry);
+    return updatedIndustry;
+  }
+
+  async deleteIndustry(id: string): Promise<boolean> {
+    return this.industries.delete(id);
   }
 
   // Campaigns

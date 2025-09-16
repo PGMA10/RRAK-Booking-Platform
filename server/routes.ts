@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertBookingSchema, insertRouteSchema } from "@shared/schema";
+import { insertBookingSchema, insertRouteSchema, insertIndustrySchema } from "@shared/schema";
 import { z } from "zod";
 
 export function registerRoutes(app: Express): Server {
@@ -103,6 +103,89 @@ export function registerRoutes(app: Express): Server {
       res.json(industries);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch industries" });
+    }
+  });
+
+  app.post("/api/industries", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const industryValidationSchema = insertIndustrySchema.extend({
+        name: z.string().min(1, "Industry name is required"),
+        description: z.string().optional(),
+        status: z.enum(["active", "inactive"]).default("active"),
+      });
+      const industryData = industryValidationSchema.parse(req.body);
+      
+      // Check if industry name already exists
+      const allIndustries = await storage.getAllIndustries();
+      const existingIndustry = allIndustries.find(i => i.name.toLowerCase() === industryData.name.toLowerCase());
+      if (existingIndustry) {
+        return res.status(400).json({ message: "Industry name already exists" });
+      }
+
+      const industry = await storage.createIndustry(industryData);
+      res.status(201).json(industry);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid industry data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create industry" });
+    }
+  });
+
+  app.put("/api/industries/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const industryValidationSchema = insertIndustrySchema.extend({
+        name: z.string().min(1, "Industry name is required"),
+        description: z.string().optional(),
+        status: z.enum(["active", "inactive"]),
+      }).partial();
+      const industryData = industryValidationSchema.parse(req.body);
+      
+      // If updating name, check for uniqueness
+      if (industryData.name) {
+        const allIndustries = await storage.getAllIndustries();
+        const existingIndustry = allIndustries.find(i => 
+          i.name.toLowerCase() === industryData.name.toLowerCase() && i.id !== req.params.id
+        );
+        if (existingIndustry) {
+          return res.status(400).json({ message: "Industry name already exists" });
+        }
+      }
+
+      const updatedIndustry = await storage.updateIndustry(req.params.id, industryData);
+      if (!updatedIndustry) {
+        return res.status(404).json({ message: "Industry not found" });
+      }
+      res.json(updatedIndustry);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid industry data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update industry" });
+    }
+  });
+
+  app.delete("/api/industries/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const deleted = await storage.deleteIndustry(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Industry not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete industry" });
     }
   });
 
