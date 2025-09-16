@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertBookingSchema, insertRouteSchema, insertIndustrySchema } from "@shared/schema";
+import { insertBookingSchema, insertRouteSchema, insertIndustrySchema, insertCampaignSchema } from "@shared/schema";
 import { z } from "zod";
 
 export function registerRoutes(app: Express): Server {
@@ -211,6 +211,154 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/campaigns", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaignValidationSchema = insertCampaignSchema.extend({
+        name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
+        mailDate: z.coerce.date().refine((date) => {
+          const now = new Date();
+          return date > now;
+        }, "Mail date must be in the future"),
+        status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]).default("planning"),
+      });
+      
+      const campaignData = campaignValidationSchema.parse(req.body);
+      
+      // Check for duplicate mail dates (only one campaign per month)
+      const allCampaigns = await storage.getAllCampaigns();
+      const mailDate = campaignData.mailDate;
+      const existingCampaign = allCampaigns.find(c => {
+        const existingDate = new Date(c.mailDate);
+        return existingDate.getFullYear() === mailDate.getFullYear() && 
+               existingDate.getMonth() === mailDate.getMonth();
+      });
+      
+      if (existingCampaign) {
+        return res.status(400).json({ message: "A campaign already exists for this month" });
+      }
+
+      const campaign = await storage.createCampaign(campaignData);
+      res.status(201).json(campaign);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid campaign data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  app.put("/api/campaigns/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaignValidationSchema = insertCampaignSchema.extend({
+        name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
+        mailDate: z.coerce.date().refine((date) => {
+          const now = new Date();
+          return date > now;
+        }, "Mail date must be in the future"),
+        status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]),
+      }).partial();
+      
+      const campaignData = campaignValidationSchema.parse(req.body);
+      
+      // Validate status transitions and workflow rules
+      const existingCampaign = await storage.getCampaign(req.params.id);
+      if (!existingCampaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      if (campaignData.status && campaignData.status !== existingCampaign.status) {
+        const validTransitions = {
+          "planning": ["booking_open"],
+          "booking_open": ["booking_closed"],
+          "booking_closed": ["printed"],
+          "printed": ["mailed"],
+          "mailed": ["completed"],
+          "completed": []
+        };
+        
+        const allowedNext = validTransitions[existingCampaign.status];
+        if (!allowedNext.includes(campaignData.status)) {
+          return res.status(400).json({ 
+            message: `Invalid status transition from ${existingCampaign.status} to ${campaignData.status}` 
+          });
+        }
+      }
+      
+      // Prevent modifications of certain fields once campaign is booking closed or later
+      if (["booking_closed", "printed", "mailed", "completed"].includes(existingCampaign.status)) {
+        if (campaignData.name || campaignData.mailDate) {
+          return res.status(400).json({ 
+            message: "Cannot modify campaign name or mail date after booking is closed" 
+          });
+        }
+      }
+      
+      // Check for duplicate mail dates if updating mailDate
+      if (campaignData.mailDate) {
+        const allCampaigns = await storage.getAllCampaigns();
+        const mailDate = campaignData.mailDate;
+        const existingCampaign = allCampaigns.find(c => {
+          const existingDate = new Date(c.mailDate);
+          return existingDate.getFullYear() === mailDate.getFullYear() && 
+                 existingDate.getMonth() === mailDate.getMonth() &&
+                 c.id !== req.params.id;
+        });
+        
+        if (existingCampaign) {
+          return res.status(400).json({ message: "A campaign already exists for this month" });
+        }
+      }
+
+      const updatedCampaign = await storage.updateCampaign(req.params.id, campaignData);
+      if (!updatedCampaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      res.json(updatedCampaign);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid campaign data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update campaign" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      // Check if campaign exists first
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Prevent deletion of campaigns that are booking closed or later in workflow
+      if (["booking_closed", "printed", "mailed", "completed"].includes(campaign.status)) {
+        return res.status(400).json({ 
+          message: "Cannot delete campaigns that are booking closed or later in the workflow" 
+        });
+      }
+
+      const deleted = await storage.deleteCampaign(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete campaign" });
+    }
+  });
+
   // Bookings
   app.get("/api/bookings", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -260,6 +408,18 @@ export function registerRoutes(app: Express): Server {
         userId: req.user.id,
       });
 
+      // Check if campaign exists and is in booking_open status
+      const campaign = await storage.getCampaign(validatedData.campaignId);
+      if (!campaign) {
+        return res.status(400).json({ message: "Campaign not found" });
+      }
+      
+      if (campaign.status !== "booking_open") {
+        return res.status(400).json({ 
+          message: "Bookings are only allowed when campaign status is 'booking_open'" 
+        });
+      }
+
       // Check if slot is already booked
       const existingBooking = await storage.getBooking(
         validatedData.campaignId,
@@ -278,6 +438,12 @@ export function registerRoutes(app: Express): Server {
         ...validatedData,
         paymentId,
         status: "confirmed",
+      });
+
+      // Update campaign revenue after successful booking
+      const bookingAmount = validatedData.amount || 60000; // Default $600 in cents
+      await storage.updateCampaign(validatedData.campaignId, {
+        revenue: campaign.revenue + bookingAmount
       });
 
       res.status(201).json(booking);

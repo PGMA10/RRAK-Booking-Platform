@@ -34,10 +34,11 @@ export const industries = pgTable("industries", {
 export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  scheduledDate: timestamp("scheduled_date").notNull(),
-  status: text("status").notNull().default("open"), // 'open', 'active', 'completed'
+  mailDate: timestamp("mail_date").notNull(),
+  status: text("status").notNull().default("planning"), // 'planning', 'booking_open', 'booking_closed', 'printed', 'mailed', 'completed'
   totalSlots: integer("total_slots").notNull().default(64),
   bookedSlots: integer("booked_slots").notNull().default(0),
+  revenue: integer("revenue").notNull().default(0), // in cents
   createdAt: timestamp("created_at").defaultNow(),
 });
 

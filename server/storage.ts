@@ -42,6 +42,7 @@ export interface IStorage {
   getCampaign(id: string): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined>;
+  deleteCampaign(id: string): Promise<boolean>;
   
   // Bookings
   getAllBookings(): Promise<Booking[]>;
@@ -110,17 +111,43 @@ export class MemStorage implements IStorage {
       this.industries.set(id, industry);
     });
 
-    // Initialize campaigns
-    const currentCampaign: Campaign = {
-      id: randomUUID(),
-      name: "January 2025",
-      scheduledDate: new Date("2025-01-15"),
-      status: "open",
-      totalSlots: 64,
-      bookedSlots: 0,
-      createdAt: new Date(),
-    };
-    this.campaigns.set(currentCampaign.id, currentCampaign);
+    // Initialize campaigns with demo data
+    const demoCampaigns: Campaign[] = [
+      {
+        id: randomUUID(),
+        name: "December 2024 Holiday Campaign",
+        mailDate: new Date("2024-12-15"),
+        status: "booking_open",
+        totalSlots: 64,
+        bookedSlots: 12,
+        revenue: 720000, // 12 slots * $600 in cents
+        createdAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        name: "January 2025 New Year Campaign",
+        mailDate: new Date("2025-01-20"),
+        status: "planning",
+        totalSlots: 64,
+        bookedSlots: 0,
+        revenue: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        name: "October 2024 Fall Campaign",
+        mailDate: new Date("2024-10-15"),
+        status: "completed",
+        totalSlots: 64,
+        bookedSlots: 64,
+        revenue: 3840000, // 64 slots * $600 in cents
+        createdAt: new Date(),
+      },
+    ];
+    
+    demoCampaigns.forEach(campaign => {
+      this.campaigns.set(campaign.id, campaign);
+    });
 
     // Create admin user with hashed password
     const adminId = randomUUID();
@@ -242,9 +269,10 @@ export class MemStorage implements IStorage {
       ...insertCampaign,
       id,
       createdAt: new Date(),
-      status: insertCampaign.status || "open",
+      status: insertCampaign.status || "planning",
       totalSlots: insertCampaign.totalSlots || 64,
       bookedSlots: insertCampaign.bookedSlots || 0,
+      revenue: insertCampaign.revenue || 0,
     };
     this.campaigns.set(id, campaign);
     return campaign;
@@ -257,6 +285,10 @@ export class MemStorage implements IStorage {
     const updatedCampaign = { ...campaign, ...updates };
     this.campaigns.set(id, updatedCampaign);
     return updatedCampaign;
+  }
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    return this.campaigns.delete(id);
   }
 
   // Bookings
