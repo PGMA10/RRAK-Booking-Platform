@@ -41,7 +41,7 @@ export default function CustomerRegistrationPage() {
   
   // License verification state
   const [isVerifyingLicense, setIsVerifyingLicense] = useState(false);
-  const [licenseVerified, setLicenseVerified] = useState(false);
+  const [licenseVerified, setLicenseVerified] = useState(true); // Auto-verified in demo mode
   const [licenseVerificationDetails, setLicenseVerificationDetails] = useState<{
     valid: boolean;
     business: string;
@@ -114,16 +114,8 @@ export default function CustomerRegistrationPage() {
     }
   };
 
-  // Form submission
+  // Form submission - license auto-verified in demo mode
   const handleRegistration = (data: CustomerRegistrationData) => {
-    if (!licenseVerified) {
-      toast({
-        variant: "destructive",
-        description: "Please verify your business license before registering",
-      });
-      return;
-    }
-
     // Use existing auth registration mutation
     registerMutation.mutate({
       username: data.username,

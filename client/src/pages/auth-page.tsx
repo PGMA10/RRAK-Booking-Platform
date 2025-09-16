@@ -40,10 +40,10 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Admin Login Section */}
+                {/* Login Section */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Admin Login</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Access admin dashboard and campaign management</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Login</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Admin dashboard or customer booking access</p>
                 </div>
                 
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -80,9 +80,9 @@ export default function AuthPage() {
                       </Button>
                 </form>
                 <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Admin Demo Credentials:</p>
-                  <p className="text-sm font-mono">Username: admin</p>
-                  <p className="text-sm font-mono">Password: admin</p>
+                  <p className="text-sm text-muted-foreground">Demo Credentials:</p>
+                  <p className="text-sm font-mono">Admin → Username: admin, Password: admin</p>
+                  <p className="text-sm font-mono">Customer → Use registered account</p>
                 </div>
 
                 
@@ -90,8 +90,8 @@ export default function AuthPage() {
                 <div className="mt-8">
                   <Separator className="mb-6" />
                   <div className="text-center mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Customer Access</h3>
-                    <p className="text-sm text-muted-foreground">New business registration or returning customer login</p>
+                    <h3 className="text-lg font-semibold text-foreground">New Business?</h3>
+                    <p className="text-sm text-muted-foreground">Register your business to access customer booking</p>
                   </div>
                   
                   <div className="space-y-3">
@@ -107,17 +107,10 @@ export default function AuthPage() {
                       </Button>
                     </Link>
                     
-                    <div className="text-center">
-                      <span className="text-xs text-muted-foreground">OR</span>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 font-medium">Already have an account?</p>
+                      <p className="text-xs text-blue-700 mt-1">Use the login form above with your registered username and password</p>
                     </div>
-                    
-                    <Link href="/customer/booking">
-                      <Button variant="outline" className="w-full" data-testid="button-returning-customer">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Returning Customer Login
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </Link>
                   </div>
                   
                   <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
