@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertBookingSchema } from "@shared/schema";
+import { insertBookingSchema, insertRouteSchema } from "@shared/schema";
+import { z } from "zod";
 
 export function registerRoutes(app: Express): Server {
   // sets up /api/register, /api/login, /api/logout, /api/user
@@ -15,6 +16,83 @@ export function registerRoutes(app: Express): Server {
       res.json(routes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch routes" });
+    }
+  });
+
+  app.post("/api/routes", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const routeValidationSchema = insertRouteSchema.extend({
+        householdCount: z.number().int().min(1, "Household count must be at least 1"),
+      });
+      const routeData = routeValidationSchema.parse(req.body);
+      
+      // Check if zip code already exists
+      const allRoutes = await storage.getAllRoutes();
+      const existingRoute = allRoutes.find(r => r.zipCode === routeData.zipCode);
+      if (existingRoute) {
+        return res.status(400).json({ message: "Zip code already exists" });
+      }
+
+      const route = await storage.createRoute(routeData);
+      res.status(201).json(route);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid route data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create route" });
+    }
+  });
+
+  app.put("/api/routes/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const routeValidationSchema = insertRouteSchema.extend({
+        householdCount: z.number().int().min(1, "Household count must be at least 1"),
+      }).partial();
+      const routeData = routeValidationSchema.parse(req.body);
+      
+      // If updating zip code, check for uniqueness
+      if (routeData.zipCode) {
+        const allRoutes = await storage.getAllRoutes();
+        const existingRoute = allRoutes.find(r => r.zipCode === routeData.zipCode && r.id !== req.params.id);
+        if (existingRoute) {
+          return res.status(400).json({ message: "Zip code already exists" });
+        }
+      }
+
+      const updatedRoute = await storage.updateRoute(req.params.id, routeData);
+      if (!updatedRoute) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      res.json(updatedRoute);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid route data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update route" });
+    }
+  });
+
+  app.delete("/api/routes/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const deleted = await storage.deleteRoute(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete route" });
     }
   });
 

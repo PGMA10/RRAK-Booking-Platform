@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import BookingPage from "@/pages/booking-page";
 import CalendarPage from "@/pages/calendar-page";
 import AdminPage from "@/pages/admin-page";
+import RouteManagementPage from "@/pages/route-management-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,6 +20,7 @@ function Router() {
       <ProtectedRoute path="/booking" component={BookingPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/admin" component={AdminPage} />
+      <ProtectedRoute path="/admin/routes" component={RouteManagementPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
