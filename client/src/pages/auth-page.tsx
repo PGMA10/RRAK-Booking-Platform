@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Redirect } from "wouter";
+import { Redirect, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Building, Calendar, ArrowRight, Star } from "lucide-react";
 import { DemoBanner } from "@/components/demo-banner";
 
 export default function AuthPage() {
@@ -164,6 +166,50 @@ export default function AuthPage() {
                     </form>
                   </TabsContent>
                 </Tabs>
+                
+                {/* Customer Registration & Booking Options */}
+                <div className="mt-8">
+                  <Separator className="mb-6" />
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">New Business?</h3>
+                    <p className="text-sm text-muted-foreground">Get started with our complete registration process</p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Link href="/customer/register">
+                      <Button variant="default" className="w-full" data-testid="button-business-registration">
+                        <Building className="h-4 w-4 mr-2" />
+                        Business Registration
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                    
+                    <div className="text-center">
+                      <span className="text-xs text-muted-foreground">OR</span>
+                    </div>
+                    
+                    <Link href="/customer/booking">
+                      <Button variant="outline" className="w-full" data-testid="button-book-now">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Book Campaign Slot
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Star className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">Business Registration Benefits</span>
+                    </div>
+                    <ul className="text-xs text-green-700 space-y-1">
+                      <li>• Complete business verification process</li>
+                      <li>• License validation and industry confirmation</li>
+                      <li>• Streamlined booking for future campaigns</li>
+                      <li>• Priority access to new routes and features</li>
+                    </ul>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
