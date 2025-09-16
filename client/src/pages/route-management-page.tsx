@@ -122,7 +122,7 @@ export default function RouteManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to create route",
+        description: error.message || "Failed to create route",
         variant: "destructive",
       });
     },
@@ -143,7 +143,7 @@ export default function RouteManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to update route",
+        description: error.message || "Failed to update route",
         variant: "destructive",
       });
     },
@@ -161,7 +161,7 @@ export default function RouteManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to delete route",
+        description: error.message || "Failed to delete route",
         variant: "destructive",
       });
     },
