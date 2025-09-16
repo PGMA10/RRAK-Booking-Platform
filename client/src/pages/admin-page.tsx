@@ -179,6 +179,27 @@ export default function AdminPage() {
                       );
                     }
                     
+                    // Special handling for manage-industries to navigate to industry management page
+                    if (action.id === 'manage-industries') {
+                      return (
+                        <Link key={action.id} href="/admin/industries">
+                          <Button
+                            variant="outline"
+                            className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
+                            data-testid={`button-${action.id}`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <IconComponent className="h-5 w-5" />
+                              <span className="font-semibold">{action.label}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground text-left">
+                              {action.description}
+                            </p>
+                          </Button>
+                        </Link>
+                      );
+                    }
+                    
                     // Default rendering for other actions
                     return (
                       <Button

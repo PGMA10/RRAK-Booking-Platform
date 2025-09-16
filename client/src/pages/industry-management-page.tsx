@@ -182,7 +182,7 @@ export default function IndustryManagementPage() {
     editForm.reset({
       name: industry.name,
       description: industry.description || "",
-      status: industry.status,
+      status: industry.status as "active" | "inactive",
       icon: industry.icon,
     });
   };
