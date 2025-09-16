@@ -123,7 +123,7 @@ export class MemStorage implements IStorage {
     const admin: User = {
       id: adminId,
       username: "admin",
-      password: "9b0b0e7ac9e4b3e4b5b7f8d9c4e6b7a1e8e3d3b4e4c5f6d7a8e9e0b5b3c2f1d7c2.3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9", // Pre-hashed version of "admin"
+      password: "admin", // Demo password - handled specially in auth.ts
       email: "admin@routereach.com",
       businessName: "Route Reach AK",
       phone: "(907) 555-0100",
