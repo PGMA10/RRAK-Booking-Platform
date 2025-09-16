@@ -102,6 +102,13 @@ export const demoQuickActions = [
     color: 'primary'
   },
   {
+    id: 'slot-management',
+    label: 'Slot Management',
+    description: 'Visual booking grid for all campaign slots',
+    icon: 'grid',
+    color: 'chart-1'
+  },
+  {
     id: 'view-bookings',
     label: 'View All Bookings',
     description: 'Review current and past bookings',
