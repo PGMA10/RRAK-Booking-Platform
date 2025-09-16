@@ -453,6 +453,96 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Slot Grid Management
+  app.get("/api/slots/:campaignId", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { campaignId } = req.params;
+      
+      // Verify campaign exists
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      const slotGrid = await storage.getSlotGrid(campaignId);
+      res.json(slotGrid);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch slot grid" });
+    }
+  });
+
+  app.post("/api/slots", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const validatedData = insertBookingSchema.extend({
+        businessName: z.string().min(1, "Business name is required"),
+        contactEmail: z.string().email("Valid email is required"),
+        contactPhone: z.string().optional(),
+        userId: z.string().optional(),
+      }).parse(req.body);
+
+      // Check if campaign exists
+      const campaign = await storage.getCampaign(validatedData.campaignId);
+      if (!campaign) {
+        return res.status(400).json({ message: "Campaign not found" });
+      }
+
+      // Check if slot is already booked
+      const existingBooking = await storage.getBooking(
+        validatedData.campaignId,
+        validatedData.routeId,
+        validatedData.industryId
+      );
+
+      if (existingBooking) {
+        return res.status(400).json({ message: "Slot already booked" });
+      }
+
+      // Create admin booking with mock user ID if not provided
+      const bookingData = {
+        ...validatedData,
+        userId: validatedData.userId || req.user.id,
+        paymentId: `admin_booking_${Date.now()}`,
+        status: "confirmed" as const,
+        amount: validatedData.amount || 60000,
+      };
+
+      const booking = await storage.createBooking(bookingData);
+      res.status(201).json(booking);
+    } catch (error) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid booking data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create slot booking" });
+    }
+  });
+
+  app.delete("/api/slots/:bookingId", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const success = await storage.deleteBooking(bookingId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      res.json({ message: "Booking cancelled successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
   // Mock payment processing
   app.post("/api/process-payment", async (req, res) => {
     if (!req.isAuthenticated()) {

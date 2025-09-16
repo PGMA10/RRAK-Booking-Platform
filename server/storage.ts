@@ -222,7 +222,12 @@ export class MemStorage implements IStorage {
 
   async createRoute(insertRoute: InsertRoute): Promise<Route> {
     const id = randomUUID();
-    const route: Route = { ...insertRoute, id, description: insertRoute.description || null };
+    const route: Route = { 
+      ...insertRoute, 
+      id, 
+      description: insertRoute.description || null,
+      status: insertRoute.status || "active"
+    };
     this.routes.set(id, route);
     return route;
   }
