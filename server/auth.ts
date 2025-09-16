@@ -69,13 +69,7 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Invalid username or password" });
         }
         
-        // Demo mode: allow plain text password for admin user
-        let isValidPassword = false;
-        if (username === "admin" && password === "admin" && user.role === "admin") {
-          isValidPassword = true; // Demo credentials
-        } else {
-          isValidPassword = await comparePasswords(password, user.password);
-        }
+        const isValidPassword = await comparePasswords(password, user.password);
         if (!isValidPassword) {
           return done(null, false, { message: "Invalid username or password" });
         }
