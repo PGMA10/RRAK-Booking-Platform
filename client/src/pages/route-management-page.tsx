@@ -109,7 +109,7 @@ export default function RouteManagementPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: RouteFormData) => apiRequest("/api/routes", "POST", data),
+    mutationFn: (data: RouteFormData) => apiRequest("POST", "/api/routes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       setIsCreateDialogOpen(false);
@@ -130,7 +130,7 @@ export default function RouteManagementPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<RouteFormData> }) =>
-      apiRequest(`/api/routes/${id}`, "PUT", data),
+      apiRequest("PUT", `/api/routes/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       setEditingRoute(null);
@@ -150,7 +150,7 @@ export default function RouteManagementPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/routes/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/routes/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
