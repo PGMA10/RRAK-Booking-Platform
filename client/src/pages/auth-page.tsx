@@ -20,9 +20,9 @@ export default function AuthPage() {
     phone: "",
   });
 
-  // Redirect if already logged in
+  // Redirect if already logged in - admin users go to admin panel
   if (user) {
-    return <Redirect to="/" />;
+    return <Redirect to={user.role === "admin" ? "/admin" : "/"} />;
   }
 
   const handleLogin = (e: React.FormEvent) => {
