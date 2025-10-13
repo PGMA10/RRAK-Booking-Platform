@@ -482,7 +482,12 @@ export class DbStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(usersTable).values(user).returning();
+    const userWithId = {
+      ...user,
+      id: (user as any).id || randomUUID().replace(/-/g, ''),
+      createdAt: (user as any).createdAt || new Date(),
+    };
+    const result = await db.insert(usersTable).values(userWithId).returning();
     return result[0];
   }
 
@@ -496,7 +501,11 @@ export class DbStorage implements IStorage {
   }
 
   async createRoute(route: InsertRoute): Promise<Route> {
-    const result = await db.insert(routesTable).values(route).returning();
+    const routeWithId = {
+      ...route,
+      id: (route as any).id || randomUUID().replace(/-/g, ''),
+    };
+    const result = await db.insert(routesTable).values(routeWithId).returning();
     return result[0];
   }
 
@@ -520,7 +529,11 @@ export class DbStorage implements IStorage {
   }
 
   async createIndustry(industry: InsertIndustry): Promise<Industry> {
-    const result = await db.insert(industriesTable).values(industry).returning();
+    const industryWithId = {
+      ...industry,
+      id: (industry as any).id || randomUUID().replace(/-/g, ''),
+    };
+    const result = await db.insert(industriesTable).values(industryWithId).returning();
     return result[0];
   }
 
@@ -544,7 +557,12 @@ export class DbStorage implements IStorage {
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
-    const result = await db.insert(campaignsTable).values(campaign).returning();
+    const campaignWithId = {
+      ...campaign,
+      id: (campaign as any).id || randomUUID().replace(/-/g, ''),
+      createdAt: (campaign as any).createdAt || new Date(),
+    };
+    const result = await db.insert(campaignsTable).values(campaignWithId).returning();
     return result[0];
   }
 
@@ -582,7 +600,12 @@ export class DbStorage implements IStorage {
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
-    const result = await db.insert(bookingsTable).values(booking).returning();
+    const bookingWithId = {
+      ...booking,
+      id: (booking as any).id || randomUUID().replace(/-/g, ''),
+      createdAt: (booking as any).createdAt || new Date(),
+    };
+    const result = await db.insert(bookingsTable).values(bookingWithId).returning();
     const createdBooking = result[0];
     
     // Atomic update of campaign counters using SQL expressions
