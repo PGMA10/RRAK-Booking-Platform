@@ -297,7 +297,14 @@ export default function CustomerConfirmationPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="outline" asChild data-testid="button-download-receipt">
+            <Link href="/customer/dashboard">
+              <Button size="lg" data-testid="button-view-bookings">
+                <FileText className="h-4 w-4 mr-2" />
+                View My Bookings
+              </Button>
+            </Link>
+            
+            <Button variant="outline" size="lg" asChild data-testid="button-download-receipt">
               <a href="#" onClick={(e) => {
                 e.preventDefault();
                 toast({ description: "Receipt download functionality would be implemented here." });
@@ -308,7 +315,7 @@ export default function CustomerConfirmationPage() {
             </Button>
             
             <Link href="/">
-              <Button data-testid="button-return-home">
+              <Button variant="outline" size="lg" data-testid="button-return-home">
                 <Home className="h-4 w-4 mr-2" />
                 Return to Home
               </Button>

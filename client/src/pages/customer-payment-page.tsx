@@ -13,7 +13,7 @@ import { ArrowLeft, CreditCard, Lock, Calendar, MapPin, Briefcase, DollarSign, C
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 // Mock credit card form schema
 const paymentFormSchema = z.object({
@@ -100,32 +100,23 @@ export default function CustomerPaymentPage() {
     mutationFn: async (paymentData: PaymentFormData) => {
       setIsProcessingPayment(true);
       
-      // Mock payment processing
-      const paymentResponse = await apiRequest("/api/process-payment", "POST", {
-        amount: bookingData?.amount || 60000,
-        cardNumber: paymentData.cardNumber,
-        cardholderName: paymentData.cardholderName,
-      });
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const paymentResult = await paymentResponse.json();
-      
-      if (!paymentResult.success) {
-        throw new Error("Payment processing failed");
-      }
-      
-      // Create the actual booking after successful payment
-      const bookingResponse = await apiRequest("/api/bookings", "POST", {
+      // Create booking with mock payment (backend generates mock paymentId)
+      const response = await apiRequest("POST", "/api/bookings", {
         campaignId: bookingData?.campaignId,
         routeId: bookingData?.routeId,
         industryId: bookingData?.industryId,
         businessName: user.businessName || user.username,
         contactEmail: user.email,
         contactPhone: user.phone || "",
-        paymentId: paymentResult.paymentId,
         amount: bookingData?.amount || 60000,
+        paymentMethod: "mock_card",
+        cardLast4: paymentData.cardNumber.replace(/\s/g, '').slice(-4),
       });
       
-      return await bookingResponse.json();
+      return response.json();
     },
     onSuccess: (booking) => {
       // Store booking confirmation data
@@ -137,6 +128,9 @@ export default function CustomerPaymentPage() {
       
       // Clear booking data
       sessionStorage.removeItem("bookingData");
+      
+      // Invalidate bookings cache
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       
       toast({ description: "Payment successful! Your slot has been booked." });
       navigate("/customer/confirmation");
