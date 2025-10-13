@@ -13,6 +13,11 @@ import {
   type Booking,
   type InsertBooking,
 } from "@shared/schema";
+import { db } from "./db";
+import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import connectPgSimple from "connect-pg-simple";
+import { Pool } from "@neondatabase/serverless";
 
 const MemoryStore = createMemoryStore(session);
 
@@ -174,7 +179,7 @@ export class MemStorage implements IStorage {
     const admin: User = {
       id: adminId,
       username: "admin",
-      password: "ba871dfcf85682e9ddc05e969ee0ad43337ad1ec359a57a80b94bb13fc8f59853e018794036e1e9dbcd796b75f1db492c4c6fdcc84c6b333c6ef00ca80b6952d.1f78feb5b13e4ca906bc3ea6ef286c12", // Properly hashed "admin" password
+      password: "ba871dfcf85682e9ddc05e969ee0ad43337ad1ec359a57a80b94bb13fc8f59853e018794036e1e9dbcd796b75f1db492c4c6fdcc84c6b333c6ef00ca80b6952d.1f78feb5b13e4ca906bc3ea6ef286c12", // Properly hashed "admin123" password
       email: "admin@routereach.com",
       businessName: "Route Reach AK",
       phone: "(907) 555-0100",
@@ -182,6 +187,20 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
     };
     this.users.set(adminId, admin);
+
+    // Create demo customer user
+    const customerId = randomUUID();
+    const customer: User = {
+      id: customerId,
+      username: "testcustomer",
+      password: "c7d9405106394717c712a878c6eab463c796894cd0af694c58529ad81b690adf32c4c3d54a62811532811d964c6e325234cc8abfcbc06cec0591aa600d2653c9.2dab11e33b68071db53ebd0fcb3a4262", // Hashed "customer123" password
+      email: "testcustomer@example.com",
+      businessName: "Test Business LLC",
+      phone: "(907) 555-0123",
+      role: "customer",
+      createdAt: new Date(),
+    };
+    this.users.set(customerId, customer);
   }
 
   // Users
@@ -439,4 +458,219 @@ export class MemStorage implements IStorage {
   }
 }
 
+const pgStore = connectPgSimple(session);
+
+export class DbStorage implements IStorage {
+  public sessionStore: session.Store;
+
+  constructor() {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+    this.sessionStore = new pgStore({
+      pool,
+      createTableIfMissing: true,
+    });
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    return result[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await db.insert(usersTable).values(user).returning();
+    return result[0];
+  }
+
+  async getAllRoutes(): Promise<Route[]> {
+    return await db.select().from(routesTable);
+  }
+
+  async getRoute(id: string): Promise<Route | undefined> {
+    const result = await db.select().from(routesTable).where(eq(routesTable.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createRoute(route: InsertRoute): Promise<Route> {
+    const result = await db.insert(routesTable).values(route).returning();
+    return result[0];
+  }
+
+  async updateRoute(id: string, updates: Partial<Route>): Promise<Route | undefined> {
+    const result = await db.update(routesTable).set(updates).where(eq(routesTable.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteRoute(id: string): Promise<boolean> {
+    const result = await db.delete(routesTable).where(eq(routesTable.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getAllIndustries(): Promise<Industry[]> {
+    return await db.select().from(industriesTable);
+  }
+
+  async getIndustry(id: string): Promise<Industry | undefined> {
+    const result = await db.select().from(industriesTable).where(eq(industriesTable.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createIndustry(industry: InsertIndustry): Promise<Industry> {
+    const result = await db.insert(industriesTable).values(industry).returning();
+    return result[0];
+  }
+
+  async updateIndustry(id: string, updates: Partial<Industry>): Promise<Industry | undefined> {
+    const result = await db.update(industriesTable).set(updates).where(eq(industriesTable.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteIndustry(id: string): Promise<boolean> {
+    const result = await db.delete(industriesTable).where(eq(industriesTable.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getAllCampaigns(): Promise<Campaign[]> {
+    return await db.select().from(campaignsTable);
+  }
+
+  async getCampaign(id: string): Promise<Campaign | undefined> {
+    const result = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
+    const result = await db.insert(campaignsTable).values(campaign).returning();
+    return result[0];
+  }
+
+  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
+    const result = await db.update(campaignsTable).set(updates).where(eq(campaignsTable.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    const result = await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getAllBookings(): Promise<Booking[]> {
+    return await db.select().from(bookingsTable);
+  }
+
+  async getBookingsByUser(userId: string): Promise<Booking[]> {
+    return await db.select().from(bookingsTable).where(eq(bookingsTable.userId, userId));
+  }
+
+  async getBookingsByCampaign(campaignId: string): Promise<Booking[]> {
+    return await db.select().from(bookingsTable).where(eq(bookingsTable.campaignId, campaignId));
+  }
+
+  async getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined> {
+    const result = await db.select().from(bookingsTable).where(
+      and(
+        eq(bookingsTable.campaignId, campaignId),
+        eq(bookingsTable.routeId, routeId),
+        eq(bookingsTable.industryId, industryId)
+      )
+    ).limit(1);
+    return result[0];
+  }
+
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const result = await db.insert(bookingsTable).values(booking).returning();
+    return result[0];
+  }
+
+  async deleteBooking(id: string): Promise<boolean> {
+    const result = await db.delete(bookingsTable).where(eq(bookingsTable.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getSlotGrid(campaignId: string): Promise<{
+    slots: Array<{
+      routeId: string;
+      industryId: string;
+      route: Route;
+      industry: Industry;
+      booking?: Booking;
+      status: 'available' | 'booked' | 'pending';
+    }>;
+    summary: {
+      totalSlots: number;
+      availableSlots: number;
+      bookedSlots: number;
+      pendingSlots: number;
+      totalRevenue: number;
+    };
+  }> {
+    const routes = await this.getAllRoutes();
+    const industries = await this.getAllIndustries();
+    const bookings = await this.getBookingsByCampaign(campaignId);
+
+    const bookingMap = new Map<string, Booking>();
+    bookings.forEach(booking => {
+      const key = `${booking.routeId}-${booking.industryId}`;
+      bookingMap.set(key, booking);
+    });
+
+    const slots = [];
+    let availableSlots = 0;
+    let bookedSlots = 0;
+    let pendingSlots = 0;
+    let totalRevenue = 0;
+
+    for (const route of routes) {
+      for (const industry of industries) {
+        const key = `${route.id}-${industry.id}`;
+        const booking = bookingMap.get(key);
+        
+        let status: 'available' | 'booked' | 'pending' = 'available';
+        if (booking) {
+          status = booking.status === 'pending' ? 'pending' : 'booked';
+          if (status === 'booked') {
+            bookedSlots++;
+            totalRevenue += booking.amount;
+          } else {
+            pendingSlots++;
+          }
+        } else {
+          availableSlots++;
+        }
+        
+        slots.push({
+          routeId: route.id,
+          industryId: industry.id,
+          route,
+          industry,
+          booking,
+          status,
+        });
+      }
+    }
+    
+    return {
+      slots,
+      summary: {
+        totalSlots: routes.length * industries.length,
+        availableSlots,
+        bookedSlots,
+        pendingSlots,
+        totalRevenue,
+      },
+    };
+  }
+}
+
+// Using MemStorage until database endpoint is enabled
+// To use database storage: export const storage = new DbStorage();
 export const storage = new MemStorage();
