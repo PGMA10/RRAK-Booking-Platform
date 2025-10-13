@@ -8,7 +8,7 @@ import { insertRouteSchema } from "@shared/schema";
 import type { Route, InsertRoute } from "@shared/schema";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
-import { Redirect } from "wouter";
+import { Redirect, Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -63,7 +63,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, ArrowLeft } from "lucide-react";
 
 const routeFormSchema = insertRouteSchema.extend({
   householdCount: z.coerce.number().int().min(1, "Household count must be at least 1"),
@@ -204,6 +204,12 @@ export default function RouteManagementPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <Link href="/admin">
+        <Button variant="outline" size="sm" data-testid="button-back-to-dashboard">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+      </Link>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold" data-testid="heading-route-management">Route Management</h1>
