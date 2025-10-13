@@ -15,7 +15,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import connectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
 
@@ -588,12 +588,42 @@ export class DbStorage implements IStorage {
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const result = await db.insert(bookingsTable).values(booking).returning();
-    return result[0];
+    const createdBooking = result[0];
+    
+    // Atomic update of campaign counters using SQL expressions
+    await db.update(campaignsTable)
+      .set({
+        bookedSlots: sql`${campaignsTable.bookedSlots} + 1`,
+        revenue: sql`${campaignsTable.revenue} + ${createdBooking.amount || 60000}`
+      })
+      .where(eq(campaignsTable.id, booking.campaignId));
+    
+    return createdBooking;
   }
 
   async deleteBooking(id: string): Promise<boolean> {
+    // Get the booking before deleting to access campaignId and amount
+    const booking = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    if (!booking || booking.length === 0) {
+      return false;
+    }
+    
+    const deletedBooking = booking[0];
     const result = await db.delete(bookingsTable).where(eq(bookingsTable.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    
+    // Only update campaign counters if the delete actually removed a row
+    if (result.rowCount !== null && result.rowCount > 0) {
+      // Atomic update of campaign counters using SQL expressions with safety checks
+      await db.update(campaignsTable)
+        .set({
+          bookedSlots: sql`GREATEST(0, ${campaignsTable.bookedSlots} - 1)`,
+          revenue: sql`GREATEST(0, ${campaignsTable.revenue} - ${deletedBooking.amount || 60000})`
+        })
+        .where(eq(campaignsTable.id, deletedBooking.campaignId));
+      return true;
+    }
+    
+    return false;
   }
 
   async getSlotGrid(campaignId: string): Promise<{
