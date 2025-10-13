@@ -13,11 +13,9 @@ import {
   type Booking,
   type InsertBooking,
 } from "@shared/schema";
-import { db } from "./db";
+import { db } from "./db-sqlite";
 import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import connectPgSimple from "connect-pg-simple";
-import { Pool } from "@neondatabase/serverless";
 
 const MemoryStore = createMemoryStore(session);
 
@@ -458,16 +456,13 @@ export class MemStorage implements IStorage {
   }
 }
 
-const pgStore = connectPgSimple(session);
-
 export class DbStorage implements IStorage {
   public sessionStore: session.Store;
 
   constructor() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    this.sessionStore = new pgStore({
-      pool,
-      createTableIfMissing: true,
+    // Use MemoryStore for sessions with SQLite
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
     });
   }
 
@@ -512,7 +507,7 @@ export class DbStorage implements IStorage {
 
   async deleteRoute(id: string): Promise<boolean> {
     const result = await db.delete(routesTable).where(eq(routesTable.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    return (result as any).changes > 0;
   }
 
   async getAllIndustries(): Promise<Industry[]> {
@@ -536,7 +531,7 @@ export class DbStorage implements IStorage {
 
   async deleteIndustry(id: string): Promise<boolean> {
     const result = await db.delete(industriesTable).where(eq(industriesTable.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    return (result as any).changes > 0;
   }
 
   async getAllCampaigns(): Promise<Campaign[]> {
@@ -560,7 +555,7 @@ export class DbStorage implements IStorage {
 
   async deleteCampaign(id: string): Promise<boolean> {
     const result = await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    return (result as any).changes > 0;
   }
 
   async getAllBookings(): Promise<Booking[]> {
@@ -612,12 +607,12 @@ export class DbStorage implements IStorage {
     const result = await db.delete(bookingsTable).where(eq(bookingsTable.id, id));
     
     // Only update campaign counters if the delete actually removed a row
-    if (result.rowCount !== null && result.rowCount > 0) {
+    if ((result as any).changes > 0) {
       // Atomic update of campaign counters using SQL expressions with safety checks
       await db.update(campaignsTable)
         .set({
-          bookedSlots: sql`GREATEST(0, ${campaignsTable.bookedSlots} - 1)`,
-          revenue: sql`GREATEST(0, ${campaignsTable.revenue} - ${deletedBooking.amount || 60000})`
+          bookedSlots: sql`MAX(0, ${campaignsTable.bookedSlots} - 1)`,
+          revenue: sql`MAX(0, ${campaignsTable.revenue} - ${deletedBooking.amount || 60000})`
         })
         .where(eq(campaignsTable.id, deletedBooking.campaignId));
       return true;
@@ -701,6 +696,5 @@ export class DbStorage implements IStorage {
   }
 }
 
-// Using MemStorage until database endpoint is enabled
-// To use database storage: export const storage = new DbStorage();
-export const storage = new MemStorage();
+// Using DbStorage for permanent data persistence
+export const storage = new DbStorage();
