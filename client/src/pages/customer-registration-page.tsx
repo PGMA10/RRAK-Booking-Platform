@@ -34,11 +34,6 @@ export default function CustomerRegistrationPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   
-  // Redirect if already logged in
-  if (user) {
-    return <Redirect to={user.role === "admin" ? "/admin" : "/customer/booking"} />;
-  }
-  
   // License verification state
   const [isVerifyingLicense, setIsVerifyingLicense] = useState(false);
   const [licenseVerified, setLicenseVerified] = useState(true); // Auto-verified in demo mode
@@ -66,6 +61,11 @@ export default function CustomerRegistrationPage() {
   const { data: industries = [] } = useQuery<Industry[]>({
     queryKey: ["/api/industries"],
   });
+  
+  // Redirect if already logged in (AFTER all hooks are called)
+  if (user) {
+    return <Redirect to={user.role === "admin" ? "/admin" : "/customer/booking"} />;
+  }
 
   // Use existing auth registration mutation
   // Note: registerMutation handles the API call and navigation automatically
