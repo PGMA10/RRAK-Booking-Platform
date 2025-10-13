@@ -14,6 +14,7 @@ import RouteManagementPage from "@/pages/route-management-page";
 import IndustryManagementPage from "@/pages/industry-management-page";
 import CampaignManagementPage from "@/pages/campaign-management-page";
 import SlotGridPage from "@/pages/slot-grid-page";
+import CustomerDashboardPage from "@/pages/customer-dashboard-page";
 import CustomerRegistrationPage from "@/pages/customer-registration-page";
 import CustomerBookingPage from "@/pages/customer-booking-page";
 import CustomerPaymentPage from "@/pages/customer-payment-page";
@@ -32,6 +33,7 @@ function Router() {
       <ProtectedRoute path="/admin/campaigns" component={CampaignManagementPage} />
       <ProtectedRoute path="/admin/slots" component={SlotGridPage} />
       <Route path="/customer/register" component={CustomerRegistrationPage} />
+      <ProtectedRoute path="/customer/dashboard" component={CustomerDashboardPage} />
       <ProtectedRoute path="/customer/booking" component={CustomerBookingPage} />
       <ProtectedRoute path="/customer/payment" component={CustomerPaymentPage} />
       <ProtectedRoute path="/customer/confirmation" component={CustomerConfirmationPage} />

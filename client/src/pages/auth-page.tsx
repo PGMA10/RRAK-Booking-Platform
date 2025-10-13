@@ -14,9 +14,9 @@ export default function AuthPage() {
   const { user, loginMutation } = useAuth();
   const [loginData, setLoginData] = useState({ username: "", password: "" });
 
-  // Redirect if already logged in - admin users go to admin panel, customers go to booking
+  // Redirect if already logged in - admin users go to admin panel, customers go to customer dashboard
   if (user) {
-    return <Redirect to={user.role === "admin" ? "/admin" : "/customer/booking"} />;
+    return <Redirect to={user.role === "admin" ? "/admin" : "/customer/dashboard"} />;
   }
 
   const handleLogin = (e: React.FormEvent) => {
