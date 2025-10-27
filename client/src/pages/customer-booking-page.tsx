@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation, Redirect } from "wouter";
@@ -12,6 +12,7 @@ import { ArrowLeft, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircl
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { apiRequest } from "@/lib/queryClient";
 import type { Campaign, Route, Industry } from "@shared/schema";
 
 // Customer booking form schema
@@ -118,6 +119,32 @@ export default function CustomerBookingPage() {
     setSelectedIndustry(industries.find(i => i.id === industryId) || null);
   }, [form.watch("industryId"), industries]);
 
+  // Create Stripe Checkout session mutation
+  const checkoutMutation = useMutation({
+    mutationFn: async (bookingData: CustomerBookingData) => {
+      const response = await apiRequest("POST", "/api/create-checkout-session", {
+        ...bookingData,
+        businessName: user?.businessName || user?.username || "Unknown Business",
+        contactEmail: user?.email || "",
+        contactPhone: user?.phone || "",
+        licenseNumber: "",
+        amount: 60000, // $600 in cents
+      });
+      return await response.json();
+    },
+    onSuccess: (data: { sessionUrl: string; bookingId: string }) => {
+      // Redirect to Stripe Checkout
+      window.location.href = data.sessionUrl;
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Booking Failed",
+        description: error.message || "Failed to create checkout session. Please try again.",
+      });
+    },
+  });
+
   // Handle proceed to payment
   const handleProceedToPayment = (data: CustomerBookingData) => {
     if (slotAvailable === false) {
@@ -136,16 +163,8 @@ export default function CustomerBookingPage() {
       return;
     }
 
-    // Store booking data and navigate to payment
-    sessionStorage.setItem("bookingData", JSON.stringify({
-      ...data,
-      campaign: selectedCampaign,
-      route: selectedRoute,
-      industry: selectedIndustry,
-      amount: 60000, // $600 in cents
-    }));
-    
-    navigate("/customer/payment");
+    // Create Stripe Checkout session
+    checkoutMutation.mutate(data);
   };
 
   const formatCurrency = (amountInCents: number) => {
