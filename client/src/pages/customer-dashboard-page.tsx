@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { useState } from "react";
-import type { Booking } from "@shared/schema";
+import type { Booking, Route, Industry, Campaign } from "@shared/schema";
 
 export default function CustomerDashboardPage() {
   const { user } = useAuth();
@@ -38,6 +38,27 @@ export default function CustomerDashboardPage() {
     queryKey: ['/api/bookings'],
     enabled: !!user,
   });
+
+  // Fetch routes, industries, and campaigns for display
+  const { data: routes } = useQuery<Route[]>({
+    queryKey: ['/api/routes'],
+    enabled: !!user,
+  });
+
+  const { data: industries } = useQuery<Industry[]>({
+    queryKey: ['/api/industries'],
+    enabled: !!user,
+  });
+
+  const { data: campaigns } = useQuery<Campaign[]>({
+    queryKey: ['/api/campaigns'],
+    enabled: !!user,
+  });
+
+  // Create lookup maps
+  const routeMap = new Map(routes?.map(r => [r.id, r]) || []);
+  const industryMap = new Map(industries?.map(i => [i.id, i]) || []);
+  const campaignMap = new Map(campaigns?.map(c => [c.id, c]) || []);
 
   const uploadArtworkMutation = useMutation({
     mutationFn: async ({ bookingId, file }: { bookingId: string; file: File }) => {
@@ -249,21 +270,21 @@ export default function CustomerDashboardPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 text-sm text-muted-foreground">
                           <div>
                             <p className="font-medium text-foreground">Campaign</p>
-                            <p>{booking.campaignId}</p>
+                            <p>{campaignMap.get(booking.campaignId)?.name || booking.campaignId}</p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Route</p>
-                            <p>{booking.routeId}</p>
+                            <p>{routeMap.get(booking.routeId)?.name || booking.routeId}</p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
-                            <p>{booking.industryId}</p>
+                            <p>{industryMap.get(booking.industryId)?.name || booking.industryId}</p>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-muted-foreground">Booking Amount</p>
-                        <p className="text-xl font-bold text-foreground">${booking.amount?.toLocaleString() || '600'}</p>
+                        <p className="text-xl font-bold text-foreground">${((booking.amount || 60000) / 100).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -310,16 +331,16 @@ export default function CustomerDashboardPage() {
                       <div>
                         <p className="font-medium text-foreground">Campaign Payment</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(booking.createdAt).toLocaleDateString('en-US', { 
+                          {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString('en-US', { 
                             month: 'long', 
                             day: 'numeric', 
                             year: 'numeric' 
-                          })}
+                          }) : 'Date unavailable'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-foreground">${booking.amount?.toLocaleString() || '600'}</p>
+                      <p className="font-bold text-foreground">${((booking.amount || 60000) / 100).toLocaleString()}</p>
                       <Badge variant="outline" className="text-xs">Paid</Badge>
                     </div>
                   </div>

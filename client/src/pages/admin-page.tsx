@@ -16,7 +16,8 @@ import {
   Briefcase,
   UserPlus,
   Clock,
-  Activity
+  Activity,
+  FileText
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { 
