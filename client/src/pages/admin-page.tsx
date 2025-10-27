@@ -18,7 +18,10 @@ import {
   UserPlus,
   Clock,
   Activity,
-  FileText
+  FileText,
+  Bell,
+  ChevronRight,
+  AlertCircle
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { 
@@ -54,6 +57,17 @@ export default function AdminPage() {
   });
 
   const pendingCount = pendingArtwork?.length || 0;
+
+  // Fetch notification summary for Action Items widget
+  const { data: notificationSummary } = useQuery<{
+    newBookings: number;
+    artworkReviews: number;
+    total: number;
+  }>({
+    queryKey: ['/api/notifications/summary'],
+    enabled: !!user && user.role === "admin",
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   const getActivityIcon = (iconName: string) => {
     const IconComponent = iconMap[iconName as keyof typeof iconMap] || Activity;
@@ -350,6 +364,81 @@ export default function AdminPage() {
 
           {/* Right Column */}
           <div className="space-y-8">
+            {/* Action Items Widget */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="h-5 w-5" />
+                  <span>Action Items</span>
+                  {notificationSummary && notificationSummary.total > 0 && (
+                    <Badge variant="destructive" className="ml-auto" data-testid="badge-action-items-total">
+                      {notificationSummary.total}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* New Bookings */}
+                  <Link href="/admin/notifications">
+                    <div className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid="action-item-new-bookings">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-green-500/10 rounded-lg">
+                          <UserPlus className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">New Bookings</p>
+                          <p className="text-sm text-muted-foreground">
+                            {notificationSummary?.newBookings || 0} awaiting confirmation
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {notificationSummary && notificationSummary.newBookings > 0 && (
+                          <Badge variant="outline" data-testid="badge-new-bookings-count">
+                            {notificationSummary.newBookings}
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Artwork Reviews */}
+                  <Link href="/admin/artwork">
+                    <div className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid="action-item-artwork-reviews">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                          <FileText className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Artwork Pending Review</p>
+                          <p className="text-sm text-muted-foreground">
+                            {notificationSummary?.artworkReviews || 0} submissions to review
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {notificationSummary && notificationSummary.artworkReviews > 0 && (
+                          <Badge variant="outline" data-testid="badge-artwork-reviews-count">
+                            {notificationSummary.artworkReviews}
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </Link>
+
+                  {notificationSummary && notificationSummary.total === 0 && (
+                    <div className="text-center py-6">
+                      <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">No pending action items</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* 3. Recent Activity Feed */}
             <Card>
               <CardHeader>

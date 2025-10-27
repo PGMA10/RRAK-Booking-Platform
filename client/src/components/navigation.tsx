@@ -1,11 +1,20 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Link, useLocation } from "wouter";
-import { LogOut } from "lucide-react";
+import { LogOut, Bell } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export function Navigation() {
   const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
+
+  // Fetch notification count for admin users
+  const { data: notificationCount } = useQuery<{ count: number }>({
+    queryKey: ['/api/notifications/count'],
+    enabled: !!user && user.role === "admin",
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -44,6 +53,27 @@ export function Navigation() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            {user?.role === "admin" && (
+              <Link href="/admin/notifications">
+                <Button
+                  variant={location === "/admin/notifications" ? "default" : "ghost"}
+                  className="relative"
+                  data-testid="nav-notifications"
+                >
+                  <Bell className="h-4 w-4 mr-2" />
+                  Notifications
+                  {notificationCount && notificationCount.count > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="ml-2 h-5 min-w-5 flex items-center justify-center px-1.5"
+                      data-testid="badge-notification-count"
+                    >
+                      {notificationCount.count}
+                    </Badge>
+                  )}
+                </Button>
+              </Link>
+            )}
             <span className="text-sm text-muted-foreground" data-testid="text-welcome-user">
               Welcome, {user?.username || user?.businessName || "User"}
             </span>
