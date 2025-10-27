@@ -624,6 +624,36 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.get("/api/bookings/:bookingId/artwork/file", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Only allow the booking owner or admin to view the artwork
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view this artwork" });
+      }
+
+      if (!booking.artworkFilePath || !fs.existsSync(booking.artworkFilePath)) {
+        return res.status(404).json({ message: "Artwork file not found" });
+      }
+
+      // Send the file
+      res.sendFile(path.resolve(booking.artworkFilePath));
+    } catch (error) {
+      console.error("Artwork file retrieval error:", error);
+      res.status(500).json({ message: "Failed to retrieve artwork file" });
+    }
+  });
+
   // Slot Grid Management
   app.get("/api/slots/:campaignId", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {

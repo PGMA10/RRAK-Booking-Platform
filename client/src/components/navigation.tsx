@@ -13,7 +13,6 @@ export function Navigation() {
 
   const navItems = [
     { path: "/", label: "Dashboard" },
-    { path: "/booking", label: "Book Campaign" },
     { path: "/calendar", label: "Calendar" },
     ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin" }] : []),
   ];

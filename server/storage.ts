@@ -551,12 +551,24 @@ export class DbStorage implements IStorage {
   }
 
   async getAllCampaigns(): Promise<Campaign[]> {
-    return await db.select().from(campaignsTable);
+    const campaigns = await db.select().from(campaignsTable);
+    // Convert SQLite INTEGER timestamps to Date objects
+    return campaigns.map(campaign => ({
+      ...campaign,
+      mailDate: campaign.mailDate ? new Date(campaign.mailDate as any) : null,
+      createdAt: campaign.createdAt ? new Date(campaign.createdAt as any) : null,
+    })) as Campaign[];
   }
 
   async getCampaign(id: string): Promise<Campaign | undefined> {
     const result = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id)).limit(1);
-    return result[0];
+    if (!result[0]) return undefined;
+    // Convert SQLite INTEGER timestamps to Date objects
+    return {
+      ...result[0],
+      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
+    } as Campaign;
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
@@ -566,12 +578,23 @@ export class DbStorage implements IStorage {
       createdAt: (campaign as any).createdAt || new Date(),
     };
     const result = await db.insert(campaignsTable).values(campaignWithId).returning();
-    return result[0];
+    // Convert SQLite INTEGER timestamps to Date objects
+    return {
+      ...result[0],
+      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
+    } as Campaign;
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
     const result = await db.update(campaignsTable).set(updates).where(eq(campaignsTable.id, id)).returning();
-    return result[0];
+    if (!result[0]) return undefined;
+    // Convert SQLite INTEGER timestamps to Date objects
+    return {
+      ...result[0],
+      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
+    } as Campaign;
   }
 
   async deleteCampaign(id: string): Promise<boolean> {

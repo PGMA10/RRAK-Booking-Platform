@@ -128,21 +128,57 @@ export async function seedSQLite() {
     const existingCampaigns = await db.select().from(campaigns);
     
     if (existingCampaigns.length === 0) {
-      // Create a demo campaign
-      const mailDate = new Date();
-      mailDate.setDate(mailDate.getDate() + 30);
+      // Create demo campaigns with realistic dates
+      const now = new Date();
       
-      await db.insert(campaigns).values({
-        id: generateId(),
-        name: "November 2025 Direct Mail",
-        mailDate: mailDate,
-        status: "booking_open",
-        totalSlots: 64,
-        bookedSlots: 0,
-        revenue: 0,
-        createdAt: new Date(),
-      });
-      console.log("✅ Demo campaign created");
+      // Campaign 1: Next month
+      const mailDate1 = new Date();
+      mailDate1.setMonth(mailDate1.getMonth() + 1);
+      mailDate1.setDate(15); // 15th of next month
+      
+      // Campaign 2: Two months out
+      const mailDate2 = new Date();
+      mailDate2.setMonth(mailDate2.getMonth() + 2);
+      mailDate2.setDate(15); // 15th of month after next
+      
+      // Campaign 3: Three months out  
+      const mailDate3 = new Date();
+      mailDate3.setMonth(mailDate3.getMonth() + 3);
+      mailDate3.setDate(15);
+      
+      await db.insert(campaigns).values([
+        {
+          id: generateId(),
+          name: `${mailDate1.toLocaleString('default', { month: 'long' })} ${mailDate1.getFullYear()} Campaign`,
+          mailDate: mailDate1,
+          status: "booking_open",
+          totalSlots: 64,
+          bookedSlots: 0,
+          revenue: 0,
+          createdAt: now,
+        },
+        {
+          id: generateId(),
+          name: `${mailDate2.toLocaleString('default', { month: 'long' })} ${mailDate2.getFullYear()} Campaign`,
+          mailDate: mailDate2,
+          status: "planning",
+          totalSlots: 64,
+          bookedSlots: 0,
+          revenue: 0,
+          createdAt: now,
+        },
+        {
+          id: generateId(),
+          name: `${mailDate3.toLocaleString('default', { month: 'long' })} ${mailDate3.getFullYear()} Campaign`,
+          mailDate: mailDate3,
+          status: "planning",
+          totalSlots: 64,
+          bookedSlots: 0,
+          revenue: 0,
+          createdAt: now,
+        },
+      ]);
+      console.log("✅ 3 Demo campaigns created");
     }
 
     console.log("🎉 SQLite database seeding completed successfully!");

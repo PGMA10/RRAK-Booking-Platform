@@ -1,25 +1,42 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Calendar as CalendarIcon, Package } from "lucide-react";
+import type { Booking, Campaign, Route, Industry } from "@shared/schema";
 
 export default function CalendarPage() {
-  const { data: campaigns, isLoading: campaignsLoading } = useQuery({
+  const { user } = useAuth();
+
+  // Fetch user's bookings (for customers) or all campaigns (for admin)
+  const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
+    queryKey: ['/api/bookings'],
+    enabled: !!user && user.role === "customer",
+  });
+
+  const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
   });
 
-  const { data: routes, isLoading: routesLoading } = useQuery({
+  const { data: routes } = useQuery<Route[]>({
     queryKey: ["/api/routes"],
   });
 
-  const { data: industries, isLoading: industriesLoading } = useQuery({
+  const { data: industries } = useQuery<Industry[]>({
     queryKey: ["/api/industries"],
   });
 
-  if (campaignsLoading || routesLoading || industriesLoading) {
+  // Create lookup maps
+  const routeMap = new Map(routes?.map(r => [r.id, r]) || []);
+  const industryMap = new Map(industries?.map(i => [i.id, i]) || []);
+  const campaignMap = new Map(campaigns?.map(c => [c.id, c]) || []);
+
+  const isCustomer = user?.role === "customer";
+  const isLoading = isCustomer ? (bookingsLoading || campaignsLoading) : campaignsLoading;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <DemoBanner />
@@ -36,122 +53,83 @@ export default function CalendarPage() {
       <DemoBanner />
       <Navigation />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground">Campaign Calendar</h2>
-          <p className="text-muted-foreground mt-2">View scheduled campaigns across all routes</p>
+          <h2 className="text-3xl font-bold text-foreground">My Campaign Calendar</h2>
+          <p className="text-muted-foreground mt-2">View your upcoming campaign bookings and mail dates</p>
         </div>
 
-        {/* Calendar Controls */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Upcoming Campaigns</CardTitle>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm" data-testid="button-previous-month">
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" data-testid="button-next-month">
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {campaigns?.map((campaign: any) => (
-                <Card key={campaign.id} className="border border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-foreground">{campaign.name}</h4>
-                      <Badge 
-                        variant={
-                          campaign.status === "active" ? "default" :
-                          campaign.status === "open" ? "secondary" : "outline"
-                        }
-                        data-testid={`campaign-status-${campaign.id}`}
-                      >
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(campaign.scheduledDate).toLocaleDateString()}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Bookings: {campaign.bookedSlots}/{campaign.totalSlots} slots
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-primary h-2 rounded-full" 
-                          style={{ width: `${(campaign.bookedSlots / campaign.totalSlots) * 100}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-sm font-medium text-foreground">
-                        Revenue: ${((campaign.bookedSlots * 600)).toLocaleString()}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Slot Availability Matrix */}
+        {/* Customer's Booked Campaigns */}
         <Card>
           <CardHeader>
-            <CardTitle>Slot Availability by Route</CardTitle>
-            <p className="text-sm text-muted-foreground">Current campaign booking status</p>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Your Upcoming Campaigns
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Campaigns you've booked and their scheduled mail dates</p>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Industry</th>
-                    {routes?.map((route: any) => (
-                      <th key={route.id} className="px-4 py-2 text-center text-sm font-medium text-muted-foreground">
-                        {route.zipCode}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="space-y-2">
-                  {industries?.slice(0, 8).map((industry: any) => (
-                    <tr key={industry.id}>
-                      <td className="px-4 py-3 text-sm font-medium text-foreground">
-                        {industry.name}
-                      </td>
-                      {routes?.map((route: any) => (
-                        <td key={`${industry.id}-${route.id}`} className="px-4 py-3 text-center">
-                          <span 
-                            className={`inline-block w-4 h-4 rounded-full ${
-                              Math.random() > 0.5 ? "bg-destructive" : "bg-accent"
-                            }`}
-                            title={Math.random() > 0.5 ? "Booked" : "Available"}
-                            data-testid={`slot-${industry.name.toLowerCase().replace(/\s+/g, '-')}-${route.zipCode}`}
-                          ></span>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex items-center space-x-4 text-sm">
-              <div className="flex items-center">
-                <span className="inline-block w-4 h-4 bg-accent rounded-full mr-2"></span>
-                <span className="text-muted-foreground">Available</span>
+            {bookings && bookings.length > 0 ? (
+              <div className="space-y-4">
+                {bookings.map((booking) => {
+                  const campaign = campaignMap.get(booking.campaignId);
+                  const route = routeMap.get(booking.routeId);
+                  const industry = industryMap.get(booking.industryId);
+                  
+                  return (
+                    <div 
+                      key={booking.id} 
+                      className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                      data-testid={`calendar-booking-${booking.id}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-semibold text-foreground">
+                              {campaign?.name || 'Campaign'}
+                            </h4>
+                            <Badge variant="secondary">
+                              {booking.status}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Mail Date</p>
+                              <p className="font-medium text-foreground flex items-center gap-2">
+                                <CalendarIcon className="h-4 w-4" />
+                                {campaign?.mailDate ? new Date(campaign.mailDate).toLocaleDateString('en-US', { 
+                                  month: 'long', 
+                                  day: 'numeric', 
+                                  year: 'numeric' 
+                                }) : 'Date TBD'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Route</p>
+                              <p className="font-medium text-foreground">
+                                {route?.name || booking.routeId}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Industry</p>
+                              <p className="font-medium text-foreground">
+                                {industry?.name || booking.industryId}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex items-center">
-                <span className="inline-block w-4 h-4 bg-destructive rounded-full mr-2"></span>
-                <span className="text-muted-foreground">Booked</span>
+            ) : (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No upcoming campaigns</h3>
+                <p className="text-muted-foreground">You haven't booked any campaigns yet</p>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

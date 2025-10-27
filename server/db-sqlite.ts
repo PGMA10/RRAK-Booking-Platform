@@ -10,7 +10,11 @@ const sqlite = new Database(dbPath);
 // Enable foreign keys
 sqlite.exec("PRAGMA foreign_keys = ON;");
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(sqlite, { 
+  schema,
+  // Configure to handle PostgreSQL schema with SQLite
+  casing: 'snake_case',
+});
 
 // Initialize database tables
 export function initializeDatabase() {

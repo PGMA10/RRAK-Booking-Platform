@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
   demoCampaigns, 
   demoQuickActions 
 } from "@/lib/demo-data";
+import type { Booking } from "@shared/schema";
 
 const iconMap = {
   "user-plus": UserPlus,
@@ -44,6 +46,14 @@ export default function AdminPage() {
   if (user && user.role !== "admin") {
     return <Redirect to="/" />;
   }
+
+  // Fetch pending artwork reviews count
+  const { data: pendingArtwork } = useQuery<Booking[]>({
+    queryKey: ['/api/bookings/artwork/review'],
+    enabled: !!user && user.role === "admin",
+  });
+
+  const pendingCount = pendingArtwork?.length || 0;
 
   const getActivityIcon = (iconName: string) => {
     const IconComponent = iconMap[iconName as keyof typeof iconMap] || Activity;
@@ -264,12 +274,23 @@ export default function AdminPage() {
                   <Link href="/admin/artwork">
                     <Button
                       variant="outline"
-                      className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
+                      className="h-auto p-4 flex flex-col items-start space-y-2 w-full relative"
                       data-testid="button-artwork-review"
                     >
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-5 w-5" />
-                        <span className="font-semibold">Review Artwork</span>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-5 w-5" />
+                          <span className="font-semibold">Review Artwork</span>
+                        </div>
+                        {pendingCount > 0 && (
+                          <Badge 
+                            variant="destructive" 
+                            className="ml-2 h-6 min-w-6 flex items-center justify-center"
+                            data-testid="badge-pending-count"
+                          >
+                            {pendingCount}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground text-left">
                         Approve or reject customer artwork submissions

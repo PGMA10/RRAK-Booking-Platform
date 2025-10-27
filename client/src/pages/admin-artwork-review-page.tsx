@@ -13,7 +13,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Image as ImageIcon
 } from "lucide-react";
 import { Redirect } from "wouter";
 import { useState } from "react";
@@ -162,15 +164,63 @@ export default function AdminArtworkReviewPage() {
 
                     {booking.artworkFileName && (
                       <div className="bg-muted rounded-lg p-4 mb-4">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-8 w-8 text-primary" />
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground">{booking.artworkFileName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Uploaded {booking.artworkUploadedAt ? new Date(booking.artworkUploadedAt).toLocaleString() : 'Recently'}
-                            </p>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {booking.artworkFileName.toLowerCase().endsWith('.pdf') ? (
+                              <FileText className="h-5 w-5 text-primary" />
+                            ) : (
+                              <ImageIcon className="h-5 w-5 text-primary" />
+                            )}
+                            <div>
+                              <p className="font-medium text-foreground">{booking.artworkFileName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Uploaded {booking.artworkUploadedAt ? new Date(booking.artworkUploadedAt).toLocaleString() : 'Recently'}
+                              </p>
+                            </div>
                           </div>
+                          <a
+                            href={`/api/bookings/${booking.id}/artwork/file`}
+                            download={booking.artworkFileName}
+                            className="flex items-center gap-2 text-sm text-primary hover:underline"
+                            data-testid={`link-download-${booking.id}`}
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </a>
                         </div>
+                        
+                        {/* Image Preview for PNG/JPG files */}
+                        {(booking.artworkFileName.toLowerCase().endsWith('.png') || 
+                          booking.artworkFileName.toLowerCase().endsWith('.jpg') || 
+                          booking.artworkFileName.toLowerCase().endsWith('.jpeg')) && (
+                          <div className="border rounded-lg overflow-hidden bg-white">
+                            <img
+                              src={`/api/bookings/${booking.id}/artwork/file`}
+                              alt={`Artwork for ${booking.businessName}`}
+                              className="w-full max-h-96 object-contain"
+                              data-testid={`image-preview-${booking.id}`}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* PDF Notice */}
+                        {booking.artworkFileName.toLowerCase().endsWith('.pdf') && (
+                          <div className="border rounded-lg p-6 text-center bg-white">
+                            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground mb-2">PDF files cannot be previewed in-browser</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              data-testid={`button-download-pdf-${booking.id}`}
+                            >
+                              <a href={`/api/bookings/${booking.id}/artwork/file`} download={booking.artworkFileName}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download PDF to Review
+                              </a>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
