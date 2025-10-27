@@ -55,6 +55,12 @@ export const bookings = pgTable("bookings", {
   amount: integer("amount").notNull().default(60000), // in cents
   status: text("status").notNull().default("confirmed"), // 'pending', 'confirmed', 'cancelled'
   paymentId: text("payment_id"), // mock payment reference
+  artworkStatus: text("artwork_status").notNull().default("pending_upload"), // 'pending_upload', 'under_review', 'approved', 'rejected'
+  artworkFilePath: text("artwork_file_path"),
+  artworkFileName: text("artwork_file_name"),
+  artworkUploadedAt: timestamp("artwork_uploaded_at"),
+  artworkReviewedAt: timestamp("artwork_reviewed_at"),
+  artworkRejectionReason: text("artwork_rejection_reason"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

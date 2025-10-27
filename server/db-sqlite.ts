@@ -82,9 +82,47 @@ export function initializeDatabase() {
       amount INTEGER NOT NULL DEFAULT 60000,
       status TEXT NOT NULL DEFAULT 'confirmed',
       payment_id TEXT,
+      artwork_status TEXT NOT NULL DEFAULT 'pending_upload',
+      artwork_file_path TEXT,
+      artwork_file_name TEXT,
+      artwork_uploaded_at INTEGER,
+      artwork_reviewed_at INTEGER,
+      artwork_rejection_reason TEXT,
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
+  
+  // Add artwork columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_status TEXT NOT NULL DEFAULT 'pending_upload'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_file_path TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_file_name TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_uploaded_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_reviewed_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN artwork_rejection_reason TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   console.log("✅ SQLite tables initialized");
 }
