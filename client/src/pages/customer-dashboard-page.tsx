@@ -1,10 +1,12 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Calendar, 
   Package,
@@ -13,13 +15,18 @@ import {
   ArrowRight,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  X
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
+import { useState } from "react";
 import type { Booking } from "@shared/schema";
 
 export default function CustomerDashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedFile, setSelectedFile] = useState<{ bookingId: string; file: File } | null>(null);
 
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
@@ -31,6 +38,72 @@ export default function CustomerDashboardPage() {
     queryKey: ['/api/bookings'],
     enabled: !!user,
   });
+
+  const uploadArtworkMutation = useMutation({
+    mutationFn: async ({ bookingId, file }: { bookingId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('artwork', file);
+      
+      const response = await fetch(`/api/bookings/${bookingId}/artwork`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload artwork');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Artwork uploaded successfully",
+        description: "Your artwork has been submitted for review.",
+      });
+      setSelectedFile(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileSelect = (bookingId: string, file: File) => {
+    const validTypes = ['image/png', 'image/jpeg', 'application/pdf'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload PNG, JPG, or PDF files only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Please upload files smaller than 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFile({ bookingId, file });
+  };
+
+  const handleUpload = () => {
+    if (selectedFile) {
+      uploadArtworkMutation.mutate(selectedFile);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -47,6 +120,26 @@ export default function CustomerDashboardPage() {
       case 'pending': return <Clock className="h-4 w-4" />;
       case 'cancelled': return <AlertCircle className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  const getArtworkStatusColor = (status: string | null) => {
+    switch (status) {
+      case 'approved': return 'bg-green-500/10 text-green-600 border-green-500/20';
+      case 'under_review': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-500/20';
+      case 'pending_upload': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
+      default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
+    }
+  };
+
+  const getArtworkStatusIcon = (status: string | null) => {
+    switch (status) {
+      case 'approved': return <CheckCircle className="h-4 w-4" />;
+      case 'under_review': return <Clock className="h-4 w-4" />;
+      case 'rejected': return <AlertCircle className="h-4 w-4" />;
+      case 'pending_upload': return <Upload className="h-4 w-4" />;
+      default: return <Upload className="h-4 w-4" />;
     }
   };
 
@@ -246,18 +339,123 @@ export default function CustomerDashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Artwork Upload Status
+              Artwork Upload & Status
             </CardTitle>
-            <CardDescription>Upload and track your campaign artwork files</CardDescription>
+            <CardDescription>Upload and track your campaign artwork files for review</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8">
-              <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">Artwork upload feature coming soon</p>
-              <p className="text-sm text-muted-foreground">
-                You'll be able to upload your campaign artwork and track approval status here
-              </p>
-            </div>
+            {bookings && bookings.length > 0 ? (
+              <div className="space-y-4">
+                {bookings.map((booking) => (
+                  <div 
+                    key={booking.id} 
+                    className="border rounded-lg p-4"
+                    data-testid={`artwork-card-${booking.id}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-semibold text-foreground">Campaign {booking.campaignId}</h4>
+                        <p className="text-sm text-muted-foreground">{booking.routeId} - {booking.industryId}</p>
+                      </div>
+                      <Badge className={`${getArtworkStatusColor(booking.artworkStatus)} flex items-center gap-1`}>
+                        {getArtworkStatusIcon(booking.artworkStatus)}
+                        {booking.artworkStatus || 'pending_upload'}
+                      </Badge>
+                    </div>
+
+                    {booking.artworkFileName && (
+                      <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        <span>{booking.artworkFileName}</span>
+                      </div>
+                    )}
+
+                    {booking.artworkStatus === 'rejected' && booking.artworkRejectionReason && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-3">
+                        <p className="text-sm font-medium text-red-600 mb-1">Rejection Reason:</p>
+                        <p className="text-sm text-red-600/80">{booking.artworkRejectionReason}</p>
+                      </div>
+                    )}
+
+                    {(booking.artworkStatus === 'approved' || booking.artworkStatus === 'under_review') ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {booking.artworkStatus === 'approved' && (
+                          <p className="text-green-600 font-medium">
+                            ✓ Artwork approved and ready for printing
+                          </p>
+                        )}
+                        {booking.artworkStatus === 'under_review' && (
+                          <p className="text-blue-600 font-medium">
+                            ⏱ Artwork is being reviewed by our team
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          id={`file-${booking.id}`}
+                          accept="image/png,image/jpeg,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileSelect(booking.id, file);
+                          }}
+                          className="hidden"
+                          data-testid={`input-artwork-${booking.id}`}
+                        />
+                        <label htmlFor={`file-${booking.id}`} className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            className="w-full"
+                            type="button"
+                            onClick={() => document.getElementById(`file-${booking.id}`)?.click()}
+                            data-testid={`button-select-file-${booking.id}`}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {booking.artworkFileName ? 'Replace Artwork' : 'Select Artwork File'}
+                          </Button>
+                        </label>
+                        {selectedFile?.bookingId === booking.id && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground truncate max-w-xs">
+                              {selectedFile.file.name}
+                            </span>
+                            <Button
+                              size="sm"
+                              onClick={handleUpload}
+                              disabled={uploadArtworkMutation.isPending}
+                              data-testid={`button-upload-${booking.id}`}
+                            >
+                              {uploadArtworkMutation.isPending ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSelectedFile(null)}
+                              data-testid={`button-cancel-${booking.id}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Accepted formats: PNG, JPG, PDF (max 10MB)
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground mb-2">No bookings available</p>
+                <p className="text-sm text-muted-foreground">
+                  Book a campaign to upload your artwork
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
