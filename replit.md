@@ -55,6 +55,16 @@ Preferred communication style: Simple, everyday language.
 - **Admin Features**: Review queue, approve/reject with reasons, track review timestamps
 - **Security**: File type validation, size limits, user authorization checks, proper error handling
 
+### Admin Notification Center
+- **Purpose**: Centralized actionable items tracking separate from Recent Activity historical timeline
+- **Notification Types**: New bookings (last 24 hours), artwork pending review (under_review status)
+- **Components**: Action Items dashboard widget, dedicated Notifications page, navigation badge counter
+- **Data Model**: Notifications derived from booking state (not separately persisted)
+- **Real-time Updates**: 30-second polling for counts and notifications
+- **API Endpoints**: `/api/notifications/count`, `/api/notifications/summary`, `/api/notifications`
+- **Security**: All notification endpoints enforce admin-only access
+- **UI Design**: Action Items widget above Recent Activity, grouped notifications by type, consistent counts across all locations
+
 ## External Dependencies
 
 ### Database Services
