@@ -34,7 +34,8 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PNG, JPG, and PDF files are allowed.'));
+      // Return false and handle the error in the route handler
+      cb(null, false);
     }
   },
 });
@@ -488,18 +489,31 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Artwork Management
-  app.post("/api/bookings/:bookingId/artwork", upload.single('artwork'), async (req, res) => {
+  app.post("/api/bookings/:bookingId/artwork", (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    try {
-      const { bookingId } = req.params;
-      const file = req.file;
+    // Use multer middleware with error handling
+    upload.single('artwork')(req, res, async (err) => {
+      try {
+        // Handle multer errors
+        if (err) {
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res.status(400).json({ message: "File too large. Maximum size is 10MB." });
+            }
+            return res.status(400).json({ message: err.message });
+          }
+          return res.status(400).json({ message: "File upload error" });
+        }
 
-      if (!file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
+        const { bookingId } = req.params;
+        const file = req.file;
+
+        if (!file) {
+          return res.status(400).json({ message: "No file uploaded or invalid file type. Please upload PNG, JPG, or PDF files only." });
+        }
 
       // Verify booking exists and belongs to user
       const booking = await storage.getBookingById(bookingId);
@@ -528,15 +542,16 @@ export function registerRoutes(app: Express): Server {
         artworkUploadedAt: new Date(),
       });
 
-      res.json(updatedBooking);
-    } catch (error) {
-      console.error("Artwork upload error:", error);
-      // Clean up file if error occurs
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
+        res.json(updatedBooking);
+      } catch (error) {
+        console.error("Artwork upload error:", error);
+        // Clean up file if error occurs
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ message: "Failed to upload artwork" });
       }
-      res.status(500).json({ message: "Failed to upload artwork" });
-    }
+    });
   });
 
   app.get("/api/bookings/artwork/review", async (req, res) => {
