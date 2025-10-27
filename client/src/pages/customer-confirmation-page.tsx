@@ -28,18 +28,26 @@ export default function CustomerConfirmationPage() {
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
   const sessionId = searchParams.get('session_id');
 
+  console.log("🔍 [Confirmation] Current location:", location);
+  console.log("🔍 [Confirmation] Extracted session ID:", sessionId);
+
   // Fetch booking by session ID
   const { data: booking, isLoading, error} = useQuery<BookingWithDetails>({
     queryKey: [`/api/bookings/session/${sessionId}`],
     enabled: !!sessionId,
   });
 
+  console.log("🔍 [Confirmation] Query state - isLoading:", isLoading, "error:", error, "booking:", booking?.id);
+
   useEffect(() => {
     if (!sessionId) {
+      console.log("❌ [Confirmation] No session ID found in URL");
       toast({
         variant: "destructive",
         description: "No payment session found. Please complete the booking process.",
       });
+    } else {
+      console.log("✅ [Confirmation] Session ID found:", sessionId);
     }
   }, [sessionId, toast]);
 

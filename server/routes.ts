@@ -424,23 +424,33 @@ export function registerRoutes(app: Express): Server {
 
   // Get booking by Stripe session ID (for confirmation page)
   app.get("/api/bookings/session/:sessionId", async (req, res) => {
+    console.log("🔍 [Booking Retrieval] Request received for session:", req.params.sessionId);
+    
     if (!req.isAuthenticated()) {
+      console.log("❌ [Booking Retrieval] Unauthorized - user not authenticated");
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
+      console.log("🔍 [Booking Retrieval] Fetching booking for session:", req.params.sessionId);
       const booking = await storage.getBookingByStripeSessionId(req.params.sessionId);
+      
       if (!booking) {
+        console.log("❌ [Booking Retrieval] Booking not found for session:", req.params.sessionId);
         return res.status(404).json({ message: "Booking not found" });
       }
 
+      console.log("✅ [Booking Retrieval] Found booking:", booking.id, "Payment status:", booking.paymentStatus);
+
       // Ensure user can only access their own bookings
       if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        console.log("❌ [Booking Retrieval] Access denied - user", req.user.id, "cannot access booking for user", booking.userId);
         return res.status(403).json({ message: "Access denied" });
       }
 
       res.json(booking);
     } catch (error) {
+      console.error("❌ [Booking Retrieval] Error:", error);
       res.status(500).json({ message: "Failed to fetch booking" });
     }
   });
@@ -555,9 +565,11 @@ export function registerRoutes(app: Express): Server {
 
   // Stripe webhook endpoint for payment events
   app.post("/api/stripe-webhook", async (req, res) => {
+    console.log("🔔 [Stripe Webhook] Received webhook event");
     const sig = req.headers['stripe-signature'];
     
     if (!sig) {
+      console.log("❌ [Stripe Webhook] No signature provided");
       return res.status(400).send('No signature');
     }
 
@@ -567,8 +579,9 @@ export function registerRoutes(app: Express): Server {
       // Note: In production, you should use webhook secrets for verification
       // For now, we'll parse the event directly
       event = req.body;
+      console.log("📦 [Stripe Webhook] Event type:", event.type);
     } catch (err) {
-      console.error('Webhook error:', err);
+      console.error('❌ [Stripe Webhook] Error parsing event:', err);
       return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
 
@@ -577,6 +590,9 @@ export function registerRoutes(app: Express): Server {
       case 'checkout.session.completed':
         const session = event.data.object;
         const bookingId = session.metadata?.bookingId;
+        console.log("✅ [Stripe Webhook] Checkout completed for booking:", bookingId);
+        console.log("💳 [Stripe Webhook] Session ID:", session.id);
+        console.log("💰 [Stripe Webhook] Amount:", session.amount_total);
 
         if (bookingId) {
           // Update booking payment status to paid
@@ -586,7 +602,9 @@ export function registerRoutes(app: Express): Server {
             paidAt: new Date(),
           });
           
-          console.log(`Payment successful for booking ${bookingId}`);
+          console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
+        } else {
+          console.log("❌ [Stripe Webhook] No booking ID in metadata");
         }
         break;
 
@@ -594,16 +612,17 @@ export function registerRoutes(app: Express): Server {
       case 'payment_intent.payment_failed':
         const failedSession = event.data.object;
         const failedBookingId = failedSession.metadata?.bookingId;
+        console.log("❌ [Stripe Webhook] Payment failed/expired for booking:", failedBookingId);
 
         if (failedBookingId) {
           // Update booking payment status to failed
           await storage.updateBookingPaymentStatus(failedBookingId, 'failed', {});
-          console.log(`Payment failed for booking ${failedBookingId}`);
+          console.log(`❌ [Stripe Webhook] Payment failed for booking ${failedBookingId}`);
         }
         break;
 
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`ℹ️ [Stripe Webhook] Unhandled event type ${event.type}`);
     }
 
     res.json({ received: true });
