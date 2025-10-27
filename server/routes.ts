@@ -4,6 +4,40 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertBookingSchema, insertRouteSchema, insertIndustrySchema, insertCampaignSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for artwork uploads
+const uploadsDir = path.join(process.cwd(), "uploads", "artwork");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const bookingId = req.params.bookingId || 'unknown';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `${bookingId}-${timestamp}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage_multer,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PNG, JPG, and PDF files are allowed.'));
+    }
+  },
+});
 
 export function registerRoutes(app: Express): Server {
   // sets up /api/register, /api/login, /api/logout, /api/user
@@ -450,6 +484,128 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Booking error:", error);
       res.status(400).json({ message: "Invalid booking data" });
+    }
+  });
+
+  // Artwork Management
+  app.post("/api/bookings/:bookingId/artwork", upload.single('artwork'), async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Verify booking exists and belongs to user
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        // Clean up uploaded file
+        fs.unlinkSync(file.path);
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        // Clean up uploaded file
+        fs.unlinkSync(file.path);
+        return res.status(403).json({ message: "Not authorized to upload artwork for this booking" });
+      }
+
+      // Delete old artwork file if exists
+      if (booking.artworkFilePath && fs.existsSync(booking.artworkFilePath)) {
+        fs.unlinkSync(booking.artworkFilePath);
+      }
+
+      // Update booking with artwork info
+      const updatedBooking = await storage.updateBooking(bookingId, {
+        artworkFilePath: file.path,
+        artworkFileName: file.originalname,
+        artworkStatus: 'under_review',
+        artworkUploadedAt: new Date(),
+      });
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error("Artwork upload error:", error);
+      // Clean up file if error occurs
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ message: "Failed to upload artwork" });
+    }
+  });
+
+  app.get("/api/bookings/artwork/review", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const bookings = await storage.getBookingsNeedingReview();
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bookings for review" });
+    }
+  });
+
+  app.patch("/api/bookings/:bookingId/artwork/approve", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const updatedBooking = await storage.updateBooking(bookingId, {
+        artworkStatus: 'approved',
+        artworkReviewedAt: new Date(),
+        artworkRejectionReason: null,
+      });
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error("Artwork approval error:", error);
+      res.status(500).json({ message: "Failed to approve artwork" });
+    }
+  });
+
+  app.patch("/api/bookings/:bookingId/artwork/reject", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const { reason } = req.body;
+
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+      
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const updatedBooking = await storage.updateBooking(bookingId, {
+        artworkStatus: 'rejected',
+        artworkReviewedAt: new Date(),
+        artworkRejectionReason: reason,
+      });
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error("Artwork rejection error:", error);
+      res.status(500).json({ message: "Failed to reject artwork" });
     }
   });
 

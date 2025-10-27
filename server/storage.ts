@@ -52,8 +52,11 @@ export interface IStorage {
   getBookingsByUser(userId: string): Promise<Booking[]>;
   getBookingsByCampaign(campaignId: string): Promise<Booking[]>;
   getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined>;
+  getBookingById(id: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
+  updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined>;
   deleteBooking(id: string): Promise<boolean>;
+  getBookingsNeedingReview(): Promise<Booking[]>;
   
   // Slot Grid Operations
   getSlotGrid(campaignId: string): Promise<{
@@ -599,6 +602,11 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getBookingById(id: string): Promise<Booking | undefined> {
+    const result = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    return result[0];
+  }
+
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const bookingWithId = {
       ...booking,
@@ -617,6 +625,11 @@ export class DbStorage implements IStorage {
       .where(eq(campaignsTable.id, booking.campaignId));
     
     return createdBooking;
+  }
+
+  async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
+    const result = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
+    return result[0];
   }
 
   async deleteBooking(id: string): Promise<boolean> {
@@ -642,6 +655,10 @@ export class DbStorage implements IStorage {
     }
     
     return false;
+  }
+
+  async getBookingsNeedingReview(): Promise<Booking[]> {
+    return await db.select().from(bookingsTable).where(eq(bookingsTable.artworkStatus, 'under_review'));
   }
 
   async getSlotGrid(campaignId: string): Promise<{
