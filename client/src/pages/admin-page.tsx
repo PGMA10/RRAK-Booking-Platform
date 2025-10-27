@@ -260,6 +260,21 @@ export default function AdminPage() {
                       </Button>
                     );
                   })}
+                  <Link href="/admin/artwork">
+                    <Button
+                      variant="outline"
+                      className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
+                      data-testid="button-artwork-review"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <FileText className="h-5 w-5" />
+                        <span className="font-semibold">Review Artwork</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">
+                        Approve or reject customer artwork submissions
+                      </p>
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

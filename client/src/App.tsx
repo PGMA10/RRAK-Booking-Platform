@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import BookingPage from "@/pages/booking-page";
 import CalendarPage from "@/pages/calendar-page";
 import AdminPage from "@/pages/admin-page";
+import AdminArtworkReviewPage from "@/pages/admin-artwork-review-page";
 import RouteManagementPage from "@/pages/route-management-page";
 import IndustryManagementPage from "@/pages/industry-management-page";
 import CampaignManagementPage from "@/pages/campaign-management-page";
@@ -28,6 +29,7 @@ function Router() {
       <ProtectedRoute path="/booking" component={BookingPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/admin" component={AdminPage} />
+      <ProtectedRoute path="/admin/artwork" component={AdminArtworkReviewPage} />
       <ProtectedRoute path="/admin/routes" component={RouteManagementPage} />
       <ProtectedRoute path="/admin/industries" component={IndustryManagementPage} />
       <ProtectedRoute path="/admin/campaigns" component={CampaignManagementPage} />
