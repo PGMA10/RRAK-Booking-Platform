@@ -816,6 +816,52 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin Notifications
+  app.get("/api/notifications/count", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const count = await storage.getUnhandledNotificationsCount();
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notification count" });
+    }
+  });
+
+  app.get("/api/notifications", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const notifications = await storage.getAllUnhandledNotifications();
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/summary", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const newBookings = await storage.getNotificationsByType('new_booking');
+      const artworkReviews = await storage.getNotificationsByType('artwork_review');
+      
+      res.json({
+        newBookings: newBookings.length,
+        artworkReviews: artworkReviews.length,
+        total: newBookings.length + artworkReviews.length,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notification summary" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
