@@ -4,7 +4,7 @@
 
 Route Reach AK is a direct mail booking platform designed specifically for Alaska businesses. The application allows businesses to book slots in direct mail campaigns across different routes (zip codes) and industries. It features a customer-facing booking system and an admin dashboard for campaign management.
 
-The platform operates on a slot-based booking system where campaigns have limited availability (64 slots by default), and businesses can reserve their spot for specific routes and industries. The system includes user authentication, campaign management, and a comprehensive booking workflow.
+The platform operates on a slot-based booking system where campaigns have limited availability (64 slots by default), and businesses can reserve their spot for specific routes and industries. The system includes user authentication, campaign management, a comprehensive booking workflow, and an artwork upload and review system where customers submit their ad designs for admin approval before printing.
 
 ## User Preferences
 
@@ -28,10 +28,11 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools**: TSX for TypeScript execution, Vite for development server
 
 ### Database Architecture
-- **ORM**: Drizzle ORM with PostgreSQL dialect
+- **ORM**: Drizzle ORM with SQLite for development (migrations to PostgreSQL for production)
 - **Schema**: Five main entities - users, routes, industries, campaigns, and bookings
 - **Relationships**: Foreign key constraints linking bookings to users, campaigns, routes, and industries
-- **Data Types**: UUID primary keys, timestamps for audit trails, enum-like text fields for status
+- **Data Types**: Auto-incrementing IDs, timestamps for audit trails, text fields for status
+- **Artwork Fields**: Bookings table includes artwork tracking (status, file path, filename, upload/review timestamps, rejection reason)
 
 ### Authentication & Authorization
 - **Strategy**: Session-based authentication with secure password hashing
@@ -40,17 +41,30 @@ Preferred communication style: Simple, everyday language.
 - **Password Security**: Scrypt hashing with salt for password storage
 
 ### Data Flow Architecture
-- **Client-Server Communication**: HTTP REST API with JSON payloads
+- **Client-Server Communication**: HTTP REST API with JSON payloads and multipart/form-data for file uploads
 - **Query Management**: TanStack Query for caching, optimistic updates, and background syncing
 - **Error Handling**: Centralized error boundaries with toast notifications
 - **Loading States**: Skeleton components and loading indicators throughout the UI
+- **File Uploads**: Multer middleware for artwork uploads with type and size validation
+
+### Artwork Upload System
+- **File Upload**: Multer-based file upload with validation (PNG, JPG, PDF up to 10MB)
+- **Storage**: Files organized in uploads/artwork directory by booking ID
+- **Workflow States**: pending_upload → under_review → approved/rejected
+- **Customer Features**: Upload artwork, view status, see rejection reasons, re-upload after rejection
+- **Admin Features**: Review queue, approve/reject with reasons, track review timestamps
+- **Security**: File type validation, size limits, user authorization checks, proper error handling
 
 ## External Dependencies
 
 ### Database Services
-- **PostgreSQL**: Primary database using Neon serverless PostgreSQL
+- **SQLite**: Development database with better-sqlite3 driver
 - **Drizzle Kit**: Database migrations and schema management
-- **Connect-pg-simple**: PostgreSQL session store for Express sessions
+- **MemoryStore**: In-memory session store for development
+
+### File Upload Services
+- **Multer**: Multipart form data handling for artwork uploads
+- **File System**: Node.js fs module for file storage and cleanup
 
 ### Authentication Services
 - **Passport.js**: Authentication middleware with local strategy
