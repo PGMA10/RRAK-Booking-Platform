@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { useState } from "react";
-import type { Booking, Route, Industry, Campaign } from "@shared/schema";
+import type { BookingWithDetails, Route, Industry, Campaign } from "@shared/schema";
 
 export default function CustomerDashboardPage() {
   const { user } = useAuth();
@@ -34,7 +34,7 @@ export default function CustomerDashboardPage() {
   }
 
   // Fetch customer's bookings
-  const { data: bookings, isLoading } = useQuery<Booking[]>({
+  const { data: bookings, isLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings'],
     enabled: !!user,
   });
@@ -270,15 +270,15 @@ export default function CustomerDashboardPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 text-sm text-muted-foreground">
                           <div>
                             <p className="font-medium text-foreground">Campaign</p>
-                            <p>{campaignMap.get(booking.campaignId)?.name || booking.campaignId}</p>
+                            <p>{booking.campaign?.name || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Route</p>
-                            <p>{routeMap.get(booking.routeId)?.name || booking.routeId}</p>
+                            <p>{booking.route?.zipCode} - {booking.route?.name || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
-                            <p>{industryMap.get(booking.industryId)?.name || booking.industryId}</p>
+                            <p>{booking.industry?.name || 'N/A'}</p>
                           </div>
                         </div>
                       </div>
@@ -375,8 +375,8 @@ export default function CustomerDashboardPage() {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h4 className="font-semibold text-foreground">Campaign {booking.campaignId}</h4>
-                        <p className="text-sm text-muted-foreground">{booking.routeId} - {booking.industryId}</p>
+                        <h4 className="font-semibold text-foreground">{booking.campaign?.name || 'Campaign'}</h4>
+                        <p className="text-sm text-muted-foreground">{booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name}</p>
                       </div>
                       <Badge className={`${getArtworkStatusColor(booking.artworkStatus)} flex items-center gap-1`}>
                         {getArtworkStatusIcon(booking.artworkStatus)}

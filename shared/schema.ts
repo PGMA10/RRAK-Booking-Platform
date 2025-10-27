@@ -100,3 +100,10 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
+
+// Extended Booking type with joined route, industry, and campaign data
+export type BookingWithDetails = Booking & {
+  route?: Route;
+  industry?: Industry;
+  campaign?: Campaign;
+};

@@ -358,6 +358,10 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getBookingById(id: string): Promise<Booking | undefined> {
+    return this.bookings.get(id);
+  }
+
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
     const id = randomUUID();
     const booking: Booking = {
@@ -369,6 +373,12 @@ export class MemStorage implements IStorage {
       contactPhone: insertBooking.contactPhone || null,
       paymentId: insertBooking.paymentId || null,
       amount: insertBooking.amount || 60000,
+      artworkStatus: insertBooking.artworkStatus || "pending_upload",
+      artworkFilePath: insertBooking.artworkFilePath || null,
+      artworkFileName: insertBooking.artworkFileName || null,
+      artworkUploadedAt: insertBooking.artworkUploadedAt || null,
+      artworkReviewedAt: insertBooking.artworkReviewedAt || null,
+      artworkRejectionReason: insertBooking.artworkRejectionReason || null,
     };
     this.bookings.set(id, booking);
     
@@ -384,6 +394,15 @@ export class MemStorage implements IStorage {
     }
     
     return booking;
+  }
+
+  async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = { ...booking, ...updates };
+    this.bookings.set(id, updatedBooking);
+    return updatedBooking;
   }
 
   async deleteBooking(id: string): Promise<boolean> {
@@ -405,6 +424,10 @@ export class MemStorage implements IStorage {
     
     this.bookings.delete(id);
     return true;
+  }
+
+  async getBookingsNeedingReview(): Promise<Booking[]> {
+    return Array.from(this.bookings.values()).filter(booking => booking.artworkStatus === 'under_review');
   }
 
   async getSlotGrid(campaignId: string) {
@@ -603,15 +626,80 @@ export class DbStorage implements IStorage {
   }
 
   async getAllBookings(): Promise<Booking[]> {
-    return await db.select().from(bookingsTable);
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id));
+    
+    return results.map(r => ({
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    })) as any;
   }
 
   async getBookingsByUser(userId: string): Promise<Booking[]> {
-    return await db.select().from(bookingsTable).where(eq(bookingsTable.userId, userId));
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
+      .where(eq(bookingsTable.userId, userId));
+    
+    return results.map(r => ({
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    })) as any;
   }
 
   async getBookingsByCampaign(campaignId: string): Promise<Booking[]> {
-    return await db.select().from(bookingsTable).where(eq(bookingsTable.campaignId, campaignId));
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
+      .where(eq(bookingsTable.campaignId, campaignId));
+    
+    return results.map(r => ({
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    })) as any;
   }
 
   async getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined> {
@@ -626,8 +714,33 @@ export class DbStorage implements IStorage {
   }
 
   async getBookingById(id: string): Promise<Booking | undefined> {
-    const result = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
-    return result[0];
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
+      .where(eq(bookingsTable.id, id))
+      .limit(1);
+    
+    if (!results[0]) return undefined;
+    
+    const r = results[0];
+    return {
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    } as any;
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
@@ -681,7 +794,29 @@ export class DbStorage implements IStorage {
   }
 
   async getBookingsNeedingReview(): Promise<Booking[]> {
-    return await db.select().from(bookingsTable).where(eq(bookingsTable.artworkStatus, 'under_review'));
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
+      .where(eq(bookingsTable.artworkStatus, 'under_review'));
+    
+    return results.map(r => ({
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    })) as any;
   }
 
   async getSlotGrid(campaignId: string): Promise<{

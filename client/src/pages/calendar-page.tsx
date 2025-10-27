@@ -5,13 +5,13 @@ import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
 import { useAuth } from "@/hooks/use-auth";
 import { Calendar as CalendarIcon, Package } from "lucide-react";
-import type { Booking, Campaign, Route, Industry } from "@shared/schema";
+import type { BookingWithDetails, Campaign, Route, Industry } from "@shared/schema";
 
 export default function CalendarPage() {
   const { user } = useAuth();
 
   // Fetch user's bookings (for customers) or all campaigns (for admin)
-  const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
+  const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings'],
     enabled: !!user && user.role === "customer",
   });
@@ -72,10 +72,6 @@ export default function CalendarPage() {
             {bookings && bookings.length > 0 ? (
               <div className="space-y-4">
                 {bookings.map((booking) => {
-                  const campaign = campaignMap.get(booking.campaignId);
-                  const route = routeMap.get(booking.routeId);
-                  const industry = industryMap.get(booking.industryId);
-                  
                   return (
                     <div 
                       key={booking.id} 
@@ -86,7 +82,7 @@ export default function CalendarPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="font-semibold text-foreground">
-                              {campaign?.name || 'Campaign'}
+                              {booking.campaign?.name || 'Campaign'}
                             </h4>
                             <Badge variant="secondary">
                               {booking.status}
@@ -97,7 +93,7 @@ export default function CalendarPage() {
                               <p className="text-muted-foreground">Mail Date</p>
                               <p className="font-medium text-foreground flex items-center gap-2">
                                 <CalendarIcon className="h-4 w-4" />
-                                {campaign?.mailDate ? new Date(campaign.mailDate).toLocaleDateString('en-US', { 
+                                {booking.campaign?.mailDate ? new Date(booking.campaign.mailDate).toLocaleDateString('en-US', { 
                                   month: 'long', 
                                   day: 'numeric', 
                                   year: 'numeric' 
@@ -107,13 +103,13 @@ export default function CalendarPage() {
                             <div>
                               <p className="text-muted-foreground">Route</p>
                               <p className="font-medium text-foreground">
-                                {route?.name || booking.routeId}
+                                {booking.route?.zipCode} - {booking.route?.name || 'N/A'}
                               </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">Industry</p>
                               <p className="font-medium text-foreground">
-                                {industry?.name || booking.industryId}
+                                {booking.industry?.name || 'N/A'}
                               </p>
                             </div>
                           </div>

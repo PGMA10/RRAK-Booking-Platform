@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Redirect } from "wouter";
 import { useState } from "react";
-import type { Booking } from "@shared/schema";
+import type { BookingWithDetails } from "@shared/schema";
 
 export default function AdminArtworkReviewPage() {
   const { user } = useAuth();
@@ -30,7 +30,7 @@ export default function AdminArtworkReviewPage() {
     return <Redirect to="/" />;
   }
 
-  const { data: bookings, isLoading } = useQuery<Booking[]>({
+  const { data: bookings, isLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings/artwork/review'],
   });
 
@@ -138,7 +138,7 @@ export default function AdminArtworkReviewPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold text-foreground">
-                            Campaign {booking.campaignId}
+                            {booking.campaign?.name || 'Campaign'}
                           </h3>
                           <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 flex items-center gap-1">
                             <Clock className="h-4 w-4" />
@@ -152,11 +152,11 @@ export default function AdminArtworkReviewPage() {
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Route</p>
-                            <p>{booking.routeId}</p>
+                            <p>{booking.route?.zipCode} - {booking.route?.name || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
-                            <p>{booking.industryId}</p>
+                            <p>{booking.industry?.name || 'N/A'}</p>
                           </div>
                         </div>
                       </div>
