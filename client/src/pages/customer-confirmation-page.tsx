@@ -25,10 +25,14 @@ export default function CustomerConfirmationPage() {
   }
 
   // Get session ID from URL query params
-  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  // Note: Wouter's useLocation() only returns the path, not query params
+  // We need to use window.location.search to get the query string
+  const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get('session_id');
 
   console.log("🔍 [Confirmation] Current location:", location);
+  console.log("🔍 [Confirmation] Full URL:", window.location.href);
+  console.log("🔍 [Confirmation] Query string:", window.location.search);
   console.log("🔍 [Confirmation] Extracted session ID:", sessionId);
 
   // Fetch booking by session ID
