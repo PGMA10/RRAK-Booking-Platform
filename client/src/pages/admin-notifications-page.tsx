@@ -11,7 +11,10 @@ import {
   FileText,
   Clock,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  DollarSign,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -120,11 +123,33 @@ export default function AdminNotificationsPage() {
                             <p>
                               Industry: {notification.booking.industry?.name}
                             </p>
-                            <div className="flex items-center mt-2">
-                              <Clock className="h-3 w-3 mr-1" />
-                              <span className="text-xs">
-                                Booked {getTimeAgo(notification.createdAt)}
-                              </span>
+                            <div className="flex items-center gap-3 mt-2">
+                              <div className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span className="text-xs">
+                                  Booked {getTimeAgo(notification.createdAt)}
+                                </span>
+                              </div>
+                              {notification.booking.paymentStatus && (
+                                <div className="flex items-center">
+                                  {notification.booking.paymentStatus === 'paid' ? (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                                      <span className="text-xs text-green-600">Payment Confirmed</span>
+                                    </>
+                                  ) : notification.booking.paymentStatus === 'pending' ? (
+                                    <>
+                                      <Clock className="h-3 w-3 mr-1 text-yellow-600" />
+                                      <span className="text-xs text-yellow-600">Payment Pending</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 mr-1 text-red-600" />
+                                      <span className="text-xs text-red-600">Payment Failed</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
