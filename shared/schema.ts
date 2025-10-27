@@ -54,7 +54,12 @@ export const bookings = pgTable("bookings", {
   contactPhone: text("contact_phone"),
   amount: integer("amount").notNull().default(60000), // in cents
   status: text("status").notNull().default("confirmed"), // 'pending', 'confirmed', 'cancelled'
-  paymentId: text("payment_id"), // mock payment reference
+  paymentStatus: text("payment_status").notNull().default("pending"), // 'pending', 'paid', 'failed'
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  amountPaid: integer("amount_paid"), // in cents, actual amount paid
+  paidAt: timestamp("paid_at"),
+  paymentId: text("payment_id"), // legacy mock payment reference
   artworkStatus: text("artwork_status").notNull().default("pending_upload"), // 'pending_upload', 'under_review', 'approved', 'rejected'
   artworkFilePath: text("artwork_file_path"),
   artworkFileName: text("artwork_file_name"),

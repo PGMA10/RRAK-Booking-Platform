@@ -85,6 +85,11 @@ export function initializeDatabase() {
       contact_phone TEXT,
       amount INTEGER NOT NULL DEFAULT 60000,
       status TEXT NOT NULL DEFAULT 'confirmed',
+      payment_status TEXT NOT NULL DEFAULT 'pending',
+      stripe_checkout_session_id TEXT,
+      stripe_payment_intent_id TEXT,
+      amount_paid INTEGER,
+      paid_at INTEGER,
       payment_id TEXT,
       artwork_status TEXT NOT NULL DEFAULT 'pending_upload',
       artwork_file_path TEXT,
@@ -95,6 +100,33 @@ export function initializeDatabase() {
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
+  
+  // Add payment columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'pending'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN stripe_checkout_session_id TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN stripe_payment_intent_id TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN amount_paid INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN paid_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
   
   // Add artwork columns to existing bookings table if they don't exist
   try {

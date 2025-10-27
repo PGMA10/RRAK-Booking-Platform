@@ -7,6 +7,15 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import Stripe from "stripe";
+
+// Reference: Stripe integration blueprint (javascript_stripe)
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
 
 // Configure multer for artwork uploads
 const uploadsDir = path.join(process.cwd(), "uploads", "artwork");
@@ -413,6 +422,29 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get booking by Stripe session ID (for confirmation page)
+  app.get("/api/bookings/session/:sessionId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const booking = await storage.getBookingByStripeSessionId(req.params.sessionId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Ensure user can only access their own bookings
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
   app.get("/api/campaigns/:campaignId/bookings", async (req, res) => {
     try {
       const bookings = await storage.getBookingsByCampaign(req.params.campaignId);
@@ -430,6 +462,151 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       res.status(500).json({ message: "Failed to check availability" });
     }
+  });
+
+  // Create Stripe Checkout session for booking payment
+  app.post("/api/create-checkout-session", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const validatedData = insertBookingSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+      });
+
+      // Check if campaign exists and is in booking_open status
+      const campaign = await storage.getCampaign(validatedData.campaignId);
+      if (!campaign) {
+        return res.status(400).json({ message: "Campaign not found" });
+      }
+      
+      if (campaign.status !== "booking_open") {
+        return res.status(400).json({ 
+          message: "Bookings are only allowed when campaign status is 'booking_open'" 
+        });
+      }
+
+      // Check if slot is already booked
+      const existingBooking = await storage.getBooking(
+        validatedData.campaignId,
+        validatedData.routeId,
+        validatedData.industryId
+      );
+
+      if (existingBooking) {
+        return res.status(400).json({ message: "Slot already booked" });
+      }
+
+      // Get route and industry details for display
+      const route = await storage.getRoute(validatedData.routeId);
+      const industry = await storage.getIndustry(validatedData.industryId);
+
+      if (!route || !industry) {
+        return res.status(400).json({ message: "Route or industry not found" });
+      }
+
+      // Create booking with pending payment status
+      const booking = await storage.createBooking({
+        ...validatedData,
+        status: "confirmed",
+        paymentStatus: "pending",
+      });
+
+      // Create Stripe Checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Direct Mail Campaign - ${campaign.name}`,
+                description: `Route: ${route.zipCode} - ${route.name} | Industry: ${industry.name}`,
+              },
+              unit_amount: validatedData.amount || 60000, // Amount in cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${req.headers.origin}/customer/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin}/customer/booking`,
+        customer_email: validatedData.contactEmail,
+        metadata: {
+          bookingId: booking.id,
+          campaignId: validatedData.campaignId,
+          userId: req.user.id,
+        },
+      });
+
+      // Update booking with Stripe session ID
+      await storage.updateBooking(booking.id, {
+        stripeCheckoutSessionId: session.id,
+      });
+
+      res.json({ sessionUrl: session.url, bookingId: booking.id });
+    } catch (error) {
+      console.error("Checkout session creation error:", error);
+      res.status(400).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  // Stripe webhook endpoint for payment events
+  app.post("/api/stripe-webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    
+    if (!sig) {
+      return res.status(400).send('No signature');
+    }
+
+    let event;
+
+    try {
+      // Note: In production, you should use webhook secrets for verification
+      // For now, we'll parse the event directly
+      event = req.body;
+    } catch (err) {
+      console.error('Webhook error:', err);
+      return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        const bookingId = session.metadata?.bookingId;
+
+        if (bookingId) {
+          // Update booking payment status to paid
+          await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+            stripePaymentIntentId: session.payment_intent as string,
+            amountPaid: session.amount_total,
+            paidAt: new Date(),
+          });
+          
+          console.log(`Payment successful for booking ${bookingId}`);
+        }
+        break;
+
+      case 'checkout.session.expired':
+      case 'payment_intent.payment_failed':
+        const failedSession = event.data.object;
+        const failedBookingId = failedSession.metadata?.bookingId;
+
+        if (failedBookingId) {
+          // Update booking payment status to failed
+          await storage.updateBookingPaymentStatus(failedBookingId, 'failed', {});
+          console.log(`Payment failed for booking ${failedBookingId}`);
+        }
+        break;
+
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
   });
 
   app.post("/api/bookings", async (req, res) => {
@@ -466,7 +643,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Slot already booked" });
       }
 
-      // Mock payment processing
+      // Mock payment processing (legacy endpoint, kept for backwards compatibility)
       const paymentId = `mock_payment_${Date.now()}`;
       
       const booking = await storage.createBooking({

@@ -53,8 +53,14 @@ export interface IStorage {
   getBookingsByCampaign(campaignId: string): Promise<Booking[]>;
   getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined>;
   getBookingById(id: string): Promise<Booking | undefined>;
+  getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined>;
+  updateBookingPaymentStatus(id: string, paymentStatus: string, paymentData: {
+    stripePaymentIntentId?: string;
+    amountPaid?: number;
+    paidAt?: Date;
+  }): Promise<Booking | undefined>;
   deleteBooking(id: string): Promise<boolean>;
   getBookingsNeedingReview(): Promise<Booking[]>;
   
@@ -403,12 +409,52 @@ export class MemStorage implements IStorage {
     return booking;
   }
 
+  async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
+    return Array.from(this.bookings.values()).find(b => b.stripeCheckoutSessionId === sessionId);
+  }
+
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
     const booking = this.bookings.get(id);
     if (!booking) return undefined;
     
     const updatedBooking = { ...booking, ...updates };
     this.bookings.set(id, updatedBooking);
+    return updatedBooking;
+  }
+
+  async updateBookingPaymentStatus(
+    id: string,
+    paymentStatus: string,
+    paymentData: {
+      stripePaymentIntentId?: string;
+      amountPaid?: number;
+      paidAt?: Date;
+    }
+  ): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = {
+      ...booking,
+      paymentStatus,
+      stripePaymentIntentId: paymentData.stripePaymentIntentId || booking.stripePaymentIntentId,
+      amountPaid: paymentData.amountPaid || booking.amountPaid,
+      paidAt: paymentData.paidAt || booking.paidAt,
+    };
+    this.bookings.set(id, updatedBooking);
+    
+    // Update campaign revenue only if payment is successful
+    if (paymentStatus === 'paid' && booking.paymentStatus !== 'paid' && paymentData.amountPaid) {
+      const campaign = this.campaigns.get(booking.campaignId);
+      if (campaign) {
+        const updatedCampaign = {
+          ...campaign,
+          revenue: campaign.revenue + paymentData.amountPaid
+        };
+        this.campaigns.set(campaign.id, updatedCampaign);
+      }
+    }
+    
     return updatedBooking;
   }
 
@@ -841,8 +887,53 @@ export class DbStorage implements IStorage {
     return createdBooking;
   }
 
+  async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
+    const result = await db.select().from(bookingsTable)
+      .where(eq(bookingsTable.stripeCheckoutSessionId, sessionId))
+      .limit(1);
+    return result[0];
+  }
+
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
     const result = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
+    return result[0];
+  }
+
+  async updateBookingPaymentStatus(
+    id: string,
+    paymentStatus: string,
+    paymentData: {
+      stripePaymentIntentId?: string;
+      amountPaid?: number;
+      paidAt?: Date;
+    }
+  ): Promise<Booking | undefined> {
+    // Get the current booking to check if payment status is changing
+    const currentBooking = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    if (!currentBooking || currentBooking.length === 0) return undefined;
+    
+    const booking = currentBooking[0];
+    
+    // Update booking with payment info
+    const result = await db.update(bookingsTable)
+      .set({
+        paymentStatus,
+        stripePaymentIntentId: paymentData.stripePaymentIntentId,
+        amountPaid: paymentData.amountPaid,
+        paidAt: paymentData.paidAt,
+      })
+      .where(eq(bookingsTable.id, id))
+      .returning();
+    
+    // Update campaign revenue only if payment is newly successful
+    if (paymentStatus === 'paid' && booking.paymentStatus !== 'paid' && paymentData.amountPaid) {
+      await db.update(campaignsTable)
+        .set({
+          revenue: sql`${campaignsTable.revenue} + ${paymentData.amountPaid}`
+        })
+        .where(eq(campaignsTable.id, booking.campaignId));
+    }
+    
     return result[0];
   }
 
