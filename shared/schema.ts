@@ -64,6 +64,15 @@ export const bookings = pgTable("bookings", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const adminNotifications = pgTable("admin_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // 'new_booking', 'artwork_review', 'artwork_deadline'
+  bookingId: varchar("booking_id").notNull().references(() => bookings.id),
+  isHandled: boolean("is_handled").notNull().default(false),
+  handledAt: timestamp("handled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -90,6 +99,12 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   createdAt: true,
 });
 
+export const insertAdminNotificationSchema = createInsertSchema(adminNotifications).omit({
+  id: true,
+  createdAt: true,
+  handledAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -100,10 +115,17 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type AdminNotification = typeof adminNotifications.$inferSelect;
+export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {
   route?: Route;
   industry?: Industry;
   campaign?: Campaign;
+};
+
+// Notification with booking details
+export type NotificationWithDetails = AdminNotification & {
+  booking?: BookingWithDetails;
 };

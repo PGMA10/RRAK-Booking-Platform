@@ -128,5 +128,17 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
 
+  // Create admin_notifications table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS admin_notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      type TEXT NOT NULL,
+      booking_id TEXT NOT NULL REFERENCES bookings(id),
+      is_handled INTEGER NOT NULL DEFAULT 0,
+      handled_at INTEGER,
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
   console.log("✅ SQLite tables initialized");
 }

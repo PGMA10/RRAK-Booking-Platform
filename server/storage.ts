@@ -77,6 +77,13 @@ export interface IStorage {
     };
   }>;
   
+  // Admin Notifications
+  getUnhandledNotificationsCount(): Promise<number>;
+  getNotificationsByType(type: string): Promise<any[]>;
+  getAllUnhandledNotifications(): Promise<any[]>;
+  markNotificationHandled(notificationId: string): Promise<boolean>;
+  createNotification(type: string, bookingId: string): Promise<void>;
+  
   sessionStore: session.Store;
 }
 
@@ -479,6 +486,77 @@ export class MemStorage implements IStorage {
         totalRevenue,
       },
     };
+  }
+
+  // Admin Notifications - MemStorage implementations
+  async getUnhandledNotificationsCount(): Promise<number> {
+    // Count based on actual booking states, not persisted notifications
+    const bookings = Array.from(this.bookings.values());
+    let count = 0;
+    
+    // New bookings (confirmed in last 24 hours)
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    count += bookings.filter(b => 
+      b.status === 'confirmed' && 
+      b.createdAt && 
+      new Date(b.createdAt).getTime() > oneDayAgo
+    ).length;
+    
+    // Artwork pending review
+    count += bookings.filter(b => b.artworkStatus === 'under_review').length;
+    
+    return count;
+  }
+
+  async getNotificationsByType(type: string): Promise<any[]> {
+    const bookings = Array.from(this.bookings.values());
+    const results: any[] = [];
+    
+    if (type === 'new_booking') {
+      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      bookings
+        .filter(b => b.status === 'confirmed' && b.createdAt && new Date(b.createdAt).getTime() > oneDayAgo)
+        .forEach(booking => {
+          results.push({
+            id: `new_booking_${booking.id}`,
+            type: 'new_booking',
+            bookingId: booking.id,
+            booking,
+            createdAt: booking.createdAt,
+            isHandled: false,
+          });
+        });
+    } else if (type === 'artwork_review') {
+      bookings
+        .filter(b => b.artworkStatus === 'under_review')
+        .forEach(booking => {
+          results.push({
+            id: `artwork_review_${booking.id}`,
+            type: 'artwork_review',
+            bookingId: booking.id,
+            booking,
+            createdAt: booking.artworkUploadedAt || booking.createdAt,
+            isHandled: false,
+          });
+        });
+    }
+    
+    return results;
+  }
+
+  async getAllUnhandledNotifications(): Promise<any[]> {
+    const newBookings = await this.getNotificationsByType('new_booking');
+    const artworkReviews = await this.getNotificationsByType('artwork_review');
+    return [...newBookings, ...artworkReviews];
+  }
+
+  async markNotificationHandled(notificationId: string): Promise<boolean> {
+    // In MemStorage, this is a no-op since we derive notifications from booking state
+    return true;
+  }
+
+  async createNotification(type: string, bookingId: string): Promise<void> {
+    // In MemStorage, this is a no-op since we derive notifications from booking state
   }
 }
 
@@ -891,6 +969,88 @@ export class DbStorage implements IStorage {
         totalRevenue,
       },
     };
+  }
+
+  // Admin Notifications - DbStorage implementations
+  async getUnhandledNotificationsCount(): Promise<number> {
+    // Count based on actual booking states
+    const allBookings = await db.select().from(bookingsTable);
+    let count = 0;
+    
+    // New bookings (confirmed in last 24 hours)
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    count += allBookings.filter((b: any) => 
+      b.status === 'confirmed' && 
+      b.createdAt && 
+      (typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt).getTime()) > oneDayAgo
+    ).length;
+    
+    // Artwork pending review
+    count += allBookings.filter((b: any) => b.artworkStatus === 'under_review').length;
+    
+    return count;
+  }
+
+  async getNotificationsByType(type: string): Promise<any[]> {
+    const results: any[] = [];
+    
+    if (type === 'new_booking') {
+      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      const bookings = await db.select().from(bookingsTable);
+      
+      bookings
+        .filter((b: any) => 
+          b.status === 'confirmed' && 
+          b.createdAt && 
+          (typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt).getTime()) > oneDayAgo
+        )
+        .forEach((booking: any) => {
+          results.push({
+            id: `new_booking_${booking.id}`,
+            type: 'new_booking',
+            bookingId: booking.id,
+            booking,
+            createdAt: typeof booking.createdAt === 'number' ? new Date(booking.createdAt) : booking.createdAt,
+            isHandled: false,
+          });
+        });
+    } else if (type === 'artwork_review') {
+      const bookings = await db.select().from(bookingsTable);
+      
+      bookings
+        .filter((b: any) => b.artworkStatus === 'under_review')
+        .forEach((booking: any) => {
+          results.push({
+            id: `artwork_review_${booking.id}`,
+            type: 'artwork_review',
+            bookingId: booking.id,
+            booking,
+            createdAt: booking.artworkUploadedAt ? 
+              (typeof booking.artworkUploadedAt === 'number' ? new Date(booking.artworkUploadedAt) : booking.artworkUploadedAt) :
+              (typeof booking.createdAt === 'number' ? new Date(booking.createdAt) : booking.createdAt),
+            isHandled: false,
+          });
+        });
+    }
+    
+    return results;
+  }
+
+  async getAllUnhandledNotifications(): Promise<any[]> {
+    const newBookings = await this.getNotificationsByType('new_booking');
+    const artworkReviews = await this.getNotificationsByType('artwork_review');
+    return [...newBookings, ...artworkReviews];
+  }
+
+  async markNotificationHandled(notificationId: string): Promise<boolean> {
+    // In DbStorage with derived notifications, this is a no-op
+    // Notifications are derived from booking state, not persisted separately
+    return true;
+  }
+
+  async createNotification(type: string, bookingId: string): Promise<void> {
+    // In DbStorage with derived notifications, this is a no-op
+    // Notifications are derived from booking state
   }
 }
 
