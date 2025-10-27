@@ -29,8 +29,8 @@ export default function CustomerConfirmationPage() {
   const sessionId = searchParams.get('session_id');
 
   // Fetch booking by session ID
-  const { data: booking, isLoading, error } = useQuery<BookingWithDetails>({
-    queryKey: ['/api/bookings/session', sessionId],
+  const { data: booking, isLoading, error} = useQuery<BookingWithDetails>({
+    queryKey: [`/api/bookings/session/${sessionId}`],
     enabled: !!sessionId,
   });
 
