@@ -607,6 +607,14 @@ export class MemStorage implements IStorage {
     // Artwork pending review
     count += bookings.filter(b => b.artworkStatus === 'under_review').length;
     
+    // Canceled bookings (last 7 days)
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    count += bookings.filter(b => 
+      b.status === 'cancelled' && 
+      b.cancellationDate && 
+      new Date(b.cancellationDate).getTime() > sevenDaysAgo
+    ).length;
+    
     return count;
   }
 
@@ -641,6 +649,20 @@ export class MemStorage implements IStorage {
             isHandled: false,
           });
         });
+    } else if (type === 'canceled_booking') {
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      bookings
+        .filter(b => b.status === 'cancelled' && b.cancellationDate && new Date(b.cancellationDate).getTime() > sevenDaysAgo)
+        .forEach(booking => {
+          results.push({
+            id: `canceled_booking_${booking.id}`,
+            type: 'canceled_booking',
+            bookingId: booking.id,
+            booking,
+            createdAt: booking.cancellationDate,
+            isHandled: false,
+          });
+        });
     }
     
     return results;
@@ -649,7 +671,8 @@ export class MemStorage implements IStorage {
   async getAllUnhandledNotifications(): Promise<any[]> {
     const newBookings = await this.getNotificationsByType('new_booking');
     const artworkReviews = await this.getNotificationsByType('artwork_review');
-    return [...newBookings, ...artworkReviews];
+    const canceledBookings = await this.getNotificationsByType('canceled_booking');
+    return [...newBookings, ...artworkReviews, ...canceledBookings];
   }
 
   async markNotificationHandled(notificationId: string): Promise<boolean> {
@@ -1193,6 +1216,14 @@ export class DbStorage implements IStorage {
     // Artwork pending review
     count += allBookings.filter((b: any) => b.artworkStatus === 'under_review').length;
     
+    // Canceled bookings (last 7 days)
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    count += allBookings.filter((b: any) => 
+      b.status === 'cancelled' && 
+      b.cancellationDate && 
+      (typeof b.cancellationDate === 'number' ? b.cancellationDate : new Date(b.cancellationDate).getTime()) > sevenDaysAgo
+    ).length;
+    
     return count;
   }
 
@@ -1236,6 +1267,26 @@ export class DbStorage implements IStorage {
             isHandled: false,
           });
         });
+    } else if (type === 'canceled_booking') {
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      const bookings = await db.select().from(bookingsTable);
+      
+      bookings
+        .filter((b: any) => 
+          b.status === 'cancelled' && 
+          b.cancellationDate && 
+          (typeof b.cancellationDate === 'number' ? b.cancellationDate : new Date(b.cancellationDate).getTime()) > sevenDaysAgo
+        )
+        .forEach((booking: any) => {
+          results.push({
+            id: `canceled_booking_${booking.id}`,
+            type: 'canceled_booking',
+            bookingId: booking.id,
+            booking,
+            createdAt: typeof booking.cancellationDate === 'number' ? new Date(booking.cancellationDate) : booking.cancellationDate,
+            isHandled: false,
+          });
+        });
     }
     
     return results;
@@ -1244,7 +1295,8 @@ export class DbStorage implements IStorage {
   async getAllUnhandledNotifications(): Promise<any[]> {
     const newBookings = await this.getNotificationsByType('new_booking');
     const artworkReviews = await this.getNotificationsByType('artwork_review');
-    return [...newBookings, ...artworkReviews];
+    const canceledBookings = await this.getNotificationsByType('canceled_booking');
+    return [...newBookings, ...artworkReviews, ...canceledBookings];
   }
 
   async markNotificationHandled(notificationId: string): Promise<boolean> {

@@ -1152,11 +1152,13 @@ export function registerRoutes(app: Express): Server {
     try {
       const newBookings = await storage.getNotificationsByType('new_booking');
       const artworkReviews = await storage.getNotificationsByType('artwork_review');
+      const canceledBookings = await storage.getNotificationsByType('canceled_booking');
       
       res.json({
         newBookings: newBookings.length,
         artworkReviews: artworkReviews.length,
-        total: newBookings.length + artworkReviews.length,
+        canceledBookings: canceledBookings.length,
+        total: newBookings.length + artworkReviews.length + canceledBookings.length,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch notification summary" });

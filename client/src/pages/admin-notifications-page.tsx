@@ -43,6 +43,7 @@ export default function AdminNotificationsPage() {
 
   const newBookings = notifications?.filter(n => n.type === 'new_booking') || [];
   const artworkReviews = notifications?.filter(n => n.type === 'artwork_review') || [];
+  const canceledBookings = notifications?.filter(n => n.type === 'canceled_booking') || [];
 
   const getTimeAgo = (date: Date | string | number) => {
     try {
@@ -219,6 +220,98 @@ export default function AdminNotificationsPage() {
                         <Link href="/admin/artwork">
                           <Button variant="outline" size="sm" data-testid={`button-review-artwork-${notification.bookingId}`}>
                             Review Artwork
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Canceled Bookings Section */}
+            {canceledBookings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <XCircle className="h-5 w-5 text-red-600" />
+                    <span>Canceled Bookings</span>
+                    <Badge variant="outline" data-testid="badge-canceled-bookings-section">
+                      {canceledBookings.length}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Recent booking cancellations (last 7 days)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {canceledBookings.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors"
+                        data-testid={`notification-${notification.id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-semibold text-foreground">
+                              {notification.booking.businessName}
+                            </h4>
+                            <Badge className="bg-red-500/10 text-red-600 border-red-500/20">
+                              Canceled
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p>
+                              Campaign: {notification.booking.campaign?.name || 'N/A'}
+                            </p>
+                            <p>
+                              Route: {notification.booking.route?.zipCode} - {notification.booking.route?.name}
+                            </p>
+                            <p>
+                              Industry: {notification.booking.industry?.name}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <div className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span className="text-xs">
+                                  Canceled {getTimeAgo(notification.createdAt)}
+                                </span>
+                              </div>
+                              {notification.booking.refundStatus && (
+                                <div className="flex items-center">
+                                  {notification.booking.refundStatus === 'processed' ? (
+                                    <>
+                                      <DollarSign className="h-3 w-3 mr-1 text-green-600" />
+                                      <span className="text-xs text-green-600">
+                                        Refund Processed: ${((notification.booking.refundAmount || 0) / 100).toFixed(2)}
+                                      </span>
+                                    </>
+                                  ) : notification.booking.refundStatus === 'pending' ? (
+                                    <>
+                                      <Clock className="h-3 w-3 mr-1 text-yellow-600" />
+                                      <span className="text-xs text-yellow-600">Refund Pending</span>
+                                    </>
+                                  ) : notification.booking.refundStatus === 'no_refund' ? (
+                                    <>
+                                      <AlertCircle className="h-3 w-3 mr-1 text-orange-600" />
+                                      <span className="text-xs text-orange-600">No Refund (Within 7 days)</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 mr-1 text-red-600" />
+                                      <span className="text-xs text-red-600">Refund Failed</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Link href={`/admin/slots`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-canceled-${notification.bookingId}`}>
+                            View Details
                             <ChevronRight className="h-4 w-4 ml-1" />
                           </Button>
                         </Link>
