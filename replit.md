@@ -55,15 +55,28 @@ Preferred communication style: Simple, everyday language.
 - **Admin Features**: Review queue, approve/reject with reasons, track review timestamps
 - **Security**: File type validation, size limits, user authorization checks, proper error handling
 
+### Customer Self-Service Cancellation System
+- **Feature**: Customer-initiated booking cancellation with automatic Stripe refund processing
+- **Cancellation Policy**: 7-day deadline - full refund if 7+ days before campaign mail date, no refund within 7 days
+- **Eligibility**: Any non-cancelled booking with 'paid' or 'pending' payment status
+- **Refund Processing**: Automatic Stripe refund via API for eligible cancellations (7+ days before deadline)
+- **Slot Release**: Canceled bookings immediately release their slot, decrement campaign bookedSlots and revenue
+- **Database Fields**: cancellationDate (timestamp), refundAmount (cents), refundStatus ('pending'|'processed'|'no_refund'|'failed')
+- **Customer UI**: Cancel Booking button on dashboard with confirmation dialog showing refund eligibility
+- **Admin Visibility**: Canceled bookings appear in admin notifications (last 7 days) with refund status
+- **API Endpoint**: `POST /api/bookings/:bookingId/cancel` with authorization checks
+- **Error Handling**: Validates campaign mail date exists, proper payment status, booking ownership
+
 ### Admin Notification Center
 - **Purpose**: Centralized actionable items tracking separate from Recent Activity historical timeline
-- **Notification Types**: New bookings (last 24 hours), artwork pending review (under_review status)
+- **Notification Types**: New bookings (last 24 hours), artwork pending review (under_review status), canceled bookings (last 7 days)
 - **Components**: Action Items dashboard widget, dedicated Notifications page, navigation badge counter
 - **Data Model**: Notifications derived from booking state (not separately persisted)
 - **Real-time Updates**: 30-second polling for counts and notifications
 - **API Endpoints**: `/api/notifications/count`, `/api/notifications/summary`, `/api/notifications`
 - **Security**: All notification endpoints enforce admin-only access
 - **UI Design**: Action Items widget above Recent Activity, grouped notifications by type, consistent counts across all locations
+- **Canceled Bookings Display**: Shows refund status (processed/pending/no_refund/failed), cancellation time, booking details
 
 ## External Dependencies
 

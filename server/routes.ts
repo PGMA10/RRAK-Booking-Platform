@@ -719,6 +719,13 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Campaign not found" });
       }
 
+      // Check if campaign has a mail date
+      if (!campaign.mailDate) {
+        return res.status(400).json({ 
+          message: "Cannot process cancellation: Campaign mail date not set. Please contact support." 
+        });
+      }
+
       // Calculate days until print deadline (mail date)
       const now = new Date();
       const printDeadline = new Date(campaign.mailDate);
