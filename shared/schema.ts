@@ -66,6 +66,9 @@ export const bookings = pgTable("bookings", {
   artworkUploadedAt: timestamp("artwork_uploaded_at"),
   artworkReviewedAt: timestamp("artwork_reviewed_at"),
   artworkRejectionReason: text("artwork_rejection_reason"),
+  cancellationDate: timestamp("cancellation_date"),
+  refundAmount: integer("refund_amount"), // in cents
+  refundStatus: text("refund_status"), // 'pending', 'processed', 'no_refund', 'failed'
   createdAt: timestamp("created_at").defaultNow(),
 });
 

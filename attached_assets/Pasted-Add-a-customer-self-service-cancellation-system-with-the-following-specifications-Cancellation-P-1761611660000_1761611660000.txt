@@ -1,0 +1,61 @@
+Add a customer self-service cancellation system with the following specifications:
+
+**Cancellation Policy:**
+- Full refund if canceled at least 7 FULL days (168 hours) before the campaign print deadline
+- No refund if canceled within 7 days of print deadline
+- Cancellation instantly releases the slot back to "available" status
+
+**Customer Experience:**
+1. Add "Cancel Booking" button on customer's booking details page
+2. Button visibility rules:
+   - Show button if booking is "paid" or "pending" status
+   - Hide button if less than 7 days until print deadline
+   - Hide button if booking is already "canceled"
+3. Cancellation flow:
+   - Click "Cancel Booking"
+   - Show confirmation modal with:
+     - "Are you sure you want to cancel your booking for [Campaign Name] - [Route]?"
+     - Display refund eligibility: "Full refund will be processed" OR "No refund available (within 7 days of print deadline)"
+     - Require "Yes, Cancel Booking" button to confirm
+4. After cancellation:
+   - Update booking status to "canceled"
+   - Show success message: "Your booking has been canceled. [Refund message based on eligibility]"
+   - Redirect to customer dashboard
+
+**Refund Processing:**
+- If eligible (7+ days before print deadline):
+  - Automatically process full refund via Stripe API
+  - Update booking with refund transaction ID
+  - Show message: "Full refund of $600 will appear in your account within 3-5 business days"
+- If not eligible (less than 7 days):
+  - No refund processed
+  - Show message: "No refund available - cancellation is within 7 days of print deadline"
+
+**Admin Notifications:**
+- Add "Booking Canceled" notification to admin notification center with:
+  - Business name and industry
+  - Campaign name and route
+  - Print deadline date
+  - Refund status (processed/not eligible)
+  - Badge showing "Slot Now Available"
+  - Timestamp of cancellation
+- Send email alert to admin with same details
+
+**Slot Management:**
+- Automatically update slot status from "booked" to "available"
+- Update slot grid to show green (available)
+- Make slot immediately bookable by other customers
+- Keep canceled booking record in database for reporting
+
+**Database Updates:**
+- Add cancellation_date timestamp to bookings table
+- Add refund_amount and refund_status fields
+- Keep original booking data for historical records
+
+**Display Requirements:**
+- Show cancellation policy clearly on booking confirmation page
+- Add "Cancellation Policy" section to customer dashboard
+- Show days remaining until print deadline on booking details
+- Display clear refund eligibility status
+
+Test the complete flow: customer cancels booking → slot released → admin notified → refund processed (if eligible).

@@ -159,6 +159,23 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  
+  // Add cancellation columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN cancellation_date INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN refund_amount INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN refund_status TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create admin_notifications table
   sqlite.exec(`
