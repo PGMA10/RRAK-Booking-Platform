@@ -12,6 +12,7 @@ import {
   type InsertCampaign,
   type Booking,
   type InsertBooking,
+  type BookingWithDetails,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
 import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
@@ -53,7 +54,7 @@ export interface IStorage {
   getBookingsByCampaign(campaignId: string): Promise<Booking[]>;
   getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined>;
   getBookingById(id: string): Promise<Booking | undefined>;
-  getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined>;
+  getBookingByStripeSessionId(sessionId: string): Promise<BookingWithDetails | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined>;
   updateBookingPaymentStatus(id: string, paymentStatus: string, paymentData: {
@@ -386,6 +387,11 @@ export class MemStorage implements IStorage {
       contactPhone: insertBooking.contactPhone || null,
       paymentId: insertBooking.paymentId || null,
       amount: insertBooking.amount || 60000,
+      paymentStatus: insertBooking.paymentStatus || "pending",
+      stripeCheckoutSessionId: insertBooking.stripeCheckoutSessionId || null,
+      stripePaymentIntentId: insertBooking.stripePaymentIntentId || null,
+      amountPaid: insertBooking.amountPaid || null,
+      paidAt: insertBooking.paidAt || null,
       artworkStatus: insertBooking.artworkStatus || "pending_upload",
       artworkFilePath: insertBooking.artworkFilePath || null,
       artworkFileName: insertBooking.artworkFileName || null,
@@ -409,8 +415,21 @@ export class MemStorage implements IStorage {
     return booking;
   }
 
-  async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
-    return Array.from(this.bookings.values()).find(b => b.stripeCheckoutSessionId === sessionId);
+  async getBookingByStripeSessionId(sessionId: string): Promise<BookingWithDetails | undefined> {
+    const booking = Array.from(this.bookings.values()).find(b => b.stripeCheckoutSessionId === sessionId);
+    if (!booking) return undefined;
+    
+    // Add related data
+    const route = this.routes.get(booking.routeId);
+    const industry = this.industries.get(booking.industryId);
+    const campaign = this.campaigns.get(booking.campaignId);
+    
+    return {
+      ...booking,
+      route,
+      industry,
+      campaign,
+    };
   }
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
@@ -888,10 +907,33 @@ export class DbStorage implements IStorage {
   }
 
   async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
-    const result = await db.select().from(bookingsTable)
+    const results = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
       .where(eq(bookingsTable.stripeCheckoutSessionId, sessionId))
       .limit(1);
-    return result[0];
+    
+    if (results.length === 0) return undefined;
+    
+    const r = results[0];
+    return {
+      ...r.booking,
+      route: r.route,
+      industry: r.industry,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+    } as any;
   }
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
