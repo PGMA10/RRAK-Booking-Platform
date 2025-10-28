@@ -3,6 +3,16 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +27,8 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { useState } from "react";
@@ -27,6 +38,7 @@ export default function CustomerDashboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<{ bookingId: string; file: File } | null>(null);
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
 
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
@@ -124,6 +136,49 @@ export default function CustomerDashboardPage() {
     if (selectedFile) {
       uploadArtworkMutation.mutate(selectedFile);
     }
+  };
+
+  // Cancel booking mutation
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const response = await apiRequest('POST', `/api/bookings/${bookingId}/cancel`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking cancelled successfully",
+        description: data.refund.message,
+      });
+      setCancelBookingId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Cancellation failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setCancelBookingId(null);
+    },
+  });
+
+  const handleCancelBooking = () => {
+    if (cancelBookingId) {
+      cancelBookingMutation.mutate(cancelBookingId);
+    }
+  };
+
+  // Check if booking can be canceled (7+ days before print deadline)
+  const canCancelBooking = (booking: BookingWithDetails): boolean => {
+    if (!booking.campaign?.mailDate) return false;
+    if (booking.status === 'cancelled') return false;
+    if (booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'pending') return false;
+    
+    const now = new Date();
+    const printDeadline = new Date(booking.campaign.mailDate);
+    const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return daysUntilDeadline >= 7;
   };
 
   const getStatusColor = (status: string) => {
@@ -281,6 +336,20 @@ export default function CustomerDashboardPage() {
                             <p>{booking.industry?.name || 'N/A'}</p>
                           </div>
                         </div>
+                        {canCancelBooking(booking) && (
+                          <div className="mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCancelBookingId(booking.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              data-testid={`button-cancel-booking-${booking.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Cancel Booking
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-muted-foreground">Booking Amount</p>
@@ -479,6 +548,62 @@ export default function CustomerDashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Cancel Booking Confirmation Dialog */}
+        <AlertDialog open={!!cancelBookingId} onOpenChange={() => setCancelBookingId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {cancelBookingId && bookings && (
+                  <>
+                    {(() => {
+                      const booking = bookings.find(b => b.id === cancelBookingId);
+                      if (!booking) return null;
+                      
+                      const now = new Date();
+                      const printDeadline = booking.campaign?.mailDate ? new Date(booking.campaign.mailDate) : null;
+                      const daysUntilDeadline = printDeadline 
+                        ? Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                        : 0;
+                      const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
+                      
+                      return (
+                        <div className="space-y-3">
+                          <p>
+                            Cancel booking for <strong>{booking.campaign?.name}</strong> - {booking.route?.zipCode}?
+                          </p>
+                          <p className="text-sm">
+                            This action cannot be undone. The slot will be released and made available to other businesses.
+                          </p>
+                          {isEligibleForRefund ? (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                              ✓ Full refund of ${((booking.amountPaid || booking.amount) / 100).toFixed(2)} will be processed automatically
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                              ⚠ No refund - within 7 days of print deadline
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="dialog-cancel-no">Keep Booking</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCancelBooking}
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="dialog-cancel-yes"
+              >
+                {cancelBookingMutation.isPending ? 'Cancelling...' : 'Cancel Booking'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
