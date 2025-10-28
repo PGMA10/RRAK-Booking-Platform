@@ -684,6 +684,111 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Cancel booking with refund logic
+  app.post("/api/bookings/:bookingId/cancel", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      
+      // Get booking with campaign details
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Verify user owns this booking (or is admin)
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to cancel this booking" });
+      }
+
+      // Check if booking can be canceled
+      if (booking.status === 'cancelled') {
+        return res.status(400).json({ message: "Booking is already cancelled" });
+      }
+
+      if (booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'pending') {
+        return res.status(400).json({ message: "Only paid or pending bookings can be cancelled" });
+      }
+
+      // Get campaign to check print deadline (mail date)
+      const campaign = await storage.getCampaign(booking.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+
+      // Calculate days until print deadline (mail date)
+      const now = new Date();
+      const printDeadline = new Date(campaign.mailDate);
+      const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      console.log(`📅 [Cancellation] Days until print deadline: ${daysUntilDeadline}`);
+
+      // Determine refund eligibility (7+ days before print deadline)
+      const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
+      let refundAmount = 0;
+      let refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed' = 'no_refund';
+
+      // Process Stripe refund if eligible
+      if (isEligibleForRefund && booking.stripePaymentIntentId) {
+        try {
+          console.log(`💰 [Cancellation] Processing Stripe refund for payment intent: ${booking.stripePaymentIntentId}`);
+          
+          const refund = await stripe.refunds.create({
+            payment_intent: booking.stripePaymentIntentId,
+            reason: 'requested_by_customer',
+          });
+
+          refundAmount = refund.amount;
+          refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
+          
+          console.log(`✅ [Cancellation] Refund ${refund.status}: ${refundAmount} cents`);
+        } catch (stripeError: any) {
+          console.error("❌ [Cancellation] Stripe refund error:", stripeError.message);
+          refundStatus = 'failed';
+          // Continue with cancellation even if refund fails
+        }
+      } else if (!isEligibleForRefund && booking.paymentStatus === 'paid') {
+        console.log(`❌ [Cancellation] Not eligible for refund - less than 7 days before print deadline`);
+        refundStatus = 'no_refund';
+      }
+
+      // Cancel the booking in storage
+      const cancelledBooking = await storage.cancelBooking(bookingId, {
+        refundAmount,
+        refundStatus,
+      });
+
+      if (!cancelledBooking) {
+        return res.status(500).json({ message: "Failed to cancel booking" });
+      }
+
+      // Create admin notification for cancelled booking
+      await storage.createNotification('booking_cancelled', bookingId);
+
+      console.log(`✅ [Cancellation] Booking ${bookingId} cancelled successfully`);
+
+      res.json({
+        message: "Booking cancelled successfully",
+        booking: cancelledBooking,
+        refund: {
+          eligible: isEligibleForRefund,
+          amount: refundAmount,
+          status: refundStatus,
+          message: refundStatus === 'processed' ? `Refund of $${(refundAmount / 100).toFixed(2)} processing` :
+                   refundStatus === 'pending' ? `Refund of $${(refundAmount / 100).toFixed(2)} pending` :
+                   refundStatus === 'no_refund' ? 'No refund - within 7 days of print deadline' :
+                   'Refund failed - please contact support'
+        }
+      });
+    } catch (error) {
+      console.error("❌ [Cancellation] Error:", error);
+      res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
   // Artwork Management
   app.post("/api/bookings/:bookingId/artwork", (req, res) => {
     if (!req.isAuthenticated()) {

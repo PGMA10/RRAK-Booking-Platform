@@ -62,6 +62,10 @@ export interface IStorage {
     amountPaid?: number;
     paidAt?: Date;
   }): Promise<Booking | undefined>;
+  cancelBooking(id: string, refundData: {
+    refundAmount: number;
+    refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
+  }): Promise<Booking | undefined>;
   deleteBooking(id: string): Promise<boolean>;
   getBookingsNeedingReview(): Promise<Booking[]>;
   
@@ -472,6 +476,39 @@ export class MemStorage implements IStorage {
         };
         this.campaigns.set(campaign.id, updatedCampaign);
       }
+    }
+    
+    return updatedBooking;
+  }
+
+  async cancelBooking(
+    id: string,
+    refundData: {
+      refundAmount: number;
+      refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
+    }
+  ): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = {
+      ...booking,
+      status: 'cancelled',
+      cancellationDate: new Date(),
+      refundAmount: refundData.refundAmount,
+      refundStatus: refundData.refundStatus,
+    };
+    this.bookings.set(id, updatedBooking);
+    
+    // Update campaign: decrease booked slots and revenue
+    const campaign = this.campaigns.get(booking.campaignId);
+    if (campaign) {
+      const updatedCampaign = {
+        ...campaign,
+        bookedSlots: Math.max(0, campaign.bookedSlots - 1),
+        revenue: Math.max(0, campaign.revenue - (booking.amountPaid || booking.amount)),
+      };
+      this.campaigns.set(campaign.id, updatedCampaign);
     }
     
     return updatedBooking;
@@ -975,6 +1012,41 @@ export class DbStorage implements IStorage {
         })
         .where(eq(campaignsTable.id, booking.campaignId));
     }
+    
+    return result[0];
+  }
+
+  async cancelBooking(
+    id: string,
+    refundData: {
+      refundAmount: number;
+      refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
+    }
+  ): Promise<Booking | undefined> {
+    // Get the current booking to access campaign and amount info
+    const currentBooking = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    if (!currentBooking || currentBooking.length === 0) return undefined;
+    
+    const booking = currentBooking[0];
+    
+    // Update booking with cancellation info
+    const result = await db.update(bookingsTable)
+      .set({
+        status: 'cancelled',
+        cancellationDate: new Date(),
+        refundAmount: refundData.refundAmount,
+        refundStatus: refundData.refundStatus,
+      })
+      .where(eq(bookingsTable.id, id))
+      .returning();
+    
+    // Update campaign: decrease booked slots and revenue
+    await db.update(campaignsTable)
+      .set({
+        bookedSlots: sql`MAX(0, ${campaignsTable.bookedSlots} - 1)`,
+        revenue: sql`MAX(0, ${campaignsTable.revenue} - ${booking.amountPaid || booking.amount})`
+      })
+      .where(eq(campaignsTable.id, booking.campaignId));
     
     return result[0];
   }
