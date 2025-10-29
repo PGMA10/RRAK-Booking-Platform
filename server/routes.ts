@@ -267,7 +267,16 @@ export function registerRoutes(app: Express): Server {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
+        printDeadline: z.coerce.date().refine((date) => {
+          const now = new Date();
+          return date > now;
+        }, "Print deadline must be in the future"),
         status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]).default("planning"),
+      }).refine((data) => {
+        return data.printDeadline < data.mailDate;
+      }, {
+        message: "Print deadline must be before mail date",
+        path: ["printDeadline"],
       });
       
       const campaignData = campaignValidationSchema.parse(req.body);
@@ -307,8 +316,20 @@ export function registerRoutes(app: Express): Server {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
+        printDeadline: z.coerce.date().refine((date) => {
+          const now = new Date();
+          return date > now;
+        }, "Print deadline must be in the future"),
         status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]),
-      }).partial();
+      }).partial().refine((data) => {
+        if (data.printDeadline && data.mailDate) {
+          return data.printDeadline < data.mailDate;
+        }
+        return true;
+      }, {
+        message: "Print deadline must be before mail date",
+        path: ["printDeadline"],
+      });
       
       const campaignData = campaignValidationSchema.parse(req.body);
       
@@ -338,9 +359,9 @@ export function registerRoutes(app: Express): Server {
       
       // Prevent modifications of certain fields once campaign is booking closed or later
       if (["booking_closed", "printed", "mailed", "completed"].includes(existingCampaign.status)) {
-        if (campaignData.name || campaignData.mailDate) {
+        if (campaignData.name || campaignData.mailDate || campaignData.printDeadline) {
           return res.status(400).json({ 
-            message: "Cannot modify campaign name or mail date after booking is closed" 
+            message: "Cannot modify campaign name, mail date, or print deadline after booking is closed" 
           });
         }
       }

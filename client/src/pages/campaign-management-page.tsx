@@ -27,7 +27,19 @@ import type { Campaign } from "@shared/schema";
 const campaignFormSchema = z.object({
   name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
   mailDate: z.string().min(1, "Mail date is required"),
+  printDeadline: z.string().min(1, "Print deadline is required"),
   status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]).default("planning"),
+}).refine((data) => {
+  // Validate that print deadline is before mail date
+  if (data.printDeadline && data.mailDate) {
+    const printDate = new Date(data.printDeadline);
+    const mailDate = new Date(data.mailDate);
+    return printDate < mailDate;
+  }
+  return true;
+}, {
+  message: "Print deadline must be before mail date",
+  path: ["printDeadline"],
 });
 
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
@@ -94,6 +106,7 @@ export default function CampaignManagementPage() {
     defaultValues: {
       name: "",
       mailDate: "",
+      printDeadline: "",
       status: "planning",
     },
   });
@@ -104,6 +117,7 @@ export default function CampaignManagementPage() {
     defaultValues: {
       name: "",
       mailDate: "",
+      printDeadline: "",
       status: "planning",
     },
   });
@@ -186,6 +200,7 @@ export default function CampaignManagementPage() {
     editForm.reset({
       name: campaign.name,
       mailDate: format(new Date(campaign.mailDate), "yyyy-MM-dd"),
+      printDeadline: format(new Date(campaign.printDeadline), "yyyy-MM-dd"),
       status: campaign.status as "planning" | "booking_open" | "booking_closed" | "printed" | "mailed" | "completed",
     });
   };
@@ -277,6 +292,23 @@ export default function CampaignManagementPage() {
                         <Input 
                           type="date" 
                           data-testid="input-mail-date"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="printDeadline"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Print Deadline</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          data-testid="input-print-deadline"
                           {...field} 
                         />
                       </FormControl>
@@ -384,6 +416,7 @@ export default function CampaignManagementPage() {
               <TableRow>
                 <TableHead>Campaign Name</TableHead>
                 <TableHead>Mail Date</TableHead>
+                <TableHead>Print Deadline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Slots Booked</TableHead>
                 <TableHead>Revenue</TableHead>
@@ -400,6 +433,12 @@ export default function CampaignManagementPage() {
                     <div className="flex items-center">
                       <Calendar className="mr-2 h-4 w-4" />
                       {format(new Date(campaign.mailDate), "MMM dd, yyyy")}
+                    </div>
+                  </TableCell>
+                  <TableCell data-testid={`text-print-deadline-${campaign.id}`}>
+                    <div className="flex items-center">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {format(new Date(campaign.printDeadline), "MMM dd, yyyy")}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -492,6 +531,24 @@ export default function CampaignManagementPage() {
                       <Input 
                         type="date" 
                         data-testid="input-edit-mail-date"
+                        disabled={editingCampaign && ["booking_closed", "printed", "mailed", "completed"].includes(editingCampaign.status)}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="printDeadline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Print Deadline</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date" 
+                        data-testid="input-edit-print-deadline"
                         disabled={editingCampaign && ["booking_closed", "printed", "mailed", "completed"].includes(editingCampaign.status)}
                         {...field} 
                       />
