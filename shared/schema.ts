@@ -35,6 +35,7 @@ export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   mailDate: timestamp("mail_date").notNull(),
+  printDeadline: timestamp("print_deadline").notNull(),
   status: text("status").notNull().default("planning"), // 'planning', 'booking_open', 'booking_closed', 'printed', 'mailed', 'completed'
   totalSlots: integer("total_slots").notNull().default(64),
   bookedSlots: integer("booked_slots").notNull().default(0),

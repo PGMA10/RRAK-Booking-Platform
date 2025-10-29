@@ -63,6 +63,7 @@ export function initializeDatabase() {
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       name TEXT NOT NULL,
       mail_date INTEGER NOT NULL,
+      print_deadline INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'planning',
       total_slots INTEGER NOT NULL DEFAULT 64,
       booked_slots INTEGER NOT NULL DEFAULT 0,
@@ -70,6 +71,13 @@ export function initializeDatabase() {
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
+  
+  // Add print_deadline column to existing campaigns table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE campaigns ADD COLUMN print_deadline INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create bookings table
   sqlite.exec(`
