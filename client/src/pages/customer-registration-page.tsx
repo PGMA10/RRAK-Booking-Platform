@@ -87,7 +87,7 @@ export default function CustomerRegistrationPage() {
     
     try {
       // Mock API call to verify license
-      const response = await apiRequest("/api/verify-license", "POST", {
+      const response = await apiRequest("POST", "/api/verify-license", {
         licenseNumber,
         businessName,
       });

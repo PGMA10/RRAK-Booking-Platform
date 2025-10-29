@@ -695,6 +695,18 @@ export class DbStorage implements IStorage {
     });
   }
 
+  // Helper function to convert SQLite INTEGER timestamps to Date objects for bookings
+  private convertBookingTimestamps(booking: any): any {
+    return {
+      ...booking,
+      createdAt: booking.createdAt ? new Date(booking.createdAt as any) : null,
+      paidAt: booking.paidAt ? new Date(booking.paidAt as any) : null,
+      artworkUploadedAt: booking.artworkUploadedAt ? new Date(booking.artworkUploadedAt as any) : null,
+      artworkReviewedAt: booking.artworkReviewedAt ? new Date(booking.artworkReviewedAt as any) : null,
+      cancellationDate: booking.cancellationDate ? new Date(booking.cancellationDate as any) : null,
+    };
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     return result[0];
@@ -842,7 +854,7 @@ export class DbStorage implements IStorage {
       .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id));
     
     return results.map(r => ({
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {
@@ -868,7 +880,7 @@ export class DbStorage implements IStorage {
       .where(eq(bookingsTable.userId, userId));
     
     return results.map(r => ({
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {
@@ -894,7 +906,7 @@ export class DbStorage implements IStorage {
       .where(eq(bookingsTable.campaignId, campaignId));
     
     return results.map(r => ({
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {
@@ -913,7 +925,7 @@ export class DbStorage implements IStorage {
         eq(bookingsTable.industryId, industryId)
       )
     ).limit(1);
-    return result[0];
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 
   async getBookingById(id: string): Promise<Booking | undefined> {
@@ -935,7 +947,7 @@ export class DbStorage implements IStorage {
     
     const r = results[0];
     return {
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {
@@ -947,10 +959,11 @@ export class DbStorage implements IStorage {
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
+    const now = Date.now();
     const bookingWithId = {
       ...booking,
       id: (booking as any).id || randomUUID().replace(/-/g, ''),
-      createdAt: (booking as any).createdAt || new Date(),
+      createdAt: (booking as any).createdAt || now,
     };
     const result = await db.insert(bookingsTable).values(bookingWithId).returning();
     const createdBooking = result[0];
@@ -963,7 +976,8 @@ export class DbStorage implements IStorage {
       })
       .where(eq(campaignsTable.id, booking.campaignId));
     
-    return createdBooking;
+    // Convert INTEGER timestamps to Date objects for return
+    return this.convertBookingTimestamps(createdBooking) as Booking;
   }
 
   async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
@@ -985,7 +999,7 @@ export class DbStorage implements IStorage {
     
     const r = results[0];
     return {
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {
@@ -998,7 +1012,7 @@ export class DbStorage implements IStorage {
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
     const result = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
-    return result[0];
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 
   async updateBookingPaymentStatus(
@@ -1016,13 +1030,13 @@ export class DbStorage implements IStorage {
     
     const booking = currentBooking[0];
     
-    // Update booking with payment info
+    // Update booking with payment info - convert Date to timestamp if provided
     const result = await db.update(bookingsTable)
       .set({
         paymentStatus,
         stripePaymentIntentId: paymentData.stripePaymentIntentId,
         amountPaid: paymentData.amountPaid,
-        paidAt: paymentData.paidAt,
+        paidAt: paymentData.paidAt ? (paymentData.paidAt instanceof Date ? paymentData.paidAt.getTime() : paymentData.paidAt) : undefined,
       })
       .where(eq(bookingsTable.id, id))
       .returning();
@@ -1036,7 +1050,7 @@ export class DbStorage implements IStorage {
         .where(eq(campaignsTable.id, booking.campaignId));
     }
     
-    return result[0];
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 
   async cancelBooking(
@@ -1052,11 +1066,11 @@ export class DbStorage implements IStorage {
     
     const booking = currentBooking[0];
     
-    // Update booking with cancellation info
+    // Update booking with cancellation info - use timestamp for SQLite
     const result = await db.update(bookingsTable)
       .set({
         status: 'cancelled',
-        cancellationDate: new Date(),
+        cancellationDate: Date.now(),
         refundAmount: refundData.refundAmount,
         refundStatus: refundData.refundStatus,
       })
@@ -1071,7 +1085,7 @@ export class DbStorage implements IStorage {
       })
       .where(eq(campaignsTable.id, booking.campaignId));
     
-    return result[0];
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 
   async deleteBooking(id: string): Promise<boolean> {
@@ -1114,7 +1128,7 @@ export class DbStorage implements IStorage {
       .where(eq(bookingsTable.artworkStatus, 'under_review'));
     
     return results.map(r => ({
-      ...r.booking,
+      ...this.convertBookingTimestamps(r.booking),
       route: r.route,
       industry: r.industry,
       campaign: r.campaign ? {

@@ -84,7 +84,7 @@ export default function SlotGridPage() {
 
   // Mutations
   const createBookingMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/slots", "POST", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/slots", data),
     onSuccess: () => {
       toast({ description: "Slot booked successfully!" });
       queryClient.invalidateQueries({ queryKey: ["/api/slots", selectedCampaignId] });
@@ -101,7 +101,7 @@ export default function SlotGridPage() {
   });
 
   const deleteBookingMutation = useMutation({
-    mutationFn: (bookingId: string) => apiRequest(`/api/slots/${bookingId}`, "DELETE"),
+    mutationFn: (bookingId: string) => apiRequest("DELETE", `/api/slots/${bookingId}`),
     onSuccess: () => {
       toast({ description: "Booking cancelled successfully!" });
       queryClient.invalidateQueries({ queryKey: ["/api/slots", selectedCampaignId] });
