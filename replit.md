@@ -32,7 +32,9 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: Five main entities - users, routes, industries, campaigns, and bookings
 - **Relationships**: Foreign key constraints linking bookings to users, campaigns, routes, and industries
 - **Data Types**: Auto-incrementing IDs, timestamps for audit trails, text fields for status
+- **Campaign Date Fields**: Campaigns have mailDate (when postcards are mailed) and printDeadline (deadline for print-ready artwork, used for cancellation refund eligibility)
 - **Artwork Fields**: Bookings table includes artwork tracking (status, file path, filename, upload/review timestamps, rejection reason)
+- **Timestamp Handling**: SQLite stores dates as INTEGER (milliseconds since epoch), converted to Date objects when read using convertBookingTimestamps helper
 
 ### Authentication & Authorization
 - **Strategy**: Session-based authentication with secure password hashing
@@ -57,15 +59,15 @@ Preferred communication style: Simple, everyday language.
 
 ### Customer Self-Service Cancellation System
 - **Feature**: Customer-initiated booking cancellation with automatic Stripe refund processing
-- **Cancellation Policy**: 7-day deadline - full refund if 7+ days before campaign mail date, no refund within 7 days
+- **Cancellation Policy**: 7-day deadline - full refund if 7+ days before campaign print deadline, no refund within 7 days
 - **Eligibility**: Any non-cancelled booking with 'paid' or 'pending' payment status
-- **Refund Processing**: Automatic Stripe refund via API for eligible cancellations (7+ days before deadline)
+- **Refund Processing**: Automatic Stripe refund via API for eligible cancellations (7+ days before print deadline)
 - **Slot Release**: Canceled bookings immediately release their slot, decrement campaign bookedSlots and revenue
 - **Database Fields**: cancellationDate (timestamp), refundAmount (cents), refundStatus ('pending'|'processed'|'no_refund'|'failed')
 - **Customer UI**: Cancel Booking button on dashboard with confirmation dialog showing refund eligibility
 - **Admin Visibility**: Canceled bookings appear in admin notifications (last 7 days) with refund status
 - **API Endpoint**: `POST /api/bookings/:bookingId/cancel` with authorization checks
-- **Error Handling**: Validates campaign mail date exists, proper payment status, booking ownership
+- **Error Handling**: Validates campaign print deadline exists, proper payment status, booking ownership
 
 ### Admin Notification Center
 - **Purpose**: Centralized actionable items tracking separate from Recent Activity historical timeline

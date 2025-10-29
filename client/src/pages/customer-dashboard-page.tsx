@@ -557,22 +557,22 @@ export default function CustomerDashboardPage() {
                       const booking = bookings.find(b => b.id === cancelBookingId);
                       if (!booking) return null;
                       
-                      // Check if campaign has a mail date
-                      if (!booking.campaign?.mailDate) {
+                      // Check if campaign has a print deadline
+                      if (!booking.campaign?.printDeadline) {
                         return (
                           <div className="space-y-3">
                             <p>
                               Cancel booking for <strong>{booking.campaign?.name}</strong> - {booking.route?.zipCode}?
                             </p>
                             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
-                              ⚠ Cannot process cancellation: Campaign mail date not set. Please contact support.
+                              ⚠ Cannot process cancellation: Campaign print deadline not set. Please contact support.
                             </div>
                           </div>
                         );
                       }
                       
                       const now = new Date();
-                      const printDeadline = new Date(booking.campaign.mailDate);
+                      const printDeadline = new Date(booking.campaign.printDeadline);
                       const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                       const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
                       
@@ -606,7 +606,7 @@ export default function CustomerDashboardPage() {
                 onClick={handleCancelBooking}
                 className="bg-red-600 hover:bg-red-700"
                 data-testid="dialog-cancel-yes"
-                disabled={!bookings?.find(b => b.id === cancelBookingId)?.campaign?.mailDate || cancelBookingMutation.isPending}
+                disabled={!bookings?.find(b => b.id === cancelBookingId)?.campaign?.printDeadline || cancelBookingMutation.isPending}
               >
                 {cancelBookingMutation.isPending ? 'Cancelling...' : 'Cancel Booking'}
               </AlertDialogAction>

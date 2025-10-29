@@ -734,22 +734,22 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Only paid or pending bookings can be cancelled" });
       }
 
-      // Get campaign to check print deadline (mail date)
+      // Get campaign to check print deadline
       const campaign = await storage.getCampaign(booking.campaignId);
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
 
-      // Check if campaign has a mail date
-      if (!campaign.mailDate) {
+      // Check if campaign has a print deadline
+      if (!campaign.printDeadline) {
         return res.status(400).json({ 
-          message: "Cannot process cancellation: Campaign mail date not set. Please contact support." 
+          message: "Cannot process cancellation: Campaign print deadline not set. Please contact support." 
         });
       }
 
-      // Calculate days until print deadline (mail date)
+      // Calculate days until print deadline
       const now = new Date();
-      const printDeadline = new Date(campaign.mailDate);
+      const printDeadline = new Date(campaign.printDeadline);
       const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
       console.log(`📅 [Cancellation] Days until print deadline: ${daysUntilDeadline}`);
