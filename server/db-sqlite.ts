@@ -72,12 +72,7 @@ export function initializeDatabase() {
     )
   `);
   
-  // Add print_deadline column to existing campaigns table if it doesn't exist
-  try {
-    sqlite.exec(`ALTER TABLE campaigns ADD COLUMN print_deadline INTEGER NOT NULL DEFAULT 0`);
-  } catch (e) {
-    // Column already exists, ignore
-  }
+  // print_deadline column is already in the main CREATE TABLE statement above
 
   // Create bookings table
   sqlite.exec(`

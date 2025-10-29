@@ -294,7 +294,14 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "A campaign already exists for this month" });
       }
 
-      const campaign = await storage.createCampaign(campaignData);
+      // Convert Date objects to milliseconds for SQLite storage
+      const campaignToSave = {
+        ...campaignData,
+        mailDate: campaignData.mailDate.getTime() as any,
+        printDeadline: campaignData.printDeadline.getTime() as any,
+      };
+
+      const campaign = await storage.createCampaign(campaignToSave);
       res.status(201).json(campaign);
     } catch (error) {
       if (error.name === "ZodError") {
@@ -382,7 +389,16 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      const updatedCampaign = await storage.updateCampaign(req.params.id, campaignData);
+      // Convert Date objects to milliseconds for SQLite storage
+      const campaignToUpdate: any = { ...campaignData };
+      if (campaignData.mailDate) {
+        campaignToUpdate.mailDate = campaignData.mailDate.getTime();
+      }
+      if (campaignData.printDeadline) {
+        campaignToUpdate.printDeadline = campaignData.printDeadline.getTime();
+      }
+
+      const updatedCampaign = await storage.updateCampaign(req.params.id, campaignToUpdate);
       if (!updatedCampaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
