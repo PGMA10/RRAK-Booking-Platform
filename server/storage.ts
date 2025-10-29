@@ -794,6 +794,7 @@ export class DbStorage implements IStorage {
     return campaigns.map(campaign => ({
       ...campaign,
       mailDate: campaign.mailDate ? new Date(campaign.mailDate as any) : null,
+      printDeadline: campaign.printDeadline ? new Date(campaign.printDeadline as any) : null,
       createdAt: campaign.createdAt ? new Date(campaign.createdAt as any) : null,
     })) as Campaign[];
   }
@@ -805,6 +806,7 @@ export class DbStorage implements IStorage {
     return {
       ...result[0],
       mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
       createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
     } as Campaign;
   }
@@ -820,6 +822,7 @@ export class DbStorage implements IStorage {
     return {
       ...result[0],
       mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
       createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
     } as Campaign;
   }
@@ -831,6 +834,7 @@ export class DbStorage implements IStorage {
     return {
       ...result[0],
       mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
+      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
       createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
     } as Campaign;
   }
@@ -860,6 +864,7 @@ export class DbStorage implements IStorage {
       campaign: r.campaign ? {
         ...r.campaign,
         mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -886,6 +891,7 @@ export class DbStorage implements IStorage {
       campaign: r.campaign ? {
         ...r.campaign,
         mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -912,6 +918,7 @@ export class DbStorage implements IStorage {
       campaign: r.campaign ? {
         ...r.campaign,
         mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -1134,6 +1141,7 @@ export class DbStorage implements IStorage {
       campaign: r.campaign ? {
         ...r.campaign,
         mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
+        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
