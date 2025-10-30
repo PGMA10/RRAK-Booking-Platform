@@ -838,20 +838,34 @@ export class DbStorage implements IStorage {
       campaignWithId.createdAt = campaignWithId.createdAt.getTime();
     }
     
-    console.log("📅 After conversion, sending to Drizzle:", {
+    console.log("📅 After conversion, sending to DB:", {
       mailDate: campaignWithId.mailDate,
       mailDateType: typeof campaignWithId.mailDate,
       printDeadline: campaignWithId.printDeadline,
       printDeadlineType: typeof campaignWithId.printDeadline,
     });
     
-    const result = await db.insert(campaignsTable).values(campaignWithId).returning();
+    // Use raw SQL to bypass Drizzle's PostgreSQL column mapping
+    const result = db.run(sql`
+      INSERT INTO campaigns (id, name, mail_date, print_deadline, status, total_slots, booked_slots, revenue, created_at)
+      VALUES (${campaignWithId.id}, ${campaignWithId.name}, ${campaignWithId.mailDate}, ${campaignWithId.printDeadline}, 
+              ${campaignWithId.status || 'planning'}, ${campaignWithId.totalSlots || 64}, 
+              ${campaignWithId.bookedSlots || 0}, ${campaignWithId.revenue || 0}, ${campaignWithId.createdAt})
+    `);
+    
+    // Fetch the created campaign
+    const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignWithId.id));
+    
+    if (campaigns.length === 0) {
+      throw new Error("Failed to create campaign");
+    }
+    
     // Convert SQLite INTEGER timestamps to Date objects
     return {
-      ...result[0],
-      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
-      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
-      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
+      ...campaigns[0],
+      mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
+      printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
+      createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
     } as Campaign;
   }
 
@@ -868,14 +882,66 @@ export class DbStorage implements IStorage {
       updatesToSave.createdAt = updatesToSave.createdAt.getTime();
     }
     
-    const result = await db.update(campaignsTable).set(updatesToSave).where(eq(campaignsTable.id, id)).returning();
-    if (!result[0]) return undefined;
+    // Build UPDATE query dynamically
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    
+    if (updatesToSave.name !== undefined) {
+      updateFields.push('name = ?');
+      values.push(updatesToSave.name);
+    }
+    if (updatesToSave.mailDate !== undefined) {
+      updateFields.push('mail_date = ?');
+      values.push(updatesToSave.mailDate);
+    }
+    if (updatesToSave.printDeadline !== undefined) {
+      updateFields.push('print_deadline = ?');
+      values.push(updatesToSave.printDeadline);
+    }
+    if (updatesToSave.status !== undefined) {
+      updateFields.push('status = ?');
+      values.push(updatesToSave.status);
+    }
+    if (updatesToSave.totalSlots !== undefined) {
+      updateFields.push('total_slots = ?');
+      values.push(updatesToSave.totalSlots);
+    }
+    if (updatesToSave.bookedSlots !== undefined) {
+      updateFields.push('booked_slots = ?');
+      values.push(updatesToSave.bookedSlots);
+    }
+    if (updatesToSave.revenue !== undefined) {
+      updateFields.push('revenue = ?');
+      values.push(updatesToSave.revenue);
+    }
+    
+    if (updateFields.length === 0) {
+      // No updates, just return the existing campaign
+      const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+      if (campaigns.length === 0) return undefined;
+      return {
+        ...campaigns[0],
+        mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
+        printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
+        createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
+      } as Campaign;
+    }
+    
+    values.push(id); // Add ID for WHERE clause
+    
+    // Use raw SQL to bypass Drizzle's PostgreSQL column mapping
+    db.run(sql.raw(`UPDATE campaigns SET ${updateFields.join(', ')} WHERE id = ?`, values));
+    
+    // Fetch the updated campaign
+    const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+    if (campaigns.length === 0) return undefined;
+    
     // Convert SQLite INTEGER timestamps to Date objects
     return {
-      ...result[0],
-      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
-      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
-      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
+      ...campaigns[0],
+      mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
+      printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
+      createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
     } as Campaign;
   }
 
