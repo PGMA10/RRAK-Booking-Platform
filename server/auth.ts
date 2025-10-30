@@ -159,8 +159,18 @@ export function setupAuth(app: Express) {
       userId: req.user?.id,
       userRole: req.user?.role,
       sessionID: req.sessionID,
+      cookies: req.headers.cookie,
     });
-    res.status(200).json(req.user);
+    
+    // Force session save before responding
+    req.session.save((err) => {
+      if (err) {
+        console.error("❌ Session save error:", err);
+        return res.status(500).json({ message: "Session save failed" });
+      }
+      console.log("💾 Session saved successfully, cookie should be set");
+      res.status(200).json(req.user);
+    });
   });
 
   app.post("/api/logout", (req, res, next) => {
