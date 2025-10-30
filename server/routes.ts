@@ -281,13 +281,23 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      console.log("📅 Received campaign data:", req.body);
+      
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
-        mailDate: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
+        mailDate: z.string().transform((val) => {
+          const parsed = parseDateAtNoonAKST(val);
+          console.log(`📅 Parsed mailDate: "${val}" -> ${parsed.toISOString()} (${parsed})`);
+          return parsed;
+        }).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
-        printDeadline: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
+        printDeadline: z.string().transform((val) => {
+          const parsed = parseDateAtNoonAKST(val);
+          console.log(`📅 Parsed printDeadline: "${val}" -> ${parsed.toISOString()} (${parsed})`);
+          return parsed;
+        }).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Print deadline must be in the future"),
@@ -300,6 +310,10 @@ export function registerRoutes(app: Express): Server {
       });
       
       const campaignData = campaignValidationSchema.parse(req.body);
+      console.log("📅 Validated campaign data:", {
+        mailDate: campaignData.mailDate,
+        printDeadline: campaignData.printDeadline,
+      });
       
       // Check for duplicate mail dates (only one campaign per month)
       const allCampaigns = await storage.getAllCampaigns();
