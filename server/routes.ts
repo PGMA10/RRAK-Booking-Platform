@@ -314,10 +314,11 @@ export function registerRoutes(app: Express): Server {
       const campaign = await storage.createCampaign(campaignToSave);
       res.status(201).json(campaign);
     } catch (error) {
+      console.error("❌ Campaign creation error:", error);
       if (error.name === "ZodError") {
         return res.status(400).json({ message: "Invalid campaign data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create campaign" });
+      res.status(500).json({ message: "Failed to create campaign", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
