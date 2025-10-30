@@ -17,13 +17,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
 });
 
-// Helper function to parse date strings at noon UTC to avoid timezone boundary issues
-// When a user selects "Nov 8" in the date picker, we store it as Nov 8 12:00 UTC
-// This prevents timezone conversion bugs where Nov 8 midnight in Alaska becomes Nov 7 in UTC
-function parseDateAtNoonUTC(dateString: string): Date {
+// Helper function to parse date strings at noon AKST to avoid timezone boundary issues
+// When a user selects "Nov 8" in the date picker, we store it as Nov 8 12:00 AKST
+// AKST is UTC-9, so noon AKST is 21:00 UTC (9 PM UTC the same day)
+function parseDateAtNoonAKST(dateString: string): Date {
   const date = new Date(dateString);
-  // Create a new date at noon UTC using the year, month, day from the input
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0));
+  // Create a new date at noon AKST (which is 21:00 UTC, or 9 PM UTC)
+  // AKST is UTC-9, so we add 9 hours to noon to get the UTC equivalent
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 21, 0, 0, 0));
 }
 
 // Configure multer for artwork uploads
@@ -282,11 +283,11 @@ export function registerRoutes(app: Express): Server {
     try {
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
-        mailDate: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
+        mailDate: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
-        printDeadline: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
+        printDeadline: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Print deadline must be in the future"),
@@ -342,11 +343,11 @@ export function registerRoutes(app: Express): Server {
     try {
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
-        mailDate: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
+        mailDate: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
-        printDeadline: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
+        printDeadline: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Print deadline must be in the future"),
