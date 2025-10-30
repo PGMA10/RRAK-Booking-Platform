@@ -17,6 +17,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
 });
 
+// Helper function to parse date strings at noon UTC to avoid timezone boundary issues
+// When a user selects "Nov 8" in the date picker, we store it as Nov 8 12:00 UTC
+// This prevents timezone conversion bugs where Nov 8 midnight in Alaska becomes Nov 7 in UTC
+function parseDateAtNoonUTC(dateString: string): Date {
+  const date = new Date(dateString);
+  // Create a new date at noon UTC using the year, month, day from the input
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0));
+}
+
 // Configure multer for artwork uploads
 const uploadsDir = path.join(process.cwd(), "uploads", "artwork");
 if (!fs.existsSync(uploadsDir)) {
@@ -273,11 +282,11 @@ export function registerRoutes(app: Express): Server {
     try {
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
-        mailDate: z.coerce.date().refine((date) => {
+        mailDate: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
-        printDeadline: z.coerce.date().refine((date) => {
+        printDeadline: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Print deadline must be in the future"),
@@ -333,11 +342,11 @@ export function registerRoutes(app: Express): Server {
     try {
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
-        mailDate: z.coerce.date().refine((date) => {
+        mailDate: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Mail date must be in the future"),
-        printDeadline: z.coerce.date().refine((date) => {
+        printDeadline: z.string().transform((val) => parseDateAtNoonUTC(val)).refine((date) => {
           const now = new Date();
           return date > now;
         }, "Print deadline must be in the future"),
