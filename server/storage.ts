@@ -812,6 +812,15 @@ export class DbStorage implements IStorage {
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
+    console.log("📅 Creating campaign, received:", {
+      mailDate: campaign.mailDate,
+      mailDateType: typeof campaign.mailDate,
+      mailDateIsDate: campaign.mailDate instanceof Date,
+      printDeadline: campaign.printDeadline,
+      printDeadlineType: typeof campaign.printDeadline,
+      printDeadlineIsDate: campaign.printDeadline instanceof Date,
+    });
+    
     const campaignWithId: any = {
       ...campaign,
       id: (campaign as any).id || randomUUID().replace(/-/g, ''),
@@ -828,6 +837,13 @@ export class DbStorage implements IStorage {
     if (campaignWithId.createdAt instanceof Date) {
       campaignWithId.createdAt = campaignWithId.createdAt.getTime();
     }
+    
+    console.log("📅 After conversion, sending to Drizzle:", {
+      mailDate: campaignWithId.mailDate,
+      mailDateType: typeof campaignWithId.mailDate,
+      printDeadline: campaignWithId.printDeadline,
+      printDeadlineType: typeof campaignWithId.printDeadline,
+    });
     
     const result = await db.insert(campaignsTable).values(campaignWithId).returning();
     // Convert SQLite INTEGER timestamps to Date objects
