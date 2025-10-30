@@ -812,11 +812,23 @@ export class DbStorage implements IStorage {
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
-    const campaignWithId = {
+    const campaignWithId: any = {
       ...campaign,
       id: (campaign as any).id || randomUUID().replace(/-/g, ''),
       createdAt: (campaign as any).createdAt || new Date(),
     };
+    
+    // Convert Date objects to milliseconds for SQLite INTEGER storage
+    if (campaignWithId.mailDate instanceof Date) {
+      campaignWithId.mailDate = campaignWithId.mailDate.getTime();
+    }
+    if (campaignWithId.printDeadline instanceof Date) {
+      campaignWithId.printDeadline = campaignWithId.printDeadline.getTime();
+    }
+    if (campaignWithId.createdAt instanceof Date) {
+      campaignWithId.createdAt = campaignWithId.createdAt.getTime();
+    }
+    
     const result = await db.insert(campaignsTable).values(campaignWithId).returning();
     // Convert SQLite INTEGER timestamps to Date objects
     return {
@@ -828,7 +840,19 @@ export class DbStorage implements IStorage {
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
-    const result = await db.update(campaignsTable).set(updates).where(eq(campaignsTable.id, id)).returning();
+    // Convert Date objects to milliseconds for SQLite INTEGER storage
+    const updatesToSave: any = { ...updates };
+    if (updatesToSave.mailDate instanceof Date) {
+      updatesToSave.mailDate = updatesToSave.mailDate.getTime();
+    }
+    if (updatesToSave.printDeadline instanceof Date) {
+      updatesToSave.printDeadline = updatesToSave.printDeadline.getTime();
+    }
+    if (updatesToSave.createdAt instanceof Date) {
+      updatesToSave.createdAt = updatesToSave.createdAt.getTime();
+    }
+    
+    const result = await db.update(campaignsTable).set(updatesToSave).where(eq(campaignsTable.id, id)).returning();
     if (!result[0]) return undefined;
     // Convert SQLite INTEGER timestamps to Date objects
     return {

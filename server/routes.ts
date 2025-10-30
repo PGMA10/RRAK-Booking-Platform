@@ -304,14 +304,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "A campaign already exists for this month" });
       }
 
-      // Convert Date objects to milliseconds for SQLite storage
-      const campaignToSave = {
-        ...campaignData,
-        mailDate: campaignData.mailDate.getTime() as any,
-        printDeadline: campaignData.printDeadline.getTime() as any,
-      };
-
-      const campaign = await storage.createCampaign(campaignToSave);
+      const campaign = await storage.createCampaign(campaignData);
       res.status(201).json(campaign);
     } catch (error) {
       console.error("❌ Campaign creation error:", error);
@@ -410,16 +403,7 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      // Convert Date objects to milliseconds for SQLite storage
-      const campaignToUpdate: any = { ...campaignData };
-      if (campaignData.mailDate) {
-        campaignToUpdate.mailDate = campaignData.mailDate.getTime();
-      }
-      if (campaignData.printDeadline) {
-        campaignToUpdate.printDeadline = campaignData.printDeadline.getTime();
-      }
-
-      const updatedCampaign = await storage.updateCampaign(req.params.id, campaignToUpdate);
+      const updatedCampaign = await storage.updateCampaign(req.params.id, campaignData);
       if (!updatedCampaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
