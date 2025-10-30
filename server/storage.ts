@@ -940,7 +940,7 @@ export class DbStorage implements IStorage {
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
-    const now = Date.now();
+    const now = new Date();
     const bookingWithId = {
       ...booking,
       id: (booking as any).id || randomUUID().replace(/-/g, ''),
