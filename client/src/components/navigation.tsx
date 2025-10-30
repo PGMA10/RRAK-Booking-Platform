@@ -21,9 +21,11 @@ export function Navigation() {
   };
 
   const navItems = [
-    { path: "/", label: "Dashboard" },
+    { 
+      path: user?.role === "admin" ? "/admin" : "/customer/dashboard", 
+      label: "Dashboard" 
+    },
     { path: "/calendar", label: "Calendar" },
-    ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin" }] : []),
   ];
 
   return (
