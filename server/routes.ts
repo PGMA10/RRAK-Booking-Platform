@@ -256,7 +256,17 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/campaigns", async (req, res) => {
+    console.log("🔍 POST /api/campaigns auth check:", {
+      isAuthenticated: req.isAuthenticated(),
+      hasUser: !!req.user,
+      userRole: req.user?.role,
+      userId: req.user?.id,
+      hasSession: !!req.session,
+      sessionID: req.sessionID,
+    });
+    
     if (!req.isAuthenticated() || req.user.role !== "admin") {
+      console.log("❌ Auth failed - returning 403");
       return res.status(403).json({ message: "Admin access required" });
     }
 
@@ -312,7 +322,17 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.put("/api/campaigns/:id", async (req, res) => {
+    console.log("🔍 PUT /api/campaigns/:id auth check:", {
+      isAuthenticated: req.isAuthenticated(),
+      hasUser: !!req.user,
+      userRole: req.user?.role,
+      userId: req.user?.id,
+      hasSession: !!req.session,
+      sessionID: req.sessionID,
+    });
+    
     if (!req.isAuthenticated() || req.user.role !== "admin") {
+      console.log("❌ Auth failed - returning 403");
       return res.status(403).json({ message: "Admin access required" });
     }
 
