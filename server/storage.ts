@@ -789,160 +789,28 @@ export class DbStorage implements IStorage {
   }
 
   async getAllCampaigns(): Promise<Campaign[]> {
-    const campaigns = await db.select().from(campaignsTable);
-    // Convert SQLite INTEGER timestamps to Date objects
-    return campaigns.map(campaign => ({
-      ...campaign,
-      mailDate: campaign.mailDate ? new Date(campaign.mailDate as any) : null,
-      printDeadline: campaign.printDeadline ? new Date(campaign.printDeadline as any) : null,
-      createdAt: campaign.createdAt ? new Date(campaign.createdAt as any) : null,
-    })) as Campaign[];
+    return await db.select().from(campaignsTable);
   }
 
   async getCampaign(id: string): Promise<Campaign | undefined> {
     const result = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id)).limit(1);
-    if (!result[0]) return undefined;
-    // Convert SQLite INTEGER timestamps to Date objects
-    return {
-      ...result[0],
-      mailDate: result[0].mailDate ? new Date(result[0].mailDate as any) : null,
-      printDeadline: result[0].printDeadline ? new Date(result[0].printDeadline as any) : null,
-      createdAt: result[0].createdAt ? new Date(result[0].createdAt as any) : null,
-    } as Campaign;
+    return result[0];
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
-    console.log("📅 Creating campaign, received:", {
-      mailDate: campaign.mailDate,
-      mailDateType: typeof campaign.mailDate,
-      mailDateIsDate: campaign.mailDate instanceof Date,
-      printDeadline: campaign.printDeadline,
-      printDeadlineType: typeof campaign.printDeadline,
-      printDeadlineIsDate: campaign.printDeadline instanceof Date,
-    });
-    
-    const campaignWithId: any = {
+    const campaignWithId = {
       ...campaign,
       id: (campaign as any).id || randomUUID().replace(/-/g, ''),
       createdAt: (campaign as any).createdAt || new Date(),
     };
     
-    // Convert Date objects to milliseconds for SQLite INTEGER storage
-    if (campaignWithId.mailDate instanceof Date) {
-      campaignWithId.mailDate = campaignWithId.mailDate.getTime();
-    }
-    if (campaignWithId.printDeadline instanceof Date) {
-      campaignWithId.printDeadline = campaignWithId.printDeadline.getTime();
-    }
-    if (campaignWithId.createdAt instanceof Date) {
-      campaignWithId.createdAt = campaignWithId.createdAt.getTime();
-    }
-    
-    console.log("📅 After conversion, sending to DB:", {
-      mailDate: campaignWithId.mailDate,
-      mailDateType: typeof campaignWithId.mailDate,
-      printDeadline: campaignWithId.printDeadline,
-      printDeadlineType: typeof campaignWithId.printDeadline,
-    });
-    
-    // Use raw SQL to bypass Drizzle's PostgreSQL column mapping
-    const result = db.run(sql`
-      INSERT INTO campaigns (id, name, mail_date, print_deadline, status, total_slots, booked_slots, revenue, created_at)
-      VALUES (${campaignWithId.id}, ${campaignWithId.name}, ${campaignWithId.mailDate}, ${campaignWithId.printDeadline}, 
-              ${campaignWithId.status || 'planning'}, ${campaignWithId.totalSlots || 64}, 
-              ${campaignWithId.bookedSlots || 0}, ${campaignWithId.revenue || 0}, ${campaignWithId.createdAt})
-    `);
-    
-    // Fetch the created campaign
-    const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignWithId.id));
-    
-    if (campaigns.length === 0) {
-      throw new Error("Failed to create campaign");
-    }
-    
-    // Convert SQLite INTEGER timestamps to Date objects
-    return {
-      ...campaigns[0],
-      mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
-      printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
-      createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
-    } as Campaign;
+    const result = await db.insert(campaignsTable).values(campaignWithId).returning();
+    return result[0];
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
-    // Convert Date objects to milliseconds for SQLite INTEGER storage
-    const updatesToSave: any = { ...updates };
-    if (updatesToSave.mailDate instanceof Date) {
-      updatesToSave.mailDate = updatesToSave.mailDate.getTime();
-    }
-    if (updatesToSave.printDeadline instanceof Date) {
-      updatesToSave.printDeadline = updatesToSave.printDeadline.getTime();
-    }
-    if (updatesToSave.createdAt instanceof Date) {
-      updatesToSave.createdAt = updatesToSave.createdAt.getTime();
-    }
-    
-    // Build UPDATE query dynamically
-    const updateFields: string[] = [];
-    const values: any[] = [];
-    
-    if (updatesToSave.name !== undefined) {
-      updateFields.push('name = ?');
-      values.push(updatesToSave.name);
-    }
-    if (updatesToSave.mailDate !== undefined) {
-      updateFields.push('mail_date = ?');
-      values.push(updatesToSave.mailDate);
-    }
-    if (updatesToSave.printDeadline !== undefined) {
-      updateFields.push('print_deadline = ?');
-      values.push(updatesToSave.printDeadline);
-    }
-    if (updatesToSave.status !== undefined) {
-      updateFields.push('status = ?');
-      values.push(updatesToSave.status);
-    }
-    if (updatesToSave.totalSlots !== undefined) {
-      updateFields.push('total_slots = ?');
-      values.push(updatesToSave.totalSlots);
-    }
-    if (updatesToSave.bookedSlots !== undefined) {
-      updateFields.push('booked_slots = ?');
-      values.push(updatesToSave.bookedSlots);
-    }
-    if (updatesToSave.revenue !== undefined) {
-      updateFields.push('revenue = ?');
-      values.push(updatesToSave.revenue);
-    }
-    
-    if (updateFields.length === 0) {
-      // No updates, just return the existing campaign
-      const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
-      if (campaigns.length === 0) return undefined;
-      return {
-        ...campaigns[0],
-        mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
-        printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
-        createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
-      } as Campaign;
-    }
-    
-    values.push(id); // Add ID for WHERE clause
-    
-    // Use raw SQL to bypass Drizzle's PostgreSQL column mapping
-    db.run(sql.raw(`UPDATE campaigns SET ${updateFields.join(', ')} WHERE id = ?`, values));
-    
-    // Fetch the updated campaign
-    const campaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
-    if (campaigns.length === 0) return undefined;
-    
-    // Convert SQLite INTEGER timestamps to Date objects
-    return {
-      ...campaigns[0],
-      mailDate: campaigns[0].mailDate ? new Date(campaigns[0].mailDate as any) : null,
-      printDeadline: campaigns[0].printDeadline ? new Date(campaigns[0].printDeadline as any) : null,
-      createdAt: campaigns[0].createdAt ? new Date(campaigns[0].createdAt as any) : null,
-    } as Campaign;
+    const result = await db.update(campaignsTable).set(updates).where(eq(campaignsTable.id, id)).returning();
+    return result[0];
   }
 
   async deleteCampaign(id: string): Promise<boolean> {

@@ -1,21 +1,21 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   businessName: text("business_name"),
   phone: text("phone"),
   role: text("role").notNull().default("customer"), // 'customer' or 'admin'
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
-export const routes = pgTable("routes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const routes = sqliteTable("routes", {
+  id: text("id").primaryKey(),
   zipCode: text("zip_code").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
@@ -23,32 +23,32 @@ export const routes = pgTable("routes", {
   status: text("status").notNull().default("active"), // 'active' or 'inactive'
 });
 
-export const industries = pgTable("industries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const industries = sqliteTable("industries", {
+  id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description"),
   status: text("status").notNull().default("active"), // 'active' or 'inactive'
   icon: text("icon").notNull(),
 });
 
-export const campaigns = pgTable("campaigns", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const campaigns = sqliteTable("campaigns", {
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
-  mailDate: timestamp("mail_date").notNull(),
-  printDeadline: timestamp("print_deadline").notNull(),
+  mailDate: integer("mail_date", { mode: 'timestamp_ms' }).notNull(),
+  printDeadline: integer("print_deadline", { mode: 'timestamp_ms' }).notNull(),
   status: text("status").notNull().default("planning"), // 'planning', 'booking_open', 'booking_closed', 'printed', 'mailed', 'completed'
   totalSlots: integer("total_slots").notNull().default(64),
   bookedSlots: integer("booked_slots").notNull().default(0),
   revenue: integer("revenue").notNull().default(0), // in cents
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
-export const bookings = pgTable("bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id),
-  routeId: varchar("route_id").notNull().references(() => routes.id),
-  industryId: varchar("industry_id").notNull().references(() => industries.id),
+export const bookings = sqliteTable("bookings", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  routeId: text("route_id").notNull().references(() => routes.id),
+  industryId: text("industry_id").notNull().references(() => industries.id),
   businessName: text("business_name").notNull(),
   licenseNumber: text("license_number"),
   contactEmail: text("contact_email").notNull(),
@@ -59,27 +59,27 @@ export const bookings = pgTable("bookings", {
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   amountPaid: integer("amount_paid"), // in cents, actual amount paid
-  paidAt: timestamp("paid_at"),
+  paidAt: integer("paid_at", { mode: 'timestamp_ms' }),
   paymentId: text("payment_id"), // legacy mock payment reference
   artworkStatus: text("artwork_status").notNull().default("pending_upload"), // 'pending_upload', 'under_review', 'approved', 'rejected'
   artworkFilePath: text("artwork_file_path"),
   artworkFileName: text("artwork_file_name"),
-  artworkUploadedAt: timestamp("artwork_uploaded_at"),
-  artworkReviewedAt: timestamp("artwork_reviewed_at"),
+  artworkUploadedAt: integer("artwork_uploaded_at", { mode: 'timestamp_ms' }),
+  artworkReviewedAt: integer("artwork_reviewed_at", { mode: 'timestamp_ms' }),
   artworkRejectionReason: text("artwork_rejection_reason"),
-  cancellationDate: timestamp("cancellation_date"),
+  cancellationDate: integer("cancellation_date", { mode: 'timestamp_ms' }),
   refundAmount: integer("refund_amount"), // in cents
   refundStatus: text("refund_status"), // 'pending', 'processed', 'no_refund', 'failed'
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
-export const adminNotifications = pgTable("admin_notifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const adminNotifications = sqliteTable("admin_notifications", {
+  id: text("id").primaryKey(),
   type: text("type").notNull(), // 'new_booking', 'artwork_review', 'artwork_deadline'
-  bookingId: varchar("booking_id").notNull().references(() => bookings.id),
-  isHandled: boolean("is_handled").notNull().default(false),
-  handledAt: timestamp("handled_at"),
-  createdAt: timestamp("created_at").defaultNow(),
+  bookingId: text("booking_id").notNull().references(() => bookings.id),
+  isHandled: integer("is_handled", { mode: 'boolean' }).notNull().default(false),
+  handledAt: integer("handled_at", { mode: 'timestamp_ms' }),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
