@@ -40,13 +40,12 @@ export default function CustomerConfirmationPage() {
   const verifyPaymentMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const response = await apiRequest(
+        "POST",
         "/api/stripe-verify-session",
-        {
-          method: "POST",
-          body: JSON.stringify({ sessionId }),
-        }
-      ) as { paymentStatus: string; bookingId: string; updated: boolean };
-      return response;
+        { sessionId }
+      );
+      const data = await response.json();
+      return data as { paymentStatus: string; bookingId: string; updated: boolean };
     },
     onSuccess: (data: { paymentStatus: string; bookingId: string; updated: boolean }) => {
       console.log("✅ [Confirmation] Payment verification result:", data);
