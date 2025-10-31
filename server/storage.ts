@@ -736,6 +736,8 @@ export class DbStorage implements IStorage {
       artworkUploadedAt: booking.artworkUploadedAt ? new Date(booking.artworkUploadedAt as any) : null,
       artworkReviewedAt: booking.artworkReviewedAt ? new Date(booking.artworkReviewedAt as any) : null,
       cancellationDate: booking.cancellationDate ? new Date(booking.cancellationDate as any) : null,
+      approvedAt: booking.approvedAt ? new Date(booking.approvedAt as any) : null,
+      rejectedAt: booking.rejectedAt ? new Date(booking.rejectedAt as any) : null,
     };
   }
 
