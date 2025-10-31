@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db-sqlite";
 import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 
@@ -935,7 +935,8 @@ export class DbStorage implements IStorage {
       and(
         eq(bookingsTable.campaignId, campaignId),
         eq(bookingsTable.routeId, routeId),
-        eq(bookingsTable.industryId, industryId)
+        eq(bookingsTable.industryId, industryId),
+        ne(bookingsTable.status, 'cancelled')
       )
     ).limit(1);
     return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
