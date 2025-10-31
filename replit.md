@@ -10,6 +10,17 @@ The platform operates on a slot-based booking system where campaigns have limite
 
 Preferred communication style: Simple, everyday language.
 
+## Test Credentials
+
+### Seeded Users (automatically created on server start)
+- **Admin**: Username `admin`, Password `admin123`
+- **Customer**: Username `testcustomer`, Password `customer123`
+
+### Session Cookie Fix (October 31, 2025)
+- Fixed 401 Unauthorized errors after login by disabling `trust proxy` in development mode
+- Session cookies now work correctly - authentication persists across requests
+- Issue was caused by Express proxy settings interfering with cookie handling in Replit environment
+
 ## System Architecture
 
 ### Frontend Architecture

@@ -59,10 +59,15 @@ export function setupAuth(app: Express) {
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: 'lax',
+      path: '/',
     },
   };
 
-  app.set("trust proxy", 1);
+  // Don't use trust proxy in development
+  if (process.env.NODE_ENV !== "development") {
+    app.set("trust proxy", 1);
+  }
+  
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
