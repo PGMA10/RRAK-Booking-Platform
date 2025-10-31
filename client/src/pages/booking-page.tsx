@@ -23,7 +23,6 @@ export default function BookingPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [bookingForm, setBookingForm] = useState({
     businessName: user?.businessName || "",
-    licenseNumber: "",
     contactEmail: user?.email || "",
     contactPhone: user?.phone || "",
   });
@@ -78,7 +77,6 @@ export default function BookingPage() {
       routeId: selectedRoute.id,
       industryId: selectedIndustry.id,
       businessName: bookingForm.businessName,
-      licenseNumber: bookingForm.licenseNumber,
       contactEmail: bookingForm.contactEmail,
       contactPhone: bookingForm.contactPhone,
       amount: 60000, // $600 in cents
@@ -271,16 +269,6 @@ export default function BookingPage() {
                         onChange={(e) => setBookingForm({ ...bookingForm, businessName: e.target.value })}
                         placeholder="Your Business Name"
                         required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="license-number">License Number</Label>
-                      <Input
-                        id="license-number"
-                        data-testid="input-license-number"
-                        value={bookingForm.licenseNumber}
-                        onChange={(e) => setBookingForm({ ...bookingForm, licenseNumber: e.target.value })}
-                        placeholder="Business License #"
                       />
                     </div>
                     <div>

@@ -120,7 +120,7 @@ export default function AuthPage() {
                     </div>
                     <ul className="text-xs text-green-700 space-y-1">
                       <li>• Complete business verification process</li>
-                      <li>• License validation and industry confirmation</li>
+                      <li>• Industry confirmation</li>
                       <li>• Streamlined booking for future campaigns</li>
                       <li>• Priority access to new routes and features</li>
                     </ul>

@@ -127,7 +127,6 @@ export default function CustomerBookingPage() {
         businessName: user?.businessName || user?.username || "Unknown Business",
         contactEmail: user?.email || "",
         contactPhone: user?.phone || "",
-        licenseNumber: "",
         amount: 60000, // $600 in cents
       });
       return await response.json();

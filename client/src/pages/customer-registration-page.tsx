@@ -23,7 +23,6 @@ const customerRegistrationSchema = z.object({
   businessName: z.string().min(1, "Business name is required").max(100, "Business name too long"),
   email: z.string().email("Valid email address is required"),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number too long"),
-  licenseNumber: z.string().min(1, "Business license number is required").max(50, "License number too long"),
   industryId: z.string().min(1, "Please select an industry"),
 });
 
@@ -33,15 +32,6 @@ export default function CustomerRegistrationPage() {
   const { user, registerMutation } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  
-  // License verification state
-  const [isVerifyingLicense, setIsVerifyingLicense] = useState(false);
-  const [licenseVerified, setLicenseVerified] = useState(true); // Auto-verified in demo mode
-  const [licenseVerificationDetails, setLicenseVerificationDetails] = useState<{
-    valid: boolean;
-    business: string;
-    license: string;
-  } | null>(null);
 
   // Form handling
   const form = useForm<CustomerRegistrationData>({
@@ -52,7 +42,6 @@ export default function CustomerRegistrationPage() {
       businessName: "",
       email: "",
       phone: "",
-      licenseNumber: "",
       industryId: "",
     },
   });
@@ -67,54 +56,7 @@ export default function CustomerRegistrationPage() {
     return <Redirect to={user.role === "admin" ? "/admin" : "/customer/booking"} />;
   }
 
-  // Use existing auth registration mutation
-  // Note: registerMutation handles the API call and navigation automatically
-
-  // Mock license verification
-  const handleLicenseVerification = async () => {
-    const licenseNumber = form.getValues("licenseNumber");
-    const businessName = form.getValues("businessName");
-    
-    if (!licenseNumber || !businessName) {
-      toast({
-        variant: "destructive",
-        description: "Please enter business name and license number first",
-      });
-      return;
-    }
-
-    setIsVerifyingLicense(true);
-    
-    try {
-      // Mock API call to verify license
-      const response = await apiRequest("POST", "/api/verify-license", {
-        licenseNumber,
-        businessName,
-      });
-      
-      const data = await response.json();
-      setLicenseVerificationDetails(data);
-      setLicenseVerified(data.valid);
-      
-      if (data.valid) {
-        toast({ description: "License verified successfully!" });
-      } else {
-        toast({
-          variant: "destructive", 
-          description: "License verification failed. Please check your details.",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        description: "License verification failed. Please try again.",
-      });
-    } finally {
-      setIsVerifyingLicense(false);
-    }
-  };
-
-  // Form submission - license auto-verified in demo mode
+  // Form submission
   const handleRegistration = (data: CustomerRegistrationData) => {
     // Use existing auth registration mutation
     registerMutation.mutate({
@@ -298,66 +240,6 @@ export default function CustomerRegistrationPage() {
                     )}
                   />
 
-                  {/* License Number with Verification */}
-                  <FormField
-                    control={form.control}
-                    name="licenseNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Business License Number
-                        </FormLabel>
-                        <div className="flex gap-2">
-                          <FormControl className="flex-1">
-                            <Input 
-                              placeholder="Enter business license number" 
-                              {...field} 
-                              data-testid="input-license-number"
-                            />
-                          </FormControl>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={handleLicenseVerification}
-                            disabled={isVerifyingLicense || !field.value || !form.getValues("businessName")}
-                            data-testid="button-verify-license"
-                          >
-                            {isVerifyingLicense ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Verifying...
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4 mr-2" />
-                                Verify
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        {licenseVerificationDetails && (
-                          <div className="mt-2">
-                            {licenseVerified ? (
-                              <Badge variant="default" className="bg-green-100 text-green-800 border-green-300">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                License Verified
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive">
-                                License Invalid
-                              </Badge>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-1" data-testid="text-license-details">
-                              Business: {licenseVerificationDetails.business} | License: {licenseVerificationDetails.license}
-                            </p>
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   {/* Industry Selection */}
                   <FormField
                     control={form.control}
@@ -400,7 +282,7 @@ export default function CustomerRegistrationPage() {
                     </Link>
                     <Button 
                       type="submit" 
-                      disabled={registerMutation.isPending || !licenseVerified}
+                      disabled={registerMutation.isPending}
                       data-testid="button-submit-registration"
                     >
                       {registerMutation.isPending ? (

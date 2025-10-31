@@ -50,7 +50,6 @@ export const bookings = sqliteTable("bookings", {
   routeId: text("route_id").notNull().references(() => routes.id),
   industryId: text("industry_id").notNull().references(() => industries.id),
   businessName: text("business_name").notNull(),
-  licenseNumber: text("license_number"),
   contactEmail: text("contact_email").notNull(),
   contactPhone: text("contact_phone"),
   amount: integer("amount").notNull().default(60000), // in cents
