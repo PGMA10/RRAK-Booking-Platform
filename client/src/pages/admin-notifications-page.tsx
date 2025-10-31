@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
+import { BookingDetailsModal } from "@/components/booking-details-modal";
 import {
   Bell,
   UserPlus,
@@ -31,6 +33,18 @@ interface Notification {
 
 export default function AdminNotificationsPage() {
   const { user } = useAuth();
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleViewDetails = (booking: BookingWithDetails) => {
+    setSelectedBooking(booking);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedBooking(null);
+  };
 
   if (!user || user.role !== "admin") {
     return <Redirect to="/" />;
@@ -154,12 +168,15 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
-                        <Link href={`/admin/slots`}>
-                          <Button variant="outline" size="sm" data-testid={`button-view-booking-${notification.bookingId}`}>
-                            View Details
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleViewDetails(notification.booking)}
+                          data-testid={`button-view-booking-${notification.bookingId}`}
+                        >
+                          View Details
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -309,12 +326,15 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
-                        <Link href={`/admin/slots`}>
-                          <Button variant="outline" size="sm" data-testid={`button-view-canceled-${notification.bookingId}`}>
-                            View Details
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleViewDetails(notification.booking)}
+                          data-testid={`button-view-canceled-${notification.bookingId}`}
+                        >
+                          View Details
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -336,6 +356,12 @@ export default function AdminNotificationsPage() {
           </Card>
         )}
       </div>
+
+      <BookingDetailsModal
+        booking={selectedBooking}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }
