@@ -694,6 +694,65 @@ export function registerRoutes(app: Express): Server {
     res.json({ received: true });
   });
 
+  // Verify Stripe payment status and update booking
+  // This endpoint is called by the confirmation page after redirect from Stripe
+  // In test/dev mode, webhooks aren't automatically triggered, so we manually verify
+  app.post("/api/stripe-verify-session", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ message: "Session ID is required" });
+      }
+
+      console.log("🔍 [Stripe Verify] Retrieving session:", sessionId);
+
+      // Retrieve the session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      
+      console.log("📦 [Stripe Verify] Session status:", session.payment_status);
+      console.log("💳 [Stripe Verify] Session metadata:", session.metadata);
+
+      const bookingId = session.metadata?.bookingId;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "No booking ID in session metadata" });
+      }
+
+      // Verify user owns this booking
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to access this booking" });
+      }
+
+      // If payment was successful and booking is still pending, update it
+      if (session.payment_status === 'paid' && booking.paymentStatus === 'pending') {
+        console.log("✅ [Stripe Verify] Payment confirmed, updating booking:", bookingId);
+        
+        await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+          stripePaymentIntentId: session.payment_intent as string,
+          amountPaid: session.amount_total,
+          paidAt: new Date(),
+        });
+
+        console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+      }
+
+      res.json({ 
+        paymentStatus: session.payment_status,
+        bookingId: bookingId,
+        updated: session.payment_status === 'paid' && booking.paymentStatus === 'pending'
+      });
+    } catch (error) {
+      console.error("❌ [Stripe Verify] Error verifying session:", error);
+      res.status(500).json({ message: "Failed to verify payment session" });
+    }
+  });
+
   app.post("/api/bookings", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });

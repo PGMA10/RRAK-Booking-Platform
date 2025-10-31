@@ -21,6 +21,17 @@ Preferred communication style: Simple, everyday language.
 - Session cookies now work correctly - authentication persists across requests
 - Issue was caused by Express proxy settings interfering with cookie handling in Replit environment
 
+### Stripe Payment Verification Fix (October 31, 2025)
+- **Issue**: Bookings remained in "Payment Pending" status even after successful Stripe checkout in test/dev mode
+- **Root Cause**: Stripe webhooks are not automatically triggered in local development - they require Stripe CLI or configured webhook endpoints
+- **Solution**: Implemented manual payment verification on confirmation page
+  - Added `/api/stripe-verify-session` endpoint that retrieves Stripe session status via API
+  - Confirmation page automatically calls verification endpoint on load
+  - Booking status updates from "pending" to "paid" when Stripe confirms payment
+  - Updates payment details: `stripePaymentIntentId`, `amountPaid`, `paidAt` timestamp
+- **User Experience**: Payment status now correctly shows "Paid" immediately after successful Stripe checkout
+- **Business License Removal**: Removed all business license verification fields per user request - businesses will be vetted manually outside the system
+
 ## System Architecture
 
 ### Frontend Architecture

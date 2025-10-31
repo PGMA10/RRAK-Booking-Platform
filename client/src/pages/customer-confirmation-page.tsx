@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation, Redirect } from "wouter";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Calendar, MapPin, Briefcase, DollarSign, Mail, Phone, FileText, Upload, Home, Loader2, AlertCircle } from "lucide-react";
 import type { BookingWithDetails } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function CustomerConfirmationPage() {
   const { user } = useAuth();
@@ -35,6 +36,33 @@ export default function CustomerConfirmationPage() {
   console.log("🔍 [Confirmation] Query string:", window.location.search);
   console.log("🔍 [Confirmation] Extracted session ID:", sessionId);
 
+  // Mutation to verify Stripe payment status
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest(
+        "/api/stripe-verify-session",
+        {
+          method: "POST",
+          body: JSON.stringify({ sessionId }),
+        }
+      ) as { paymentStatus: string; bookingId: string; updated: boolean };
+      return response;
+    },
+    onSuccess: (data: { paymentStatus: string; bookingId: string; updated: boolean }) => {
+      console.log("✅ [Confirmation] Payment verification result:", data);
+      if (data.updated) {
+        // Refetch the booking to get updated payment status
+        queryClient.invalidateQueries({ queryKey: [`/api/bookings/session/${sessionId}`] });
+        toast({
+          description: "Payment confirmed successfully!",
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("❌ [Confirmation] Payment verification failed:", error);
+    },
+  });
+
   // Fetch booking by session ID
   const { data: booking, isLoading, error} = useQuery<BookingWithDetails>({
     queryKey: [`/api/bookings/session/${sessionId}`],
@@ -50,10 +78,14 @@ export default function CustomerConfirmationPage() {
         variant: "destructive",
         description: "No payment session found. Please complete the booking process.",
       });
-    } else {
-      console.log("✅ [Confirmation] Session ID found:", sessionId);
+      return;
     }
-  }, [sessionId, toast]);
+    
+    console.log("✅ [Confirmation] Session ID found:", sessionId);
+    // Verify payment status with Stripe when page loads
+    verifyPaymentMutation.mutate(sessionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const formatCurrency = (amountInCents: number) => {
     return `$${(amountInCents / 100).toFixed(2)}`;
