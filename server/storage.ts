@@ -1011,13 +1011,13 @@ export class DbStorage implements IStorage {
     
     const booking = currentBooking[0];
     
-    // Update booking with payment info - convert Date to timestamp if provided
+    // Update booking with payment info
     const result = await db.update(bookingsTable)
       .set({
         paymentStatus,
         stripePaymentIntentId: paymentData.stripePaymentIntentId,
         amountPaid: paymentData.amountPaid,
-        paidAt: paymentData.paidAt ? (paymentData.paidAt instanceof Date ? paymentData.paidAt.getTime() : paymentData.paidAt) : undefined,
+        paidAt: paymentData.paidAt,
       })
       .where(eq(bookingsTable.id, id))
       .returning();
