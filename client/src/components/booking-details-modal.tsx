@@ -49,10 +49,9 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   const [rejectionNote, setRejectionNote] = useState("");
   const { toast } = useToast();
 
-  if (!booking) return null;
-
   const approveMutation = useMutation({
     mutationFn: async () => {
+      if (!booking) throw new Error('No booking selected');
       return fetch(`/api/bookings/${booking.id}/approve`, {
         method: "POST",
         credentials: 'include',
@@ -81,6 +80,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
 
   const rejectMutation = useMutation({
     mutationFn: async (note: string) => {
+      if (!booking) throw new Error('No booking selected');
       return fetch(`/api/bookings/${booking.id}/reject`, {
         method: "POST",
         credentials: 'include',
@@ -207,6 +207,10 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
       return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Pending Review</Badge>;
     }
   };
+
+  if (!booking) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
