@@ -137,15 +137,21 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
     return `$${(amountInCents / 100).toFixed(2)}`;
   };
 
-  const formatDate = (date: Date | string | null) => {
+  const formatDate = (date: Date | string | null | undefined) => {
     if (!date) return 'N/A';
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : 
+                      typeof date === 'number' ? new Date(date) : date;
+      if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
+      return dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'N/A';
+    }
   };
 
   const getTimeAgo = (date: Date | string | number | null) => {
