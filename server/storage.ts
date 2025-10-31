@@ -1228,58 +1228,118 @@ export class DbStorage implements IStorage {
     
     if (type === 'new_booking') {
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-      const bookings = await db.select().from(bookingsTable);
+      const bookingsWithDetails = await db
+        .select({
+          booking: bookingsTable,
+          route: routesTable,
+          industry: industriesTable,
+          campaign: campaignsTable,
+        })
+        .from(bookingsTable)
+        .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+        .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+        .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id));
       
-      bookings
-        .filter((b: any) => 
-          b.status === 'confirmed' && 
-          b.createdAt && 
-          (typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt).getTime()) > oneDayAgo
+      bookingsWithDetails
+        .filter((item: any) => 
+          item.booking.status === 'confirmed' && 
+          item.booking.createdAt && 
+          (typeof item.booking.createdAt === 'number' ? item.booking.createdAt : new Date(item.booking.createdAt).getTime()) > oneDayAgo
         )
-        .forEach((booking: any) => {
+        .forEach((item: any) => {
           results.push({
-            id: `new_booking_${booking.id}`,
+            id: `new_booking_${item.booking.id}`,
             type: 'new_booking',
-            bookingId: booking.id,
-            booking,
-            createdAt: typeof booking.createdAt === 'number' ? new Date(booking.createdAt) : booking.createdAt,
+            bookingId: item.booking.id,
+            booking: {
+              ...this.convertBookingTimestamps(item.booking),
+              route: item.route,
+              industry: item.industry,
+              campaign: item.campaign ? {
+                ...item.campaign,
+                mailDate: item.campaign.mailDate ? new Date(item.campaign.mailDate as any) : null,
+                printDeadline: item.campaign.printDeadline ? new Date(item.campaign.printDeadline as any) : null,
+                createdAt: item.campaign.createdAt ? new Date(item.campaign.createdAt as any) : null,
+              } : undefined,
+            },
+            createdAt: typeof item.booking.createdAt === 'number' ? new Date(item.booking.createdAt) : item.booking.createdAt,
             isHandled: false,
           });
         });
     } else if (type === 'artwork_review') {
-      const bookings = await db.select().from(bookingsTable);
+      const bookingsWithDetails = await db
+        .select({
+          booking: bookingsTable,
+          route: routesTable,
+          industry: industriesTable,
+          campaign: campaignsTable,
+        })
+        .from(bookingsTable)
+        .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+        .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+        .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id));
       
-      bookings
-        .filter((b: any) => b.artworkStatus === 'under_review')
-        .forEach((booking: any) => {
+      bookingsWithDetails
+        .filter((item: any) => item.booking.artworkStatus === 'under_review')
+        .forEach((item: any) => {
           results.push({
-            id: `artwork_review_${booking.id}`,
+            id: `artwork_review_${item.booking.id}`,
             type: 'artwork_review',
-            bookingId: booking.id,
-            booking,
-            createdAt: booking.artworkUploadedAt ? 
-              (typeof booking.artworkUploadedAt === 'number' ? new Date(booking.artworkUploadedAt) : booking.artworkUploadedAt) :
-              (typeof booking.createdAt === 'number' ? new Date(booking.createdAt) : booking.createdAt),
+            bookingId: item.booking.id,
+            booking: {
+              ...this.convertBookingTimestamps(item.booking),
+              route: item.route,
+              industry: item.industry,
+              campaign: item.campaign ? {
+                ...item.campaign,
+                mailDate: item.campaign.mailDate ? new Date(item.campaign.mailDate as any) : null,
+                printDeadline: item.campaign.printDeadline ? new Date(item.campaign.printDeadline as any) : null,
+                createdAt: item.campaign.createdAt ? new Date(item.campaign.createdAt as any) : null,
+              } : undefined,
+            },
+            createdAt: item.booking.artworkUploadedAt ? 
+              (typeof item.booking.artworkUploadedAt === 'number' ? new Date(item.booking.artworkUploadedAt) : item.booking.artworkUploadedAt) :
+              (typeof item.booking.createdAt === 'number' ? new Date(item.booking.createdAt) : item.booking.createdAt),
             isHandled: false,
           });
         });
     } else if (type === 'canceled_booking') {
       const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-      const bookings = await db.select().from(bookingsTable);
+      const bookingsWithDetails = await db
+        .select({
+          booking: bookingsTable,
+          route: routesTable,
+          industry: industriesTable,
+          campaign: campaignsTable,
+        })
+        .from(bookingsTable)
+        .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+        .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+        .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id));
       
-      bookings
-        .filter((b: any) => 
-          b.status === 'cancelled' && 
-          b.cancellationDate && 
-          (typeof b.cancellationDate === 'number' ? b.cancellationDate : new Date(b.cancellationDate).getTime()) > sevenDaysAgo
+      bookingsWithDetails
+        .filter((item: any) => 
+          item.booking.status === 'cancelled' && 
+          item.booking.cancellationDate && 
+          (typeof item.booking.cancellationDate === 'number' ? item.booking.cancellationDate : new Date(item.booking.cancellationDate).getTime()) > sevenDaysAgo
         )
-        .forEach((booking: any) => {
+        .forEach((item: any) => {
           results.push({
-            id: `canceled_booking_${booking.id}`,
+            id: `canceled_booking_${item.booking.id}`,
             type: 'canceled_booking',
-            bookingId: booking.id,
-            booking,
-            createdAt: typeof booking.cancellationDate === 'number' ? new Date(booking.cancellationDate) : booking.cancellationDate,
+            bookingId: item.booking.id,
+            booking: {
+              ...this.convertBookingTimestamps(item.booking),
+              route: item.route,
+              industry: item.industry,
+              campaign: item.campaign ? {
+                ...item.campaign,
+                mailDate: item.campaign.mailDate ? new Date(item.campaign.mailDate as any) : null,
+                printDeadline: item.campaign.printDeadline ? new Date(item.campaign.printDeadline as any) : null,
+                createdAt: item.campaign.createdAt ? new Date(item.campaign.createdAt as any) : null,
+              } : undefined,
+            },
+            createdAt: typeof item.booking.cancellationDate === 'number' ? new Date(item.booking.cancellationDate) : item.booking.cancellationDate,
             isHandled: false,
           });
         });
