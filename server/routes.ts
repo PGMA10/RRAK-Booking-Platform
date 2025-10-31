@@ -533,9 +533,12 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/availability/:campaignId/:routeId/:industryId", async (req, res) => {
     try {
       const { campaignId, routeId, industryId } = req.params;
+      console.log("🔍 [Availability] Checking:", { campaignId, routeId, industryId });
       const booking = await storage.getBooking(campaignId, routeId, industryId);
+      console.log("✅ [Availability] Result:", { available: !booking, bookingFound: !!booking });
       res.json({ available: !booking });
     } catch (error) {
+      console.error("❌ [Availability] Error:", error);
       res.status(500).json({ message: "Failed to check availability" });
     }
   });
