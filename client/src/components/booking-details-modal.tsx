@@ -192,9 +192,10 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   };
 
   const getApprovalStatusBadge = () => {
-    if (booking.approvalStatus === 'approved') {
+    const status = booking.approvalStatus || 'pending';
+    if (status === 'approved') {
       return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
-    } else if (booking.approvalStatus === 'rejected') {
+    } else if (status === 'rejected') {
       return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
     } else {
       return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Pending Review</Badge>;
@@ -420,7 +421,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
             </Button>
             
             {/* Approve/Reject Buttons - Only show if booking is pending approval */}
-            {booking.approvalStatus === 'pending' && booking.status !== 'cancelled' && (
+            {(booking.approvalStatus || 'pending') === 'pending' && booking.status !== 'cancelled' && (
               <>
                 <Button 
                   variant="default"
