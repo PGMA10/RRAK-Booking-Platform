@@ -102,6 +102,19 @@ Preferred communication style: Simple, everyday language.
 - **UI Design**: Action Items widget above Recent Activity, grouped notifications by type, consistent counts across all locations
 - **Canceled Bookings Display**: Shows refund status (processed/pending/no_refund/failed), cancellation time, booking details
 
+### Booking Approval System (October 31, 2025)
+- **Feature**: Admin approval/rejection workflow for new bookings with rejection notes
+- **Approval States**: pending (default) → approved/rejected
+- **Database Fields**: approvalStatus, approvedAt, rejectedAt, rejectionNote
+- **Admin UI**: Approve/Reject buttons in BookingDetailsModal for pending bookings
+- **Rejection Dialog**: Clean AlertDialog with textarea for rejection notes (required field)
+- **API Endpoints**: `POST /api/bookings/:bookingId/approve`, `POST /api/bookings/:bookingId/reject`
+- **Notification Integration**: Modal accessible from all notification "View Details" buttons
+- **Display**: Approval Status section shows current status, approval/rejection timestamps, rejection notes
+- **Business Logic**: Only pending, non-cancelled bookings show approve/reject buttons
+- **Cache Invalidation**: Automatically refreshes notifications after approval/rejection actions
+- **User Communication**: Rejection notes visible to admins for tracking and future customer communication
+
 ## External Dependencies
 
 ### Database Services

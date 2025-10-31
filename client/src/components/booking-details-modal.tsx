@@ -1,7 +1,23 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   User,
   Mail,
@@ -16,6 +32,8 @@ import {
   XCircle,
   Clock,
   Image as ImageIcon,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import type { BookingWithDetails } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -27,7 +45,93 @@ interface BookingDetailsModalProps {
 }
 
 export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [rejectionNote, setRejectionNote] = useState("");
+  const { toast } = useToast();
+
   if (!booking) return null;
+
+  const approveMutation = useMutation({
+    mutationFn: async () => {
+      return fetch(`/api/bookings/${booking.id}/approve`, {
+        method: "POST",
+        credentials: 'include',
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to approve booking');
+        return res.json();
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Booking Approved",
+        description: "The booking has been approved successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Approval Failed",
+        description: error.message || "Failed to approve booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (note: string) => {
+      return fetch(`/api/bookings/${booking.id}/reject`, {
+        method: "POST",
+        credentials: 'include',
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rejectionNote: note }),
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to reject booking');
+        return res.json();
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Booking Rejected",
+        description: "The booking has been rejected and customer has been notified.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
+      setIsRejectDialogOpen(false);
+      setRejectionNote("");
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Rejection Failed",
+        description: error.message || "Failed to reject booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleApprove = () => {
+    approveMutation.mutate();
+  };
+
+  const handleRejectClick = () => {
+    setIsRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = () => {
+    if (rejectionNote.trim() === '') {
+      toast({
+        title: "Note Required",
+        description: "Please provide a reason for rejecting this booking.",
+        variant: "destructive",
+      });
+      return;
+    }
+    rejectMutation.mutate(rejectionNote);
+  };
 
   const formatCurrency = (amountInCents: number) => {
     return `$${(amountInCents / 100).toFixed(2)}`;
@@ -84,6 +188,16 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
       return <Badge variant="destructive">Cancelled</Badge>;
     } else {
       return <Badge variant="outline">{booking.status}</Badge>;
+    }
+  };
+
+  const getApprovalStatusBadge = () => {
+    if (booking.approvalStatus === 'approved') {
+      return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
+    } else if (booking.approvalStatus === 'rejected') {
+      return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+    } else {
+      return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Pending Review</Badge>;
     }
   };
 
@@ -207,6 +321,42 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
 
           <Separator />
 
+          {/* Approval Status */}
+          <div className="space-y-3">
+            <h4 className="font-semibold flex items-center gap-2">
+              <ThumbsUp className="h-4 w-4" />
+              Approval Status
+            </h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <div className="mt-1">
+                  {getApprovalStatusBadge()}
+                </div>
+              </div>
+              {booking.approvedAt && (
+                <div>
+                  <p className="text-muted-foreground">Approved At</p>
+                  <p className="font-medium">{formatDate(booking.approvedAt)}</p>
+                </div>
+              )}
+              {booking.rejectedAt && (
+                <div>
+                  <p className="text-muted-foreground">Rejected At</p>
+                  <p className="font-medium">{formatDate(booking.rejectedAt)}</p>
+                </div>
+              )}
+              {booking.rejectionNote && (
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Rejection Note</p>
+                  <p className="font-medium text-red-600">{booking.rejectionNote}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Artwork Information */}
           <div className="space-y-3">
             <h4 className="font-semibold flex items-center gap-2">
@@ -268,6 +418,34 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
             <Button variant="outline" onClick={onClose} className="flex-1" data-testid="button-close-modal">
               Close
             </Button>
+            
+            {/* Approve/Reject Buttons - Only show if booking is pending approval */}
+            {booking.approvalStatus === 'pending' && booking.status !== 'cancelled' && (
+              <>
+                <Button 
+                  variant="default"
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={handleApprove}
+                  disabled={approveMutation.isPending}
+                  data-testid="button-approve-booking"
+                >
+                  <ThumbsUp className="h-4 w-4 mr-2" />
+                  {approveMutation.isPending ? "Approving..." : "Approve Booking"}
+                </Button>
+                <Button 
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleRejectClick}
+                  disabled={rejectMutation.isPending}
+                  data-testid="button-reject-booking"
+                >
+                  <ThumbsDown className="h-4 w-4 mr-2" />
+                  {rejectMutation.isPending ? "Rejecting..." : "Reject Booking"}
+                </Button>
+              </>
+            )}
+            
+            {/* Review Artwork Button - Only show if artwork is under review */}
             {booking.artworkStatus === 'under_review' && (
               <Button 
                 variant="default" 
@@ -284,6 +462,52 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
           </div>
         </div>
       </DialogContent>
+
+      {/* Rejection Note Dialog */}
+      <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <AlertDialogContent data-testid="dialog-reject-booking">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for rejecting this booking. The customer will see this note.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="my-4">
+            <Label htmlFor="rejection-note" className="text-sm font-medium">
+              Rejection Reason
+            </Label>
+            <Textarea
+              id="rejection-note"
+              placeholder="e.g., Business does not meet our advertising guidelines, incomplete information, etc."
+              value={rejectionNote}
+              onChange={(e) => setRejectionNote(e.target.value)}
+              className="mt-2 min-h-[100px]"
+              data-testid="textarea-rejection-note"
+            />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setRejectionNote("");
+                setIsRejectDialogOpen(false);
+              }}
+              data-testid="button-cancel-rejection"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectConfirm}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={rejectMutation.isPending}
+              data-testid="button-confirm-rejection"
+            >
+              {rejectMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

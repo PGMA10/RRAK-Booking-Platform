@@ -66,6 +66,8 @@ export interface IStorage {
     refundAmount: number;
     refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
   }): Promise<Booking | undefined>;
+  approveBooking(id: string): Promise<Booking | undefined>;
+  rejectBooking(id: string, rejectionNote: string): Promise<Booking | undefined>;
   deleteBooking(id: string): Promise<boolean>;
   getBookingsNeedingReview(): Promise<Booking[]>;
   
@@ -511,6 +513,36 @@ export class MemStorage implements IStorage {
       this.campaigns.set(campaign.id, updatedCampaign);
     }
     
+    return updatedBooking;
+  }
+
+  async approveBooking(id: string): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = {
+      ...booking,
+      approvalStatus: 'approved',
+      approvedAt: new Date(),
+      rejectedAt: null,
+      rejectionNote: null,
+    };
+    this.bookings.set(id, updatedBooking);
+    return updatedBooking;
+  }
+
+  async rejectBooking(id: string, rejectionNote: string): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = {
+      ...booking,
+      approvalStatus: 'rejected',
+      rejectedAt: new Date(),
+      approvedAt: null,
+      rejectionNote,
+    };
+    this.bookings.set(id, updatedBooking);
     return updatedBooking;
   }
 
@@ -1047,11 +1079,11 @@ export class DbStorage implements IStorage {
     
     const booking = currentBooking[0];
     
-    // Update booking with cancellation info - use timestamp for SQLite
+    // Update booking with cancellation info
     const result = await db.update(bookingsTable)
       .set({
         status: 'cancelled',
-        cancellationDate: Date.now(),
+        cancellationDate: new Date(),
         refundAmount: refundData.refundAmount,
         refundStatus: refundData.refundStatus,
       })
@@ -1065,6 +1097,34 @@ export class DbStorage implements IStorage {
         revenue: sql`MAX(0, ${campaignsTable.revenue} - ${booking.amountPaid || booking.amount})`
       })
       .where(eq(campaignsTable.id, booking.campaignId));
+    
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
+  }
+
+  async approveBooking(id: string): Promise<Booking | undefined> {
+    const result = await db.update(bookingsTable)
+      .set({
+        approvalStatus: 'approved',
+        approvedAt: new Date(),
+        rejectedAt: null,
+        rejectionNote: null,
+      })
+      .where(eq(bookingsTable.id, id))
+      .returning();
+    
+    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
+  }
+
+  async rejectBooking(id: string, rejectionNote: string): Promise<Booking | undefined> {
+    const result = await db.update(bookingsTable)
+      .set({
+        approvalStatus: 'rejected',
+        rejectedAt: new Date(),
+        approvedAt: null,
+        rejectionNote,
+      })
+      .where(eq(bookingsTable.id, id))
+      .returning();
     
     return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }

@@ -60,6 +60,10 @@ export const bookings = sqliteTable("bookings", {
   amountPaid: integer("amount_paid"), // in cents, actual amount paid
   paidAt: integer("paid_at", { mode: 'timestamp_ms' }),
   paymentId: text("payment_id"), // legacy mock payment reference
+  approvalStatus: text("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
+  approvedAt: integer("approved_at", { mode: 'timestamp_ms' }),
+  rejectedAt: integer("rejected_at", { mode: 'timestamp_ms' }),
+  rejectionNote: text("rejection_note"),
   artworkStatus: text("artwork_status").notNull().default("pending_upload"), // 'pending_upload', 'under_review', 'approved', 'rejected'
   artworkFilePath: text("artwork_file_path"),
   artworkFileName: text("artwork_file_name"),

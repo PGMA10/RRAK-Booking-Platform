@@ -921,6 +921,73 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Approve booking
+  app.post("/api/bookings/:bookingId/approve", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(401).json({ message: "Unauthorized - Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.approvalStatus === 'approved') {
+        return res.status(400).json({ message: "Booking is already approved" });
+      }
+
+      const approvedBooking = await storage.approveBooking(bookingId);
+      if (!approvedBooking) {
+        return res.status(500).json({ message: "Failed to approve booking" });
+      }
+
+      console.log(`✅ [Approval] Booking ${bookingId} approved by admin ${req.user.username}`);
+      res.json({ message: "Booking approved successfully", booking: approvedBooking });
+    } catch (error) {
+      console.error("❌ [Approval] Error:", error);
+      res.status(500).json({ message: "Failed to approve booking" });
+    }
+  });
+
+  // Reject booking
+  app.post("/api/bookings/:bookingId/reject", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(401).json({ message: "Unauthorized - Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const { rejectionNote } = req.body;
+
+      if (!rejectionNote || rejectionNote.trim() === '') {
+        return res.status(400).json({ message: "Rejection note is required" });
+      }
+      
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.approvalStatus === 'rejected') {
+        return res.status(400).json({ message: "Booking is already rejected" });
+      }
+
+      const rejectedBooking = await storage.rejectBooking(bookingId, rejectionNote);
+      if (!rejectedBooking) {
+        return res.status(500).json({ message: "Failed to reject booking" });
+      }
+
+      console.log(`❌ [Rejection] Booking ${bookingId} rejected by admin ${req.user.username}`);
+      res.json({ message: "Booking rejected successfully", booking: rejectedBooking });
+    } catch (error) {
+      console.error("❌ [Rejection] Error:", error);
+      res.status(500).json({ message: "Failed to reject booking" });
+    }
+  });
+
   // Artwork Management
   app.post("/api/bookings/:bookingId/artwork", (req, res) => {
     if (!req.isAuthenticated()) {
