@@ -175,7 +175,7 @@ export default function HomePage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Your Current Bookings</CardTitle>
-              <Link href="/booking">
+              <Link href="/customer/booking">
                 <Button data-testid="button-book-campaign">
                   Book New Campaign
                 </Button>
