@@ -91,7 +91,7 @@ export default function CustomerBookingPage() {
   const campaignId = form.watch("campaignId");
   const quantity = form.watch("quantity");
   const { data: pricingQuote, isLoading: isLoadingPrice } = useQuery<PricingQuote>({
-    queryKey: ["/api/pricing/quote", campaignId, quantity],
+    queryKey: [`/api/pricing/quote/${campaignId}/${quantity}`],
     enabled: !!campaignId && !!quantity,
   });
 
