@@ -91,9 +91,9 @@ export interface IStorage {
   }>;
   
   // Admin Notifications
-  getUnhandledNotificationsCount(): Promise<number>;
-  getNotificationsByType(type: string): Promise<any[]>;
-  getAllUnhandledNotifications(): Promise<any[]>;
+  getUnhandledNotificationsCount(userId?: string): Promise<number>;
+  getNotificationsByType(type: string, userId?: string): Promise<any[]>;
+  getAllUnhandledNotifications(userId?: string): Promise<any[]>;
   markNotificationHandled(notificationId: string): Promise<boolean>;
   createNotification(type: string, bookingId: string): Promise<void>;
   
@@ -627,7 +627,7 @@ export class MemStorage implements IStorage {
   }
 
   // Admin Notifications - MemStorage implementations
-  async getUnhandledNotificationsCount(): Promise<number> {
+  async getUnhandledNotificationsCount(userId?: string): Promise<number> {
     // Count based on actual booking states, not persisted notifications
     const bookings = Array.from(this.bookings.values());
     let count = 0;
@@ -654,7 +654,7 @@ export class MemStorage implements IStorage {
     return count;
   }
 
-  async getNotificationsByType(type: string): Promise<any[]> {
+  async getNotificationsByType(type: string, userId?: string): Promise<any[]> {
     const bookings = Array.from(this.bookings.values());
     const results: any[] = [];
     
@@ -704,10 +704,10 @@ export class MemStorage implements IStorage {
     return results;
   }
 
-  async getAllUnhandledNotifications(): Promise<any[]> {
-    const newBookings = await this.getNotificationsByType('new_booking');
-    const artworkReviews = await this.getNotificationsByType('artwork_review');
-    const canceledBookings = await this.getNotificationsByType('canceled_booking');
+  async getAllUnhandledNotifications(userId?: string): Promise<any[]> {
+    const newBookings = await this.getNotificationsByType('new_booking', userId);
+    const artworkReviews = await this.getNotificationsByType('artwork_review', userId);
+    const canceledBookings = await this.getNotificationsByType('canceled_booking', userId);
     return [...newBookings, ...artworkReviews, ...canceledBookings];
   }
 
@@ -1272,8 +1272,14 @@ export class DbStorage implements IStorage {
   }
 
   // Admin Notifications - DbStorage implementations
-  async getUnhandledNotificationsCount(): Promise<number> {
-    // Count based on actual booking states
+  async getUnhandledNotificationsCount(userId?: string): Promise<number> {
+    // If userId is provided, use getAllUnhandledNotifications to get filtered count
+    if (userId) {
+      const notifications = await this.getAllUnhandledNotifications(userId);
+      return notifications.length;
+    }
+    
+    // Count based on actual booking states (without filtering dismissed)
     const allBookings = await db.select().from(bookingsTable);
     let count = 0;
     
@@ -1299,7 +1305,7 @@ export class DbStorage implements IStorage {
     return count;
   }
 
-  async getNotificationsByType(type: string): Promise<any[]> {
+  async getNotificationsByType(type: string, userId?: string): Promise<any[]> {
     const results: any[] = [];
     
     if (type === 'new_booking') {
@@ -1421,13 +1427,24 @@ export class DbStorage implements IStorage {
         });
     }
     
+    // Filter out dismissed notifications if userId is provided
+    if (userId) {
+      const dismissed = await this.getDismissedNotificationsByUser(userId);
+      const dismissedSet = new Set(
+        dismissed
+          .filter(d => d.notificationType === type)
+          .map(d => d.bookingId)
+      );
+      return results.filter(r => !dismissedSet.has(r.bookingId));
+    }
+    
     return results;
   }
 
-  async getAllUnhandledNotifications(): Promise<any[]> {
-    const newBookings = await this.getNotificationsByType('new_booking');
-    const artworkReviews = await this.getNotificationsByType('artwork_review');
-    const canceledBookings = await this.getNotificationsByType('canceled_booking');
+  async getAllUnhandledNotifications(userId?: string): Promise<any[]> {
+    const newBookings = await this.getNotificationsByType('new_booking', userId);
+    const artworkReviews = await this.getNotificationsByType('artwork_review', userId);
+    const canceledBookings = await this.getNotificationsByType('canceled_booking', userId);
     return [...newBookings, ...artworkReviews, ...canceledBookings];
   }
 

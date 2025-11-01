@@ -1326,7 +1326,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const count = await storage.getUnhandledNotificationsCount();
+      const count = await storage.getUnhandledNotificationsCount(req.user.id);
       res.json({ count });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch notification count" });
@@ -1339,7 +1339,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const notifications = await storage.getAllUnhandledNotifications();
+      const notifications = await storage.getAllUnhandledNotifications(req.user.id);
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch notifications" });
@@ -1352,9 +1352,9 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const newBookings = await storage.getNotificationsByType('new_booking');
-      const artworkReviews = await storage.getNotificationsByType('artwork_review');
-      const canceledBookings = await storage.getNotificationsByType('canceled_booking');
+      const newBookings = await storage.getNotificationsByType('new_booking', req.user.id);
+      const artworkReviews = await storage.getNotificationsByType('artwork_review', req.user.id);
+      const canceledBookings = await storage.getNotificationsByType('canceled_booking', req.user.id);
       
       res.json({
         newBookings: newBookings.length,
