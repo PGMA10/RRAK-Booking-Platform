@@ -168,6 +168,25 @@ export default function CustomerDashboardPage() {
     }
   };
 
+  // Create checkout session mutation (for pending payments)
+  const checkoutMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const response = await apiRequest('GET', `/api/bookings/${bookingId}/checkout-session`);
+      return response.json();
+    },
+    onSuccess: (data: { sessionUrl: string }) => {
+      // Redirect to Stripe Checkout
+      window.location.href = data.sessionUrl;
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Payment failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Check if booking can be canceled (allowed anytime, but refund depends on 7-day threshold)
   const canCancelBooking = (booking: BookingWithDetails): boolean => {
     if (booking.status === 'cancelled') return false;
@@ -336,18 +355,32 @@ export default function CustomerDashboardPage() {
                             <p>{booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
                           </div>
                         </div>
-                        {canCancelBooking(booking) && (
-                          <div className="mt-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCancelBookingId(booking.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              data-testid={`button-cancel-booking-${booking.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Cancel Booking
-                            </Button>
+                        {(booking.paymentStatus === 'pending' || canCancelBooking(booking)) && (
+                          <div className="mt-4 flex gap-2">
+                            {booking.paymentStatus === 'pending' && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => checkoutMutation.mutate(booking.id)}
+                                disabled={checkoutMutation.isPending}
+                                data-testid={`button-pay-now-${booking.id}`}
+                              >
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                {checkoutMutation.isPending ? 'Processing...' : 'Pay Now'}
+                              </Button>
+                            )}
+                            {canCancelBooking(booking) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCancelBookingId(booking.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                data-testid={`button-cancel-booking-${booking.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Cancel Booking
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
