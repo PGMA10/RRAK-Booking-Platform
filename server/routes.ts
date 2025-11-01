@@ -997,6 +997,46 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Price Override (Admin only)
+  app.post("/api/bookings/:bookingId/override-price", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(401).json({ message: "Unauthorized - Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const { priceOverride, priceOverrideNote } = req.body;
+
+      // Validate price override is a positive number
+      if (priceOverride !== null && priceOverride !== undefined) {
+        const price = parseInt(priceOverride);
+        if (isNaN(price) || price < 0) {
+          return res.status(400).json({ message: "Price override must be a positive number (in cents)" });
+        }
+      }
+      
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const updatedBooking = await storage.updateBooking(bookingId, {
+        priceOverride: priceOverride ? parseInt(priceOverride) : null,
+        priceOverrideNote: priceOverrideNote || null,
+      });
+
+      if (!updatedBooking) {
+        return res.status(500).json({ message: "Failed to update price override" });
+      }
+
+      console.log(`💲 [Price Override] Booking ${bookingId} price ${priceOverride ? 'set to $' + (priceOverride/100).toFixed(2) : 'cleared'} by admin ${req.user.username}`);
+      res.json({ message: "Price override updated successfully", booking: updatedBooking });
+    } catch (error) {
+      console.error("❌ [Price Override] Error:", error);
+      res.status(500).json({ message: "Failed to update price override" });
+    }
+  });
+
   // Artwork Management
   app.post("/api/bookings/:bookingId/artwork", (req, res) => {
     if (!req.isAuthenticated()) {
