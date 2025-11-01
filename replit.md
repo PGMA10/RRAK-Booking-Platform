@@ -119,6 +119,20 @@ Preferred communication style: Simple, everyday language.
 - **Per-User Tracking**: Each admin can dismiss/view notifications independently without affecting other admins
 - **Data Model**: Uses separate dismissedNotifications table to maintain backward compatibility with derived notifications approach
 
+### Admin Dashboard Current Campaign Focus (November 1, 2025)
+- **Feature**: Admin dashboard shows current month's campaign metrics instead of aggregate stats
+- **Current Month Detection**: Finds campaign where mailDate matches current month/year
+- **Dashboard Metrics**:
+  - **Slots Booked**: Shows "X/64" format with visual progress bar
+  - **Print Deadline**: Countdown timer showing days/hours until print deadline
+  - **Mail Deadline**: Countdown timer showing days/hours until mail date
+  - **Revenue This Month**: Total revenue from paid bookings in current campaign
+- **Empty State**: Shows "No campaign scheduled for this month" message when no current campaign exists
+- **Countdown Format**: "X days Yh" for >24 hours, "Xh Ym" for <24 hours, "Not set" if null, "Passed" if in past
+- **Auto-refresh**: Stats refresh every 60 seconds to keep countdown timers current
+- **API Endpoint**: GET /api/dashboard/stats returns campaign-specific data for current month
+- **Edge Cases**: Guards against division by zero in progress bar, handles null deadlines gracefully
+
 ### Booking Approval System (October 31, 2025)
 - **Feature**: Admin approval/rejection workflow for new bookings with rejection notes
 - **Approval States**: pending (default) → approved/rejected
