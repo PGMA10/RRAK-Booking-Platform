@@ -133,18 +133,28 @@ export default function CustomerBookingPage() {
     setSelectedQuantity(parseInt(quantity) || 1);
   }, [form.watch("quantity")]);
 
-  // Create Stripe Checkout session mutation
+  // Create booking and checkout session (2-step process to allow admin price override)
   const checkoutMutation = useMutation({
     mutationFn: async (bookingData: CustomerBookingData) => {
-      const response = await apiRequest("POST", "/api/create-checkout-session", {
+      // Step 1: Create booking
+      const bookingResponse = await apiRequest("POST", "/api/create-checkout-session", {
         ...bookingData,
         quantity: parseInt(bookingData.quantity as any) || 1,
         businessName: user?.businessName || user?.username || "Unknown Business",
         contactEmail: user?.email || "",
         contactPhone: user?.phone || "",
-        amount: 60000, // $600 in cents
+        amount: 60000, // $600 in cents (may be overridden by admin)
       });
-      return await response.json();
+      const bookingResult = await bookingResponse.json();
+      
+      // Step 2: Create Stripe checkout session for the booking
+      const checkoutResponse = await apiRequest("GET", `/api/bookings/${bookingResult.bookingId}/checkout-session`, {});
+      const checkoutResult = await checkoutResponse.json();
+      
+      return {
+        sessionUrl: checkoutResult.sessionUrl,
+        bookingId: bookingResult.bookingId,
+      };
     },
     onSuccess: (data: { sessionUrl: string; bookingId: string }) => {
       // Redirect to Stripe Checkout
