@@ -1367,6 +1367,27 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/notifications/:bookingId/dismiss", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const { notificationType } = req.body;
+
+      if (!notificationType) {
+        return res.status(400).json({ message: "notificationType is required" });
+      }
+
+      await storage.createDismissedNotification(bookingId, notificationType, req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
+      res.status(500).json({ message: "Failed to dismiss notification" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
