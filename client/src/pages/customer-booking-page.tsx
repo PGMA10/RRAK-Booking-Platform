@@ -20,9 +20,16 @@ const customerBookingSchema = z.object({
   campaignId: z.string().min(1, "Please select a campaign"),
   routeId: z.string().min(1, "Please select a route"),
   industryId: z.string().min(1, "Please confirm your industry"),
+  quantity: z.string().min(1, "Please select quantity"),
 });
 
 type CustomerBookingData = z.infer<typeof customerBookingSchema>;
+
+// Calculate tiered price based on quantity
+const calculatePrice = (quantity: number): number => {
+  // First slot: $600, each additional slot: $500
+  return 60000 + ((quantity - 1) * 50000); // in cents
+};
 
 export default function CustomerBookingPage() {
   const { user } = useAuth();
@@ -44,6 +51,7 @@ export default function CustomerBookingPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [slotAvailable, setSlotAvailable] = useState<boolean | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   // Form handling
   const form = useForm<CustomerBookingData>({
@@ -52,6 +60,7 @@ export default function CustomerBookingPage() {
       campaignId: "",
       routeId: "",
       industryId: "",
+      quantity: "1",
     },
   });
 
@@ -118,6 +127,11 @@ export default function CustomerBookingPage() {
     const industryId = form.getValues("industryId");
     setSelectedIndustry(industries.find(i => i.id === industryId) || null);
   }, [form.watch("industryId"), industries]);
+
+  useEffect(() => {
+    const quantity = form.getValues("quantity");
+    setSelectedQuantity(parseInt(quantity) || 1);
+  }, [form.watch("quantity")]);
 
   // Create Stripe Checkout session mutation
   const checkoutMutation = useMutation({
@@ -439,6 +453,87 @@ export default function CustomerBookingPage() {
                 </CardContent>
               </Card>
 
+              {/* Quantity Selection */}
+              {selectedRoute && selectedIndustry && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Select Quantity
+                    </CardTitle>
+                    <CardDescription>
+                      How many slots would you like to book? First slot $600, each additional slot $500
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <FormField
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Number of Slots</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-quantity">
+                                <SelectValue placeholder="Select quantity..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="1" data-testid="option-quantity-1">
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>1 slot</span>
+                                  <span className="font-medium">$600</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="2" data-testid="option-quantity-2">
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>2 slots</span>
+                                  <span className="font-medium">$1,100 ($600 + $500)</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="3" data-testid="option-quantity-3">
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>3 slots</span>
+                                  <span className="font-medium">$1,600 ($600 + $1,000)</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="4" data-testid="option-quantity-4">
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>4 slots</span>
+                                  <span className="font-medium">$2,100 ($600 + $1,500)</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {selectedQuantity > 1 && (
+                      <div className="mt-4 p-4 bg-muted rounded-lg" data-testid="quantity-pricing-details">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>First slot:</span>
+                            <span className="font-medium">$600.00</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Additional {selectedQuantity - 1} slot{selectedQuantity > 2 ? 's' : ''} × $500:</span>
+                            <span className="font-medium">${((selectedQuantity - 1) * 500).toLocaleString()}.00</span>
+                          </div>
+                          <div className="border-t border-border pt-2 flex justify-between font-bold">
+                            <span>Total Price:</span>
+                            <span className="text-lg text-green-600">
+                              ${(calculatePrice(selectedQuantity) / 100).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Slot Availability & Pricing */}
               {form.getValues("campaignId") && form.getValues("routeId") && form.getValues("industryId") && (
                 <Card>
@@ -469,9 +564,11 @@ export default function CustomerBookingPage() {
                       
                       <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Slot Price</p>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Total Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''})
+                          </p>
                           <p className="text-2xl font-bold text-green-600" data-testid="text-slot-price">
-                            {formatCurrency(60000)}
+                            {formatCurrency(calculatePrice(selectedQuantity))}
                           </p>
                         </div>
                         <div>
@@ -499,7 +596,7 @@ export default function CustomerBookingPage() {
                   data-testid="button-proceed-payment"
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Proceed to Payment ({formatCurrency(60000)})
+                  Proceed to Payment ({formatCurrency(calculatePrice(selectedQuantity))})
                 </Button>
               </div>
             </form>
