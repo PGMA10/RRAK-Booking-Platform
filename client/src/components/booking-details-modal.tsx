@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +48,9 @@ interface BookingDetailsModalProps {
 export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionNote, setRejectionNote] = useState("");
+  const [isPriceOverrideDialogOpen, setIsPriceOverrideDialogOpen] = useState(false);
+  const [priceOverride, setPriceOverride] = useState("");
+  const [priceOverrideNote, setPriceOverrideNote] = useState("");
   const { toast } = useToast();
 
   const approveMutation = useMutation({
@@ -117,8 +121,78 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
     approveMutation.mutate();
   };
 
+  const priceOverrideMutation = useMutation({
+    mutationFn: async ({ price, note }: { price: number | null; note: string }) => {
+      if (!booking) throw new Error('No booking selected');
+      return fetch(`/api/bookings/${booking.id}/override-price`, {
+        method: "POST",
+        credentials: 'include',
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          priceOverride: price,
+          priceOverrideNote: note || null,
+        }),
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to update price override');
+        return res.json();
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Price Updated",
+        description: "The price override has been set successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      setIsPriceOverrideDialogOpen(false);
+      setPriceOverride("");
+      setPriceOverrideNote("");
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update price override",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleRejectClick = () => {
     setIsRejectDialogOpen(true);
+  };
+
+  const handlePriceOverrideClick = () => {
+    // Pre-fill with existing values if any
+    if (booking?.priceOverride) {
+      setPriceOverride((booking.priceOverride / 100).toFixed(2));
+    }
+    if (booking?.priceOverrideNote) {
+      setPriceOverrideNote(booking.priceOverrideNote);
+    }
+    setIsPriceOverrideDialogOpen(true);
+  };
+
+  const handlePriceOverrideConfirm = () => {
+    // Validate price input
+    const priceValue = parseFloat(priceOverride);
+    if (isNaN(priceValue) || priceValue < 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid price amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Convert dollars to cents
+    const priceInCents = Math.round(priceValue * 100);
+    priceOverrideMutation.mutate({
+      price: priceInCents,
+      note: priceOverrideNote.trim(),
+    });
   };
 
   const handleRejectConfirm = () => {
@@ -318,7 +392,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
               <div>
                 <p className="text-muted-foreground">Total Amount</p>
                 <p className="font-medium text-lg text-green-600" data-testid="text-amount">
-                  {formatCurrency(booking.amountPaid || booking.amount)}
+                  {formatCurrency(booking.amountPaid || booking.priceOverride || booking.amount)}
                 </p>
                 <p className="text-xs text-muted-foreground">{booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
               </div>
@@ -334,7 +408,43 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
                   <p className="font-medium text-xs">{booking.stripePaymentIntentId.substring(0, 20)}...</p>
                 </div>
               )}
+              {booking.priceOverride && (
+                <>
+                  <div>
+                    <p className="text-muted-foreground">Original Price</p>
+                    <p className="font-medium text-sm line-through text-muted-foreground">
+                      {formatCurrency(booking.amount)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Override Price</p>
+                    <p className="font-medium text-lg text-blue-600">
+                      {formatCurrency(booking.priceOverride)}
+                    </p>
+                  </div>
+                </>
+              )}
+              {booking.priceOverrideNote && (
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Price Override Note</p>
+                  <p className="font-medium text-blue-600">{booking.priceOverrideNote}</p>
+                </div>
+              )}
             </div>
+            {/* Edit Price button for pending payments */}
+            {booking.paymentStatus === 'pending' && (
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePriceOverrideClick}
+                  data-testid="button-edit-price"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  {booking.priceOverride ? 'Edit Price Override' : 'Set Price Override'}
+                </Button>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -480,6 +590,75 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
           </div>
         </div>
       </DialogContent>
+
+      {/* Price Override Dialog */}
+      <AlertDialog open={isPriceOverrideDialogOpen} onOpenChange={setIsPriceOverrideDialogOpen}>
+        <AlertDialogContent data-testid="dialog-price-override">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set Price Override</AlertDialogTitle>
+            <AlertDialogDescription>
+              Override the calculated price for this booking. Leave note field empty to remove override.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 my-4">
+            <div>
+              <Label htmlFor="price-override" className="text-sm font-medium">
+                Price (in dollars)
+              </Label>
+              <Input
+                id="price-override"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g., 500.00"
+                value={priceOverride}
+                onChange={(e) => setPriceOverride(e.target.value)}
+                className="mt-2"
+                data-testid="input-price-override"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Current calculated price: {formatCurrency(booking?.amount || 0)}
+              </p>
+            </div>
+            
+            <div>
+              <Label htmlFor="price-override-note" className="text-sm font-medium">
+                Note (optional)
+              </Label>
+              <Textarea
+                id="price-override-note"
+                placeholder="e.g., Special discount for early adopter, negotiated rate, etc."
+                value={priceOverrideNote}
+                onChange={(e) => setPriceOverrideNote(e.target.value)}
+                className="mt-2 min-h-[80px]"
+                data-testid="textarea-price-override-note"
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setPriceOverride("");
+                setPriceOverrideNote("");
+                setIsPriceOverrideDialogOpen(false);
+              }}
+              data-testid="button-cancel-price-override"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePriceOverrideConfirm}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={priceOverrideMutation.isPending}
+              data-testid="button-confirm-price-override"
+            >
+              {priceOverrideMutation.isPending ? "Updating..." : "Set Price Override"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Rejection Note Dialog */}
       <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
