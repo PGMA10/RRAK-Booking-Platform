@@ -15,7 +15,7 @@ import {
   type BookingWithDetails,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -96,6 +96,10 @@ export interface IStorage {
   getAllUnhandledNotifications(): Promise<any[]>;
   markNotificationHandled(notificationId: string): Promise<boolean>;
   createNotification(type: string, bookingId: string): Promise<void>;
+  
+  // Dismissed Notifications
+  createDismissedNotification(bookingId: string, notificationType: string, userId: string): Promise<void>;
+  getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>>;
   
   sessionStore: session.Store;
 }
@@ -714,6 +718,15 @@ export class MemStorage implements IStorage {
 
   async createNotification(type: string, bookingId: string): Promise<void> {
     // In MemStorage, this is a no-op since we derive notifications from booking state
+  }
+  
+  async createDismissedNotification(bookingId: string, notificationType: string, userId: string): Promise<void> {
+    // In MemStorage, this would be stored in memory - but since we're using DbStorage in production, this is minimal implementation
+  }
+  
+  async getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>> {
+    // In MemStorage, return empty array
+    return [];
   }
 }
 
@@ -1427,6 +1440,27 @@ export class DbStorage implements IStorage {
   async createNotification(type: string, bookingId: string): Promise<void> {
     // In DbStorage with derived notifications, this is a no-op
     // Notifications are derived from booking state
+  }
+  
+  async createDismissedNotification(bookingId: string, notificationType: string, userId: string): Promise<void> {
+    await db.insert(dismissedNotificationsTable).values({
+      id: randomUUID(),
+      bookingId,
+      notificationType,
+      userId,
+      dismissedAt: new Date(),
+    });
+  }
+  
+  async getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>> {
+    const dismissed = await db.select()
+      .from(dismissedNotificationsTable)
+      .where(eq(dismissedNotificationsTable.userId, userId));
+    
+    return dismissed.map(d => ({
+      bookingId: d.bookingId,
+      notificationType: d.notificationType,
+    }));
   }
 }
 
