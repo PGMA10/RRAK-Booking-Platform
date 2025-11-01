@@ -140,11 +140,19 @@ export default function AdminPage() {
         </div>
 
         {/* 1. Current Campaign Overview */}
-        {dashboardStats?.campaignName && (
+        {!statsLoading && (
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-foreground">
-              Current Campaign: {dashboardStats.campaignName}
-            </h3>
+            {dashboardStats?.campaignName ? (
+              <h3 className="text-lg font-semibold text-foreground">
+                Current Campaign: {dashboardStats.campaignName}
+              </h3>
+            ) : (
+              <div className="bg-muted/50 border border-border rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  No campaign scheduled for this month. Create a campaign to start tracking metrics.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -171,7 +179,7 @@ export default function AdminPage() {
                     <div 
                       className="bg-primary h-2 rounded-full transition-all"
                       style={{ 
-                        width: `${dashboardStats ? (dashboardStats.slotsBooked / dashboardStats.totalSlots) * 100 : 0}%` 
+                        width: `${dashboardStats && dashboardStats.totalSlots > 0 ? (dashboardStats.slotsBooked / dashboardStats.totalSlots) * 100 : 0}%` 
                       }}
                     />
                   </div>
