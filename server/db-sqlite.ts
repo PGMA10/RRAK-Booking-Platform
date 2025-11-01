@@ -179,6 +179,13 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  
+  // Add quantity column to existing bookings table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create admin_notifications table
   sqlite.exec(`
