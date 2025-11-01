@@ -491,7 +491,7 @@ export default function CustomerBookingPage() {
                       Select Quantity
                     </CardTitle>
                     <CardDescription>
-                      How many slots would you like to book? First slot $600, each additional slot $500
+                      How many slots would you like to book? Pricing is shown below based on the campaign.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -509,28 +509,16 @@ export default function CustomerBookingPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="1" data-testid="option-quantity-1">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>1 slot</span>
-                                  <span className="font-medium">$600</span>
-                                </div>
+                                1 slot
                               </SelectItem>
                               <SelectItem value="2" data-testid="option-quantity-2">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>2 slots</span>
-                                  <span className="font-medium">$1,100 ($600 + $500)</span>
-                                </div>
+                                2 slots
                               </SelectItem>
                               <SelectItem value="3" data-testid="option-quantity-3">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>3 slots</span>
-                                  <span className="font-medium">$1,600 ($600 + $1,000)</span>
-                                </div>
+                                3 slots
                               </SelectItem>
                               <SelectItem value="4" data-testid="option-quantity-4">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>4 slots</span>
-                                  <span className="font-medium">$2,100 ($600 + $1,500)</span>
-                                </div>
+                                4 slots
                               </SelectItem>
                             </SelectContent>
                           </Select>
