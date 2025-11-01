@@ -198,6 +198,35 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  
+  // Add approval status columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'pending'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN approved_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN rejected_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN rejection_note TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
+  // Add base_slot_price to campaigns table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create admin_notifications table
   sqlite.exec(`
@@ -219,6 +248,35 @@ export function initializeDatabase() {
       user_id TEXT NOT NULL REFERENCES users(id),
       notification_type TEXT NOT NULL,
       dismissed_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create pricing_rules table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS pricing_rules (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      campaign_id TEXT REFERENCES campaigns(id),
+      user_id TEXT REFERENCES users(id),
+      rule_type TEXT NOT NULL,
+      value INTEGER NOT NULL,
+      priority INTEGER NOT NULL DEFAULT 0,
+      usage_limit INTEGER,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      description TEXT NOT NULL,
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+      created_by TEXT REFERENCES users(id)
+    )
+  `);
+
+  // Create pricing_rule_applications table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS pricing_rule_applications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      pricing_rule_id TEXT NOT NULL REFERENCES pricing_rules(id),
+      booking_id TEXT NOT NULL REFERENCES bookings(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      applied_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
 

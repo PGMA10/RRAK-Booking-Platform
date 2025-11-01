@@ -8,6 +8,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import Stripe from "stripe";
+import { calculatePricingQuote, recordPricingRuleApplication } from "./pricing-service";
 
 // Reference: Stripe integration blueprint (javascript_stripe)
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -543,6 +544,37 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get pricing quote for a booking before checkout
+  app.get("/api/pricing/quote", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { campaignId, quantity } = req.query;
+
+      if (!campaignId || typeof campaignId !== 'string') {
+        return res.status(400).json({ message: "Campaign ID is required" });
+      }
+
+      const qty = quantity ? parseInt(quantity as string) : 1;
+      if (qty < 1 || qty > 4) {
+        return res.status(400).json({ message: "Quantity must be between 1 and 4" });
+      }
+
+      const quote = await calculatePricingQuote(
+        campaignId,
+        req.user.id,
+        qty
+      );
+
+      res.json(quote);
+    } catch (error) {
+      console.error("❌ [Pricing Quote] Error:", error);
+      res.status(500).json({ message: "Failed to calculate pricing quote" });
+    }
+  });
+
   // Create Stripe Checkout session for booking payment
   app.post("/api/create-checkout-session", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -555,9 +587,7 @@ export function registerRoutes(app: Express): Server {
         userId: req.user.id,
       });
 
-      // Calculate tiered price based on quantity
       const quantity = validatedData.quantity || 1;
-      const calculatedAmount = 60000 + ((quantity - 1) * 50000); // $600 + ($500 * additional slots)
 
       // Check if campaign exists and is in booking_open status
       const campaign = await storage.getCampaign(validatedData.campaignId);
@@ -582,18 +612,44 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Slot already booked" });
       }
 
-      // Create booking with pending payment status and calculated amount
+      // Calculate price using pricing service (considers all pricing rules and campaign base price)
+      const pricingQuote = await calculatePricingQuote(
+        validatedData.campaignId,
+        req.user.id,
+        quantity
+      );
+
+      console.log(`💲 [Booking Pricing] Quote for user ${req.user.username}:`, {
+        totalPrice: `$${(pricingQuote.totalPrice / 100).toFixed(2)}`,
+        priceSource: pricingQuote.priceSource,
+        appliedRules: pricingQuote.appliedRules.length,
+      });
+
+      // Create booking with pending payment status and calculated price from pricing service
       // Note: Stripe checkout session is created separately via GET /api/bookings/:id/checkout-session
-      // This allows admins to set price overrides before payment
+      // This allows admins to set price overrides before payment if needed
       const booking = await storage.createBooking({
         ...validatedData,
-        amount: calculatedAmount,
+        amount: pricingQuote.totalPrice,
         status: "confirmed",
         paymentStatus: "pending",
       });
 
-      console.log(`📝 [Booking] Created booking ${booking.id} for user ${req.user.username}, amount: $${(calculatedAmount / 100).toFixed(2)}`);
-      res.json({ bookingId: booking.id });
+      // Record any pricing rules that were applied
+      for (const rule of pricingQuote.appliedRules) {
+        await recordPricingRuleApplication(rule.ruleId, booking.id, req.user.id);
+        console.log(`📋 [Pricing Rule] Applied rule "${rule.description}" to booking ${booking.id}`);
+      }
+
+      console.log(`📝 [Booking] Created booking ${booking.id} for user ${req.user.username}, amount: $${(pricingQuote.totalPrice / 100).toFixed(2)}`);
+      res.json({ 
+        bookingId: booking.id,
+        pricingQuote: {
+          totalPrice: pricingQuote.totalPrice,
+          breakdown: pricingQuote.breakdown,
+          appliedRules: pricingQuote.appliedRules,
+        }
+      });
     } catch (error) {
       console.error("Booking creation error:", error);
       res.status(400).json({ message: "Failed to create booking" });
@@ -627,15 +683,23 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Calculate price: use override if set, otherwise use tiered pricing
+      // Calculate price: use manual override if set, otherwise use pricing service
       let finalAmount: number;
       if (booking.priceOverride !== null && booking.priceOverride !== undefined) {
         finalAmount = booking.priceOverride;
-        console.log(`💲 [Checkout] Using price override: $${(finalAmount / 100).toFixed(2)} for booking ${bookingId}`);
+        console.log(`💲 [Checkout] Using manual price override: $${(finalAmount / 100).toFixed(2)} for booking ${bookingId}`);
       } else {
-        const quantity = booking.quantity || 1;
-        finalAmount = 60000 + ((quantity - 1) * 50000); // $600 + ($500 * additional slots)
-        console.log(`💲 [Checkout] Using calculated price: $${(finalAmount / 100).toFixed(2)} for ${quantity} slot(s)`);
+        // Use pricing service to calculate price (respects pricing rules and campaign base price)
+        const pricingQuote = await calculatePricingQuote(
+          booking.campaignId,
+          booking.userId,
+          booking.quantity || 1
+        );
+        finalAmount = pricingQuote.totalPrice;
+        console.log(`💲 [Checkout] Using pricing service: $${(finalAmount / 100).toFixed(2)} for ${booking.quantity || 1} slot(s)`, {
+          priceSource: pricingQuote.priceSource,
+          appliedRules: pricingQuote.appliedRules.length,
+        });
       }
 
       // Fetch campaign, route, and industry details for Stripe description

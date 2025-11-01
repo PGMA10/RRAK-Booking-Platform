@@ -40,6 +40,7 @@ export const campaigns = sqliteTable("campaigns", {
   totalSlots: integer("total_slots").notNull().default(64),
   bookedSlots: integer("booked_slots").notNull().default(0),
   revenue: integer("revenue").notNull().default(0), // in cents
+  baseSlotPrice: integer("base_slot_price"), // in cents, custom base price for this campaign (overrides default $600)
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
@@ -96,6 +97,29 @@ export const dismissedNotifications = sqliteTable("dismissed_notifications", {
   dismissedAt: integer("dismissed_at", { mode: 'timestamp_ms' }),
 });
 
+export const pricingRules = sqliteTable("pricing_rules", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").references(() => campaigns.id), // null = applies to all campaigns
+  userId: text("user_id").references(() => users.id), // null = applies to all users
+  ruleType: text("rule_type").notNull(), // 'fixed_price', 'discount_amount', 'discount_percent'
+  value: integer("value").notNull(), // fixed_price: cents per slot, discount_amount: total cents off entire booking, discount_percent: integer percentage
+  priority: integer("priority").notNull().default(0), // higher priority wins
+  usageLimit: integer("usage_limit"), // null = unlimited, number = max times rule can be applied
+  usageCount: integer("usage_count").notNull().default(0), // tracks how many times rule has been used
+  status: text("status").notNull().default("active"), // 'active' or 'inactive'
+  description: text("description").notNull(), // e.g., "New customer $100 discount", "Early bird pricing"
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+  createdBy: text("created_by").references(() => users.id),
+});
+
+export const pricingRuleApplications = sqliteTable("pricing_rule_applications", {
+  id: text("id").primaryKey(),
+  pricingRuleId: text("pricing_rule_id").notNull().references(() => pricingRules.id),
+  bookingId: text("booking_id").notNull().references(() => bookings.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  appliedAt: integer("applied_at", { mode: 'timestamp_ms' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -133,6 +157,17 @@ export const insertDismissedNotificationSchema = createInsertSchema(dismissedNot
   dismissedAt: true,
 });
 
+export const insertPricingRuleSchema = createInsertSchema(pricingRules).omit({
+  id: true,
+  createdAt: true,
+  usageCount: true,
+});
+
+export const insertPricingRuleApplicationSchema = createInsertSchema(pricingRuleApplications).omit({
+  id: true,
+  appliedAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -147,6 +182,10 @@ export type AdminNotification = typeof adminNotifications.$inferSelect;
 export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
 export type DismissedNotification = typeof dismissedNotifications.$inferSelect;
 export type InsertDismissedNotification = z.infer<typeof insertDismissedNotificationSchema>;
+export type PricingRule = typeof pricingRules.$inferSelect;
+export type InsertPricingRule = z.infer<typeof insertPricingRuleSchema>;
+export type PricingRuleApplication = typeof pricingRuleApplications.$inferSelect;
+export type InsertPricingRuleApplication = z.infer<typeof insertPricingRuleApplicationSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,11 +25,21 @@ const customerBookingSchema = z.object({
 
 type CustomerBookingData = z.infer<typeof customerBookingSchema>;
 
-// Calculate tiered price based on quantity
-const calculatePrice = (quantity: number): number => {
-  // First slot: $600, each additional slot: $500
-  return 60000 + ((quantity - 1) * 50000); // in cents
-};
+interface PricingQuote {
+  totalPrice: number;
+  breakdown: {
+    basePrice: number;
+    discountAmount: number;
+    finalPrice: number;
+  };
+  appliedRules: Array<{
+    ruleId: string;
+    description: string;
+    ruleType: string;
+    value: number;
+  }>;
+  priceSource: string;
+}
 
 export default function CustomerBookingPage() {
   const { user } = useAuth();
@@ -75,6 +85,14 @@ export default function CustomerBookingPage() {
 
   const { data: industries = [] } = useQuery<Industry[]>({
     queryKey: ["/api/industries"],
+  });
+
+  // Fetch pricing quote when campaign and quantity are selected
+  const campaignId = form.watch("campaignId");
+  const quantity = form.watch("quantity");
+  const { data: pricingQuote, isLoading: isLoadingPrice } = useQuery<PricingQuote>({
+    queryKey: ["/api/pricing/quote", campaignId, quantity],
+    enabled: !!campaignId && !!quantity,
   });
 
   // Filter campaigns that are open for booking
@@ -524,21 +542,37 @@ export default function CustomerBookingPage() {
                       )}
                     />
                     
-                    {selectedQuantity > 1 && (
+                    {pricingQuote && (
                       <div className="mt-4 p-4 bg-muted rounded-lg" data-testid="quantity-pricing-details">
                         <div className="space-y-2 text-sm">
+                          {/* Show base price */}
                           <div className="flex justify-between">
-                            <span>First slot:</span>
-                            <span className="font-medium">$600.00</span>
+                            <span>Base Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''}):</span>
+                            <span className="font-medium">${(pricingQuote.breakdown.basePrice / 100).toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Additional {selectedQuantity - 1} slot{selectedQuantity > 2 ? 's' : ''} × $500:</span>
-                            <span className="font-medium">${((selectedQuantity - 1) * 500).toLocaleString()}.00</span>
-                          </div>
+                          
+                          {/* Show discount if applied */}
+                          {pricingQuote.breakdown.discountAmount > 0 && (
+                            <div className="flex justify-between text-green-600">
+                              <span className="flex items-center gap-1">
+                                <Tag className="h-3 w-3" />
+                                Discount Applied:
+                              </span>
+                              <span className="font-medium">-${(pricingQuote.breakdown.discountAmount / 100).toFixed(2)}</span>
+                            </div>
+                          )}
+                          
+                          {/* Show applied pricing rules */}
+                          {pricingQuote.appliedRules.map((rule) => (
+                            <div key={rule.ruleId} className="flex justify-between text-xs text-blue-600">
+                              <span className="italic">• {rule.description}</span>
+                            </div>
+                          ))}
+                          
                           <div className="border-t border-border pt-2 flex justify-between font-bold">
                             <span>Total Price:</span>
                             <span className="text-lg text-green-600">
-                              ${(calculatePrice(selectedQuantity) / 100).toLocaleString()}
+                              ${(pricingQuote.totalPrice / 100).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -581,9 +615,27 @@ export default function CustomerBookingPage() {
                           <p className="text-sm font-medium text-muted-foreground">
                             Total Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''})
                           </p>
-                          <p className="text-2xl font-bold text-green-600" data-testid="text-slot-price">
-                            {formatCurrency(calculatePrice(selectedQuantity))}
-                          </p>
+                          {isLoadingPrice ? (
+                            <p className="text-2xl font-bold text-muted-foreground" data-testid="text-slot-price">
+                              Loading...
+                            </p>
+                          ) : pricingQuote ? (
+                            <div className="space-y-1">
+                              <p className="text-2xl font-bold text-green-600" data-testid="text-slot-price">
+                                {formatCurrency(pricingQuote.totalPrice)}
+                              </p>
+                              {pricingQuote.breakdown.discountAmount > 0 && (
+                                <p className="text-xs text-green-600 flex items-center gap-1">
+                                  <Tag className="h-3 w-3" />
+                                  Saving ${(pricingQuote.breakdown.discountAmount / 100).toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold text-muted-foreground" data-testid="text-slot-price">
+                              Select campaign
+                            </p>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Reach</p>
@@ -606,11 +658,17 @@ export default function CustomerBookingPage() {
                 </Link>
                 <Button 
                   type="submit"
-                  disabled={!slotAvailable || checkingAvailability}
+                  disabled={!slotAvailable || checkingAvailability || isLoadingPrice}
                   data-testid="button-proceed-payment"
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Proceed to Payment ({formatCurrency(calculatePrice(selectedQuantity))})
+                  {isLoadingPrice ? (
+                    "Calculating Price..."
+                  ) : pricingQuote ? (
+                    `Proceed to Payment (${formatCurrency(pricingQuote.totalPrice)})`
+                  ) : (
+                    "Select Campaign to See Price"
+                  )}
                 </Button>
               </div>
             </form>
