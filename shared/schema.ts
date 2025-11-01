@@ -54,6 +54,8 @@ export const bookings = sqliteTable("bookings", {
   contactPhone: text("contact_phone"),
   amount: integer("amount").notNull().default(60000), // in cents
   quantity: integer("quantity").notNull().default(1), // number of slots booked (1-4)
+  priceOverride: integer("price_override"), // in cents, admin-set override price
+  priceOverrideNote: text("price_override_note"), // explanation for price adjustment
   status: text("status").notNull().default("confirmed"), // 'pending', 'confirmed', 'cancelled'
   paymentStatus: text("payment_status").notNull().default("pending"), // 'pending', 'paid', 'failed'
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
