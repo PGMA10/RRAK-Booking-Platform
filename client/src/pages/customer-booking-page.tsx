@@ -166,7 +166,9 @@ export default function CustomerBookingPage() {
       const bookingResult = await bookingResponse.json();
       
       // Step 2: Create Stripe checkout session for the booking
-      const checkoutResponse = await apiRequest("GET", `/api/bookings/${bookingResult.bookingId}/checkout-session`, {});
+      const checkoutResponse = await fetch(`/api/bookings/${bookingResult.bookingId}/checkout-session`, {
+        credentials: "include",
+      });
       const checkoutResult = await checkoutResponse.json();
       
       return {
