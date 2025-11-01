@@ -138,6 +138,7 @@ export default function CustomerBookingPage() {
     mutationFn: async (bookingData: CustomerBookingData) => {
       const response = await apiRequest("POST", "/api/create-checkout-session", {
         ...bookingData,
+        quantity: parseInt(bookingData.quantity as any) || 1,
         businessName: user?.businessName || user?.username || "Unknown Business",
         contactEmail: user?.email || "",
         contactPhone: user?.phone || "",
