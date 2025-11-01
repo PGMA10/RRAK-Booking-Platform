@@ -16,6 +16,13 @@ Preferred communication style: Simple, everyday language.
 - **Admin**: Username `admin`, Password `admin123`
 - **Customer**: Username `testcustomer`, Password `customer123`
 
+### Home Page Redirect (November 1, 2025)
+- Removed customer dashboard landing page for streamlined user experience
+- Home page ("/") now redirects based on user role:
+  - Customers → `/customer/booking` (direct to booking interface)
+  - Admins → `/admin` (admin dashboard)
+- Clicking "Route Reach AK" logo takes users directly to their primary workflow
+
 ### Session Cookie Fix (October 31, 2025)
 - Fixed 401 Unauthorized errors after login by disabling `trust proxy` in development mode
 - Session cookies now work correctly - authentication persists across requests
