@@ -318,7 +318,7 @@ export default function CustomerDashboardPage() {
                             {booking.status}
                           </Badge>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 text-sm text-muted-foreground">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3 text-sm text-muted-foreground">
                           <div>
                             <p className="font-medium text-foreground">Campaign</p>
                             <p>{booking.campaign?.name || 'N/A'}</p>
@@ -330,6 +330,10 @@ export default function CustomerDashboardPage() {
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
                             <p>{booking.industry?.name || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">Quantity</p>
+                            <p>{booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
                           </div>
                         </div>
                         {canCancelBooking(booking) && (
@@ -348,8 +352,11 @@ export default function CustomerDashboardPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-muted-foreground">Booking Amount</p>
+                        <p className="text-sm font-medium text-muted-foreground">Total Price</p>
                         <p className="text-xl font-bold text-foreground">${((booking.amount || 60000) / 100).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -394,7 +401,7 @@ export default function CustomerDashboardPage() {
                         <CheckCircle className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-foreground">Campaign Payment</p>
+                        <p className="font-medium text-foreground">Campaign Payment - {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
                         <p className="text-sm text-muted-foreground">
                           {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString('en-US', { 
                             month: 'long', 
@@ -441,7 +448,7 @@ export default function CustomerDashboardPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">{booking.campaign?.name || 'Campaign'}</h4>
-                        <p className="text-sm text-muted-foreground">{booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name}</p>
+                        <p className="text-sm text-muted-foreground">{booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name} - {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
                       </div>
                       <Badge className={`${getArtworkStatusColor(booking.artworkStatus)} flex items-center gap-1`}>
                         {getArtworkStatusIcon(booking.artworkStatus)}

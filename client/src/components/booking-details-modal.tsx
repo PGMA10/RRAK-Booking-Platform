@@ -265,6 +265,12 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
                   {booking.industry?.name || 'N/A'}
                 </p>
               </div>
+              <div>
+                <p className="text-muted-foreground">Slots Booked</p>
+                <p className="font-medium" data-testid="text-quantity">
+                  {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -310,10 +316,11 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
                 </div>
               </div>
               <div>
-                <p className="text-muted-foreground">Amount</p>
+                <p className="text-muted-foreground">Total Amount</p>
                 <p className="font-medium text-lg text-green-600" data-testid="text-amount">
                   {formatCurrency(booking.amountPaid || booking.amount)}
                 </p>
+                <p className="text-xs text-muted-foreground">{booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
               </div>
               {booking.paidAt && (
                 <div>

@@ -555,6 +555,10 @@ export function registerRoutes(app: Express): Server {
         userId: req.user.id,
       });
 
+      // Calculate tiered price based on quantity
+      const quantity = validatedData.quantity || 1;
+      const calculatedAmount = 60000 + ((quantity - 1) * 50000); // $600 + ($500 * additional slots)
+
       // Check if campaign exists and is in booking_open status
       const campaign = await storage.getCampaign(validatedData.campaignId);
       if (!campaign) {
@@ -586,14 +590,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Route or industry not found" });
       }
 
-      // Create booking with pending payment status
+      // Create booking with pending payment status and calculated amount
       const booking = await storage.createBooking({
         ...validatedData,
+        amount: calculatedAmount,
         status: "confirmed",
         paymentStatus: "pending",
       });
 
-      // Create Stripe Checkout session
+      // Create Stripe Checkout session with quantity-based pricing
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -602,9 +607,9 @@ export function registerRoutes(app: Express): Server {
               currency: 'usd',
               product_data: {
                 name: `Direct Mail Campaign - ${campaign.name}`,
-                description: `Route: ${route.zipCode} - ${route.name} | Industry: ${industry.name}`,
+                description: `Route: ${route.zipCode} - ${route.name} | Industry: ${industry.name} | ${quantity} slot${quantity > 1 ? 's' : ''}`,
               },
-              unit_amount: validatedData.amount || 60000, // Amount in cents
+              unit_amount: calculatedAmount, // Total price in cents based on quantity
             },
             quantity: 1,
           },
@@ -617,6 +622,7 @@ export function registerRoutes(app: Express): Server {
           bookingId: booking.id,
           campaignId: validatedData.campaignId,
           userId: req.user.id,
+          quantity: quantity.toString(),
         },
       });
 

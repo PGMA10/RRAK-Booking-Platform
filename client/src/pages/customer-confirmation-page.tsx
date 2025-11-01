@@ -169,7 +169,7 @@ export default function CustomerConfirmationPage() {
             {isPaid ? 'Payment Successful!' : 'Payment Pending'}
           </h1>
           <p className="text-muted-foreground text-lg" data-testid="text-page-description">
-            {isPaid ? 'Your campaign slot has been successfully reserved' : 'Your booking is being processed'}
+            {isPaid ? `Your campaign ${(booking.quantity || 1) > 1 ? `${booking.quantity} slots have` : 'slot has'} been successfully reserved` : 'Your booking is being processed'}
           </p>
           <Badge variant={isPaid ? "default" : "secondary"} className={`mt-4 ${isPaid ? 'bg-green-100 text-green-800 border-green-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`} data-testid="badge-booking-reference">
             Booking Reference: {generateBookingReference(booking.id)}
@@ -263,7 +263,14 @@ export default function CustomerConfirmationPage() {
                   </div>
                   
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Amount</p>
+                    <p className="text-sm font-medium text-muted-foreground">Quantity</p>
+                    <p className="font-medium" data-testid="text-booking-quantity">
+                      {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
                     <p className="font-medium text-lg text-green-600" data-testid="text-amount-paid">
                       {formatCurrency(booking.amountPaid || booking.amount)}
                     </p>

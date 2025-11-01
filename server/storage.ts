@@ -388,6 +388,7 @@ export class MemStorage implements IStorage {
 
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
     const id = randomUUID();
+    const quantity = insertBooking.quantity || 1;
     const booking: Booking = {
       ...insertBooking,
       id,
@@ -408,15 +409,16 @@ export class MemStorage implements IStorage {
       artworkUploadedAt: insertBooking.artworkUploadedAt || null,
       artworkReviewedAt: insertBooking.artworkReviewedAt || null,
       artworkRejectionReason: insertBooking.artworkRejectionReason || null,
+      quantity,
     };
     this.bookings.set(id, booking);
     
-    // Update campaign booked slots count and revenue
+    // Update campaign booked slots count and revenue by quantity
     const campaign = this.campaigns.get(insertBooking.campaignId);
     if (campaign) {
       const updatedCampaign = { 
         ...campaign, 
-        bookedSlots: campaign.bookedSlots + 1,
+        bookedSlots: campaign.bookedSlots + quantity,
         revenue: campaign.revenue + booking.amount
       };
       this.campaigns.set(campaign.id, updatedCampaign);
@@ -497,6 +499,8 @@ export class MemStorage implements IStorage {
     const booking = this.bookings.get(id);
     if (!booking) return undefined;
     
+    const quantity = booking.quantity || 1;
+    
     const updatedBooking = {
       ...booking,
       status: 'cancelled',
@@ -506,12 +510,12 @@ export class MemStorage implements IStorage {
     };
     this.bookings.set(id, updatedBooking);
     
-    // Update campaign: decrease booked slots and revenue
+    // Update campaign: decrease booked slots by quantity and revenue
     const campaign = this.campaigns.get(booking.campaignId);
     if (campaign) {
       const updatedCampaign = {
         ...campaign,
-        bookedSlots: Math.max(0, campaign.bookedSlots - 1),
+        bookedSlots: Math.max(0, campaign.bookedSlots - quantity),
         revenue: Math.max(0, campaign.revenue - (booking.amountPaid || booking.amount)),
       };
       this.campaigns.set(campaign.id, updatedCampaign);
@@ -989,18 +993,20 @@ export class DbStorage implements IStorage {
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const now = new Date();
+    const quantity = booking.quantity || 1;
     const bookingWithId = {
       ...booking,
       id: (booking as any).id || randomUUID().replace(/-/g, ''),
       createdAt: (booking as any).createdAt || now,
+      quantity,
     };
     const result = await db.insert(bookingsTable).values(bookingWithId).returning();
     const createdBooking = result[0];
     
-    // Atomic update of campaign counters using SQL expressions
+    // Atomic update of campaign counters using SQL expressions, increment by quantity
     await db.update(campaignsTable)
       .set({
-        bookedSlots: sql`${campaignsTable.bookedSlots} + 1`,
+        bookedSlots: sql`${campaignsTable.bookedSlots} + ${quantity}`,
         revenue: sql`${campaignsTable.revenue} + ${createdBooking.amount || 60000}`
       })
       .where(eq(campaignsTable.id, booking.campaignId));
@@ -1094,6 +1100,7 @@ export class DbStorage implements IStorage {
     if (!currentBooking || currentBooking.length === 0) return undefined;
     
     const booking = currentBooking[0];
+    const quantity = booking.quantity || 1;
     
     // Update booking with cancellation info
     const result = await db.update(bookingsTable)
@@ -1106,10 +1113,10 @@ export class DbStorage implements IStorage {
       .where(eq(bookingsTable.id, id))
       .returning();
     
-    // Update campaign: decrease booked slots and revenue
+    // Update campaign: decrease booked slots by quantity and revenue
     await db.update(campaignsTable)
       .set({
-        bookedSlots: sql`MAX(0, ${campaignsTable.bookedSlots} - 1)`,
+        bookedSlots: sql`MAX(0, ${campaignsTable.bookedSlots} - ${quantity})`,
         revenue: sql`MAX(0, ${campaignsTable.revenue} - ${booking.amountPaid || booking.amount})`
       })
       .where(eq(campaignsTable.id, booking.campaignId));
