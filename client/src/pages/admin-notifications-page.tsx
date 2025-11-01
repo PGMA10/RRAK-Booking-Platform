@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
 import { BookingDetailsModal } from "@/components/booking-details-modal";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Bell,
   UserPlus,
@@ -16,7 +18,8 @@ import {
   AlertCircle,
   DollarSign,
   CheckCircle,
-  XCircle
+  XCircle,
+  X
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -33,10 +36,41 @@ interface Notification {
 
 export default function AdminNotificationsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleViewDetails = (booking: BookingWithDetails) => {
+  const dismissMutation = useMutation({
+    mutationFn: async ({bookingId, notificationType}: {bookingId: string, notificationType: string}) => {
+      return apiRequest(`/api/notifications/${bookingId}/dismiss`, {
+        method: 'POST',
+        body: JSON.stringify({ notificationType }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/summary'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to dismiss notification",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDismiss = (bookingId: string, notificationType: string) => {
+    dismissMutation.mutate({ bookingId, notificationType });
+  };
+
+  const handleViewDetails = (booking: BookingWithDetails, notificationType: string) => {
+    // Auto-dismiss when viewing details
+    dismissMutation.mutate({ bookingId: booking.id, notificationType });
     setSelectedBooking(booking);
     setIsModalOpen(true);
   };
@@ -168,15 +202,26 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleViewDetails(notification.booking)}
-                          data-testid={`button-view-booking-${notification.bookingId}`}
-                        >
-                          View Details
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDismiss(notification.bookingId, notification.type)}
+                            data-testid={`button-dismiss-${notification.bookingId}`}
+                            disabled={dismissMutation.isPending}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleViewDetails(notification.booking, notification.type)}
+                            data-testid={`button-view-booking-${notification.bookingId}`}
+                          >
+                            View Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -234,12 +279,23 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
-                        <Link href="/admin/artwork">
-                          <Button variant="outline" size="sm" data-testid={`button-review-artwork-${notification.bookingId}`}>
-                            Review Artwork
-                            <ChevronRight className="h-4 w-4 ml-1" />
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDismiss(notification.bookingId, notification.type)}
+                            data-testid={`button-dismiss-${notification.bookingId}`}
+                            disabled={dismissMutation.isPending}
+                          >
+                            <X className="h-4 w-4" />
                           </Button>
-                        </Link>
+                          <Link href="/admin/artwork">
+                            <Button variant="outline" size="sm" data-testid={`button-review-artwork-${notification.bookingId}`}>
+                              Review Artwork
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -326,15 +382,26 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleViewDetails(notification.booking)}
-                          data-testid={`button-view-canceled-${notification.bookingId}`}
-                        >
-                          View Details
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDismiss(notification.bookingId, notification.type)}
+                            data-testid={`button-dismiss-${notification.bookingId}`}
+                            disabled={dismissMutation.isPending}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleViewDetails(notification.booking, notification.type)}
+                            data-testid={`button-view-canceled-${notification.bookingId}`}
+                          >
+                            View Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
