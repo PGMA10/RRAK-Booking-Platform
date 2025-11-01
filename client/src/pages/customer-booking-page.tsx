@@ -507,6 +507,9 @@ export default function CustomerBookingPage() {
                             </SelectContent>
                           </Select>
                           <FormMessage />
+                          <p className="text-sm text-muted-foreground mt-2">
+                            💡 Each additional slot gives you more ad space for the SAME design. All slots in this booking will display the same artwork.
+                          </p>
                         </FormItem>
                       )}
                     />

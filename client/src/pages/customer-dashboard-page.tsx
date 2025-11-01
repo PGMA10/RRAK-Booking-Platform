@@ -439,6 +439,11 @@ export default function CustomerDashboardPage() {
           <CardContent>
             {bookings && bookings.length > 0 ? (
               <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Note:</strong> If you booked multiple slots, upload one design. This artwork will be printed across all slots in your booking for maximum impact.
+                  </p>
+                </div>
                 {bookings.map((booking) => (
                   <div 
                     key={booking.id} 
