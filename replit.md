@@ -133,6 +133,28 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoint**: GET /api/dashboard/stats returns campaign-specific data for current month
 - **Edge Cases**: Guards against division by zero in progress bar, handles null deadlines gracefully
 
+### Multi-Slot Booking System (November 1, 2025)
+- **Feature**: Customers can book multiple slots (1-4) in a single booking transaction
+- **Tiered Pricing Model**: First slot costs $600, each additional slot costs $500
+  - 1 slot = $600.00
+  - 2 slots = $1,100.00 ($600 + $500)
+  - 3 slots = $1,600.00 ($600 + $1,000)
+  - 4 slots = $2,100.00 ($600 + $1,500)
+- **Database Schema**: Added `quantity` field (integer, default 1) to bookings table for backward compatibility
+- **Slot Counting**: Campaign `bookedSlots` increments/decrements by booking.quantity instead of fixed +1/-1
+- **Stripe Integration**: Checkout session amount calculated as `600 + (quantity - 1) * 500` in cents
+- **Customer UI**:
+  - Quantity dropdown (1-4 slots) on booking page after route/industry selection
+  - Live price breakdown showing "First slot: $600.00", "Additional X slots: $X", "Total: $X"
+  - Dashboard displays quantity and total (e.g., "Hillside - Fitness - 3 slots - $1,600.00")
+  - Confirmation page shows quantity and total after payment
+- **Admin UI**:
+  - Booking details modal displays "Slots Booked: 3 slots" in Campaign Information section
+  - Total Amount shows full price with quantity note
+  - Campaign dashboard correctly reflects multi-slot bookings in bookedSlots count
+- **Cancellation**: Full refund amount based on total booking price (quantity × tier pricing)
+- **Migration**: Database migration handled via ALTER TABLE in db-sqlite.ts initialization
+
 ### Booking Approval System (October 31, 2025)
 - **Feature**: Admin approval/rejection workflow for new bookings with rejection notes
 - **Approval States**: pending (default) → approved/rejected
