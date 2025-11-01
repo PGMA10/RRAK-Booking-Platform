@@ -52,16 +52,39 @@ export default function AdminPage() {
 
   // Fetch dashboard stats
   const { data: dashboardStats, isLoading: statsLoading } = useQuery<{
-    totalActiveCampaigns: number;
-    bookingsThisMonth: number;
+    campaignId: string | null;
+    campaignName: string | null;
+    slotsBooked: number;
+    totalSlots: number;
+    printDeadline: string | null;
+    mailDeadline: string | null;
     revenueThisMonth: number;
-    availableSlots: number;
-    totalCustomers: number;
-    occupancyRate: number;
   }>({
     queryKey: ['/api/dashboard/stats'],
     enabled: !!user && user.role === "admin",
+    refetchInterval: 60000, // Refresh every minute for countdown updates
   });
+
+  // Calculate countdown for deadlines
+  const getCountdown = (deadline: string | null): string => {
+    if (!deadline) return "Not set";
+    
+    const now = new Date();
+    const target = new Date(deadline);
+    const diffMs = target.getTime() - now.getTime();
+    
+    if (diffMs < 0) return "Passed";
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) {
+      return `${days} day${days !== 1 ? 's' : ''} ${hours}h`;
+    } else {
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
+    }
+  };
 
   // Fetch pending artwork reviews count
   const { data: pendingArtwork } = useQuery<Booking[]>({
@@ -116,18 +139,57 @@ export default function AdminPage() {
           <p className="text-muted-foreground mt-2">Route Reach AK business operations overview</p>
         </div>
 
-        {/* 1. Overview Statistics Cards */}
+        {/* 1. Current Campaign Overview */}
+        {dashboardStats?.campaignName && (
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-foreground">
+              Current Campaign: {dashboardStats.campaignName}
+            </h3>
+          </div>
+        )}
+
+        {/* 2. Overview Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Target className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-muted-foreground">Slots Booked</p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-slots-booked">
+                    {statsLoading ? '...' : `${dashboardStats?.slotsBooked || 0}/${dashboardStats?.totalSlots || 64}`}
+                  </p>
+                  <div className="mt-2 w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${dashboardStats ? (dashboardStats.slotsBooked / dashboardStats.totalSlots) * 100 : 0}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-primary" />
+                <div className="p-2 bg-chart-1/10 rounded-lg">
+                  <Calendar className="h-6 w-6 text-chart-1" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Total Active Campaigns</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-active-campaigns">
-                    {statsLoading ? '...' : dashboardStats?.totalActiveCampaigns || 0}
+                  <p className="text-sm font-medium text-muted-foreground">Print Deadline</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-print-deadline">
+                    {statsLoading ? '...' : getCountdown(dashboardStats?.printDeadline || null)}
                   </p>
                 </div>
               </div>
@@ -137,13 +199,13 @@ export default function AdminPage() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-accent" />
+                <div className="p-2 bg-chart-2/10 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-chart-2" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Bookings This Month</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-bookings-month">
-                    {statsLoading ? '...' : dashboardStats?.bookingsThisMonth || 0}
+                  <p className="text-sm font-medium text-muted-foreground">Mail Deadline</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-mail-deadline">
+                    {statsLoading ? '...' : getCountdown(dashboardStats?.mailDeadline || null)}
                   </p>
                 </div>
               </div>
@@ -160,22 +222,6 @@ export default function AdminPage() {
                   <p className="text-sm font-medium text-muted-foreground">Revenue This Month</p>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-revenue-month">
                     {statsLoading ? '...' : `$${(dashboardStats?.revenueThisMonth || 0).toLocaleString()}`}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-chart-5/10 rounded-lg">
-                  <Target className="h-6 w-6 text-chart-5" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Available Slots</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-available-slots">
-                    {statsLoading ? '...' : dashboardStats?.availableSlots || 0}
                   </p>
                 </div>
               </div>
