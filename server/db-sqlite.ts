@@ -192,5 +192,16 @@ export function initializeDatabase() {
     )
   `);
 
+  // Create dismissed_notifications table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS dismissed_notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      booking_id TEXT NOT NULL REFERENCES bookings(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      notification_type TEXT NOT NULL,
+      dismissed_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
   console.log("✅ SQLite tables initialized");
 }
