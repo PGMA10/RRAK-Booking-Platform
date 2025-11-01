@@ -1305,50 +1305,51 @@ export function registerRoutes(app: Express): Server {
 
       // Calculate admin-specific metrics
       if (req.user.role === "admin") {
-        // Total Active Campaigns (planning, booking_open, booking_closed)
-        const activeCampaigns = campaigns.filter(c => 
-          ['planning', 'booking_open', 'booking_closed'].includes(c.status)
-        ).length;
-
-        // Bookings This Month
+        // Find current month's campaign (based on mail date)
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const bookingsThisMonth = allBookings.filter(b => {
-          const createdAt = new Date(b.createdAt);
-          return createdAt >= startOfMonth;
-        }).length;
-
-        // Revenue This Month (only from paid bookings created this month)
-        const revenueThisMonth = allBookings
-          .filter(b => {
-            const createdAt = new Date(b.createdAt);
-            return createdAt >= startOfMonth && b.paymentStatus === 'paid';
-          })
-          .reduce((sum, booking) => sum + booking.amount, 0);
-
-        // Available Slots (from all active campaigns)
-        const totalSlots = campaigns
-          .filter(c => c.status === 'booking_open' || c.status === 'planning')
-          .reduce((sum, c) => sum + c.totalSlots, 0);
-        const bookedSlots = campaigns
-          .filter(c => c.status === 'booking_open' || c.status === 'planning')
-          .reduce((sum, c) => sum + c.bookedSlots, 0);
-        const availableSlots = totalSlots - bookedSlots;
-
-        // Total unique customers
-        const uniqueCustomers = new Set(allBookings.map(b => b.userId)).size;
-
-        // Occupancy rate
-        const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
-
-        res.json({
-          totalActiveCampaigns: activeCampaigns,
-          bookingsThisMonth,
-          revenueThisMonth: revenueThisMonth / 100, // Convert cents to dollars
-          availableSlots,
-          totalCustomers: uniqueCustomers,
-          occupancyRate,
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        
+        // Find campaign whose mail date is in the current month
+        const currentCampaign = campaigns.find(c => {
+          if (!c.mailDate) return false;
+          const mailDate = new Date(c.mailDate);
+          return mailDate.getFullYear() === currentYear && mailDate.getMonth() === currentMonth;
         });
+
+        // If we have a current campaign, get its specific stats
+        if (currentCampaign) {
+          // Get bookings for this specific campaign
+          const campaignBookings = allBookings.filter(b => 
+            b.campaignId === currentCampaign.id && b.status !== 'canceled'
+          );
+          
+          // Revenue from paid bookings in this campaign
+          const campaignRevenue = campaignBookings
+            .filter(b => b.paymentStatus === 'paid')
+            .reduce((sum, booking) => sum + booking.amount, 0);
+
+          res.json({
+            campaignId: currentCampaign.id,
+            campaignName: currentCampaign.name,
+            slotsBooked: currentCampaign.bookedSlots,
+            totalSlots: currentCampaign.totalSlots,
+            printDeadline: currentCampaign.printDeadline,
+            mailDeadline: currentCampaign.mailDate,
+            revenueThisMonth: campaignRevenue / 100, // Convert cents to dollars
+          });
+        } else {
+          // No current campaign - return zeros
+          res.json({
+            campaignId: null,
+            campaignName: null,
+            slotsBooked: 0,
+            totalSlots: 64,
+            printDeadline: null,
+            mailDeadline: null,
+            revenueThisMonth: 0,
+          });
+        }
       } else {
         // Customer stats
         const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
