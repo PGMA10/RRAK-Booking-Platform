@@ -1,205 +1,94 @@
 # Route Reach AK - Direct Mail Booking Platform
 
 ## Overview
-
-Route Reach AK is a direct mail booking platform designed specifically for Alaska businesses. The application allows businesses to book slots in direct mail campaigns across different routes (zip codes) and industries. It features a customer-facing booking system and an admin dashboard for campaign management.
-
-The platform operates on a slot-based booking system where campaigns have limited availability (64 slots by default), and businesses can reserve their spot for specific routes and industries. The system includes user authentication, campaign management, a comprehensive booking workflow, and an artwork upload and review system where customers submit their ad designs for admin approval before printing.
+Route Reach AK is a direct mail booking platform for Alaska businesses, enabling them to book slots in direct mail campaigns across specific routes and industries. The platform features a customer-facing booking system and an admin dashboard for campaign management. It uses a slot-based booking system with limited availability, user authentication, campaign management, a comprehensive booking workflow, artwork upload and review, and integrated payment processing. The business vision is to streamline direct mail advertising for local Alaskan businesses, offering a clear market potential for targeted local advertising.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
-
-## Test Credentials
-
-### Seeded Users (automatically created on server start)
-- **Admin**: Username `admin`, Password `admin123`
-- **Customer**: Username `testcustomer`, Password `customer123`
-
-### Home Page Redirect (November 1, 2025)
-- Removed customer dashboard landing page for streamlined user experience
-- Home page ("/") now redirects based on user role:
-  - Customers → `/customer/booking` (direct to booking interface)
-  - Admins → `/admin` (admin dashboard)
-- Clicking "Route Reach AK" logo takes users directly to their primary workflow
-
-### Session Cookie Fix (October 31, 2025)
-- Fixed 401 Unauthorized errors after login by disabling `trust proxy` in development mode
-- Session cookies now work correctly - authentication persists across requests
-- Issue was caused by Express proxy settings interfering with cookie handling in Replit environment
-
-### Stripe Payment Verification Fix (October 31, 2025)
-- **Issue**: Bookings remained in "Payment Pending" status even after successful Stripe checkout in test/dev mode
-- **Root Cause**: Stripe webhooks are not automatically triggered in local development - they require Stripe CLI or configured webhook endpoints
-- **Solution**: Implemented manual payment verification on confirmation page
-  - Added `/api/stripe-verify-session` endpoint that retrieves Stripe session status via API
-  - Confirmation page automatically calls verification endpoint on load
-  - Booking status updates from "pending" to "paid" when Stripe confirms payment
-  - Updates payment details: `stripePaymentIntentId`, `amountPaid`, `paidAt` timestamp
-- **User Experience**: Payment status now correctly shows "Paid" immediately after successful Stripe checkout
-- **Business License Removal**: Removed all business license verification fields per user request - businesses will be vetted manually outside the system
 
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework**: React with TypeScript, built using Vite
+- **Framework**: React with TypeScript (Vite)
 - **Routing**: Wouter for client-side routing with protected routes
-- **UI Components**: Radix UI primitives with Shadcn/UI component library
-- **Styling**: Tailwind CSS with CSS variables for theming
+- **UI Components**: Radix UI primitives with Shadcn/UI
+- **Styling**: Tailwind CSS with CSS variables
 - **State Management**: TanStack Query for server state, React Context for authentication
 - **Forms**: React Hook Form with Zod validation
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express.js framework
-- **Authentication**: Passport.js with local strategy using bcrypt-style password hashing
+- **Runtime**: Node.js with Express.js
+- **Authentication**: Passport.js with local strategy (bcrypt hashing)
 - **Session Management**: Express sessions with PostgreSQL session store
 - **API Design**: RESTful API with JSON responses
-- **Development Tools**: TSX for TypeScript execution, Vite for development server
+- **Development Tools**: TSX for TypeScript execution
 
 ### Database Architecture
-- **ORM**: Drizzle ORM with SQLite for development (migrations to PostgreSQL for production)
-- **Schema**: Five main entities - users, routes, industries, campaigns, and bookings
-- **Relationships**: Foreign key constraints linking bookings to users, campaigns, routes, and industries
-- **Data Types**: Auto-incrementing IDs, timestamps for audit trails, text fields for status
-- **Campaign Date Fields**: Campaigns have mailDate (when postcards are mailed) and printDeadline (deadline for print-ready artwork, used for cancellation refund eligibility)
-- **Artwork Fields**: Bookings table includes artwork tracking (status, file path, filename, upload/review timestamps, rejection reason)
-- **Timestamp Handling**: SQLite stores dates as INTEGER (milliseconds since epoch), converted to Date objects when read using convertBookingTimestamps helper
+- **ORM**: Drizzle ORM
+- **Development Database**: SQLite
+- **Production Database**: PostgreSQL
+- **Schema**: Users, Routes, Industries, Campaigns, Bookings. Relationships include foreign key constraints.
+- **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason` for bookings; `quantity` for multi-slot bookings.
+- **Timestamp Handling**: SQLite stores dates as INTEGER, converted to Date objects on read.
 
 ### Authentication & Authorization
-- **Strategy**: Session-based authentication with secure password hashing
-- **User Roles**: Customer and admin roles with route-level protection
-- **Session Storage**: PostgreSQL-backed session store for persistence
-- **Password Security**: Scrypt hashing with salt for password storage
+- **Strategy**: Session-based authentication with Scrypt password hashing
+- **User Roles**: Customer and Admin with route-level protection
+- **Session Storage**: PostgreSQL-backed session store
 
 ### Data Flow Architecture
-- **Client-Server Communication**: HTTP REST API with JSON payloads and multipart/form-data for file uploads
-- **Query Management**: TanStack Query for caching, optimistic updates, and background syncing
+- **Client-Server Communication**: HTTP REST API (JSON payloads, multipart/form-data for file uploads)
+- **Query Management**: TanStack Query for caching and syncing
 - **Error Handling**: Centralized error boundaries with toast notifications
-- **Loading States**: Skeleton components and loading indicators throughout the UI
-- **File Uploads**: Multer middleware for artwork uploads with type and size validation
+- **File Uploads**: Multer middleware for artwork uploads with validation.
 
-### Artwork Upload System
-- **File Upload**: Multer-based file upload with validation (PNG, JPG, PDF up to 10MB)
-- **Storage**: Files organized in uploads/artwork directory by booking ID
-- **Workflow States**: pending_upload → under_review → approved/rejected
-- **Customer Features**: Upload artwork, view status, see rejection reasons, re-upload after rejection
-- **Admin Features**: Review queue, approve/reject with reasons, track review timestamps
-- **Security**: File type validation, size limits, user authorization checks, proper error handling
+### Core Features & Implementations
+- **Artwork Upload System**: Multer-based file upload (PNG, JPG, PDF, max 10MB) to `uploads/artwork` directory. Workflow: `pending_upload` → `under_review` → `approved`/`rejected`.
+- **Customer Self-Service Cancellation**: Customer-initiated booking cancellation with automatic Stripe refund processing based on a 7-day policy relative to the print deadline.
+- **Admin Notification Center**: Centralized notifications for new bookings, pending artwork review, and canceled bookings, with a 30-second polling for updates and per-admin dismissal.
+- **Admin Dashboard Current Campaign Focus**: Displays current month's campaign metrics (slots booked, print/mail deadline countdowns, revenue) with auto-refresh.
+- **Multi-Slot Booking System**: Allows booking 1-4 slots per transaction with tiered pricing: $600 for the first slot, $500 for each additional.
+- **Booking Approval System**: Admin workflow for approving or rejecting new bookings with mandatory rejection notes, updating `approvalStatus`.
+- **Pre-Booking Pricing System**: Rule-driven pricing engine with a hierarchical system: User fixed-price/discount, Campaign base price/discount, Default tiered pricing. Rules can be `fixed_price`, `discount_amount`, or `discount_percent`.
 
-### Customer Self-Service Cancellation System
-- **Feature**: Customer-initiated booking cancellation with automatic Stripe refund processing
-- **Cancellation Policy**: 7-day deadline - full refund if 7+ days before campaign print deadline, no refund within 7 days
-- **Eligibility**: Any non-cancelled booking with 'paid' or 'pending' payment status
-- **Refund Processing**: Automatic Stripe refund via API for eligible cancellations (7+ days before print deadline)
-- **Slot Release**: Canceled bookings immediately release their slot, decrement campaign bookedSlots and revenue
-- **Database Fields**: cancellationDate (timestamp), refundAmount (cents), refundStatus ('pending'|'processed'|'no_refund'|'failed')
-- **Customer UI**: Cancel Booking button on dashboard with confirmation dialog showing refund eligibility
-- **Admin Visibility**: Canceled bookings appear in admin notifications (last 7 days) with refund status
-- **API Endpoint**: `POST /api/bookings/:bookingId/cancel` with authorization checks
-- **Error Handling**: Validates campaign print deadline exists, proper payment status, booking ownership
-
-### Admin Notification Center
-- **Purpose**: Centralized actionable items tracking separate from Recent Activity historical timeline
-- **Notification Types**: New bookings (last 24 hours), artwork pending review (under_review status), canceled bookings (last 7 days)
-- **Components**: Action Items dashboard widget, dedicated Notifications page, navigation badge counter
-- **Data Model**: Notifications derived from booking state (not separately persisted)
-- **Real-time Updates**: 30-second polling for counts and notifications
-- **API Endpoints**: `/api/notifications/count`, `/api/notifications/summary`, `/api/notifications`
-- **Security**: All notification endpoints enforce admin-only access
-- **UI Design**: Action Items widget above Recent Activity, grouped notifications by type, consistent counts across all locations
-- **Canceled Bookings Display**: Shows refund status (processed/pending/no_refund/failed), cancellation time, booking details
-
-### Notification Dismissal System (November 1, 2025)
-- **Feature**: Per-admin notification dismissal to manage notification visibility individually
-- **Database**: dismissedNotifications table tracks bookingId, userId, notificationType, and dismissedAt timestamp
-- **Behavior**: Dismissed notifications are filtered from all counts, lists, and summaries per-admin
-- **UI Controls**: X icon dismiss button on all notification cards, auto-dismiss on "View Details" click
-- **API Endpoint**: `POST /api/notifications/:bookingId/dismiss` with notificationType parameter
-- **Cache Management**: Automatic query invalidation ensures real-time UI updates after dismissal
-- **Per-User Tracking**: Each admin can dismiss/view notifications independently without affecting other admins
-- **Data Model**: Uses separate dismissedNotifications table to maintain backward compatibility with derived notifications approach
-
-### Admin Dashboard Current Campaign Focus (November 1, 2025)
-- **Feature**: Admin dashboard shows current month's campaign metrics instead of aggregate stats
-- **Current Month Detection**: Finds campaign where mailDate matches current month/year
-- **Dashboard Metrics**:
-  - **Slots Booked**: Shows "X/64" format with visual progress bar
-  - **Print Deadline**: Countdown timer showing days/hours until print deadline
-  - **Mail Deadline**: Countdown timer showing days/hours until mail date
-  - **Revenue This Month**: Total revenue from paid bookings in current campaign
-- **Empty State**: Shows "No campaign scheduled for this month" message when no current campaign exists
-- **Countdown Format**: "X days Yh" for >24 hours, "Xh Ym" for <24 hours, "Not set" if null, "Passed" if in past
-- **Auto-refresh**: Stats refresh every 60 seconds to keep countdown timers current
-- **API Endpoint**: GET /api/dashboard/stats returns campaign-specific data for current month
-- **Edge Cases**: Guards against division by zero in progress bar, handles null deadlines gracefully
-
-### Multi-Slot Booking System (November 1, 2025)
-- **Feature**: Customers can book multiple slots (1-4) in a single booking transaction
-- **Tiered Pricing Model**: First slot costs $600, each additional slot costs $500
-  - 1 slot = $600.00
-  - 2 slots = $1,100.00 ($600 + $500)
-  - 3 slots = $1,600.00 ($600 + $1,000)
-  - 4 slots = $2,100.00 ($600 + $1,500)
-- **Database Schema**: Added `quantity` field (integer, default 1) to bookings table for backward compatibility
-- **Slot Counting**: Campaign `bookedSlots` increments/decrements by booking.quantity instead of fixed +1/-1
-- **Stripe Integration**: Checkout session amount calculated as `600 + (quantity - 1) * 500` in cents
-- **Customer UI**:
-  - Quantity dropdown (1-4 slots) on booking page after route/industry selection
-  - Live price breakdown showing "First slot: $600.00", "Additional X slots: $X", "Total: $X"
-  - Dashboard displays quantity and total (e.g., "Hillside - Fitness - 3 slots - $1,600.00")
-  - Confirmation page shows quantity and total after payment
-- **Admin UI**:
-  - Booking details modal displays "Slots Booked: 3 slots" in Campaign Information section
-  - Total Amount shows full price with quantity note
-  - Campaign dashboard correctly reflects multi-slot bookings in bookedSlots count
-- **Cancellation**: Full refund amount based on total booking price (quantity × tier pricing)
-- **Migration**: Database migration handled via ALTER TABLE in db-sqlite.ts initialization
-
-### Booking Approval System (October 31, 2025)
-- **Feature**: Admin approval/rejection workflow for new bookings with rejection notes
-- **Approval States**: pending (default) → approved/rejected
-- **Database Fields**: approvalStatus, approvedAt, rejectedAt, rejectionNote
-- **Admin UI**: Approve/Reject buttons in BookingDetailsModal for pending bookings
-- **Rejection Dialog**: Clean AlertDialog with textarea for rejection notes (required field)
-- **API Endpoints**: `POST /api/bookings/:bookingId/approve`, `POST /api/bookings/:bookingId/reject`
-- **Notification Integration**: Modal accessible from all notification "View Details" buttons
-- **Display**: Approval Status section shows current status, approval/rejection timestamps, rejection notes
-- **Business Logic**: Only pending, non-cancelled bookings show approve/reject buttons
-- **Cache Invalidation**: Automatically refreshes notifications after approval/rejection actions
-- **User Communication**: Rejection notes visible to admins for tracking and future customer communication
+### UI/UX Decisions
+- Consistent use of Radix UI and Shadcn/UI for components.
+- Tailwind CSS for styling and theming.
+- Skeleton components and loading indicators for loading states.
+- Lucide React for iconography.
+- Wouter for a lightweight routing experience.
 
 ## External Dependencies
 
 ### Database Services
-- **SQLite**: Development database with better-sqlite3 driver
-- **Drizzle Kit**: Database migrations and schema management
-- **MemoryStore**: In-memory session store for development
+- **SQLite**: Development database.
+- **Drizzle Kit**: Migrations and schema management.
 
 ### File Upload Services
-- **Multer**: Multipart form data handling for artwork uploads
-- **File System**: Node.js fs module for file storage and cleanup
+- **Multer**: Multipart form data handling.
+- **Node.js fs module**: File storage and cleanup.
 
 ### Authentication Services
-- **Passport.js**: Authentication middleware with local strategy
-- **Express-session**: Session management with secure cookie handling
+- **Passport.js**: Authentication middleware.
+- **Express-session**: Session management.
 
 ### Frontend Libraries
-- **Radix UI**: Headless UI primitives for accessibility and functionality
-- **Tailwind CSS**: Utility-first CSS framework for styling
-- **TanStack Query**: Server state management and caching
-- **React Hook Form**: Form handling with validation
-- **Zod**: Schema validation for forms and API data
-- **Wouter**: Lightweight client-side routing
-- **Date-fns**: Date manipulation and formatting
+- **Radix UI**: Headless UI primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **TanStack Query**: Server state management.
+- **React Hook Form**: Form handling.
+- **Zod**: Schema validation.
+- **Wouter**: Client-side routing.
+- **Date-fns**: Date manipulation.
 
 ### Development Tools
-- **Vite**: Build tool and development server with HMR
-- **TypeScript**: Type safety across the entire stack
-- **ESBuild**: Fast JavaScript bundler for production builds
-- **Replit Plugins**: Development environment integration for cartographer and dev banner
+- **Vite**: Build tool and development server.
+- **TypeScript**: Type safety.
+- **ESBuild**: Fast JavaScript bundler.
+- **Replit Plugins**: Development environment integration.
 
 ### UI Enhancement
-- **Lucide React**: Icon library for consistent iconography
-- **Class Variance Authority**: Type-safe CSS class composition
-- **CLSX & Tailwind Merge**: Conditional and merged CSS classes
-- **Embla Carousel**: Carousel components for UI elements
+- **Lucide React**: Icon library.
+- **Class Variance Authority**: Type-safe CSS class composition.
+- **CLSX & Tailwind Merge**: Conditional and merged CSS classes.
+- **Embla Carousel**: Carousel components.
