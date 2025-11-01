@@ -102,6 +102,16 @@ Preferred communication style: Simple, everyday language.
 - **UI Design**: Action Items widget above Recent Activity, grouped notifications by type, consistent counts across all locations
 - **Canceled Bookings Display**: Shows refund status (processed/pending/no_refund/failed), cancellation time, booking details
 
+### Notification Dismissal System (November 1, 2025)
+- **Feature**: Per-admin notification dismissal to manage notification visibility individually
+- **Database**: dismissedNotifications table tracks bookingId, userId, notificationType, and dismissedAt timestamp
+- **Behavior**: Dismissed notifications are filtered from all counts, lists, and summaries per-admin
+- **UI Controls**: X icon dismiss button on all notification cards, auto-dismiss on "View Details" click
+- **API Endpoint**: `POST /api/notifications/:bookingId/dismiss` with notificationType parameter
+- **Cache Management**: Automatic query invalidation ensures real-time UI updates after dismissal
+- **Per-User Tracking**: Each admin can dismiss/view notifications independently without affecting other admins
+- **Data Model**: Uses separate dismissedNotifications table to maintain backward compatibility with derived notifications approach
+
 ### Booking Approval System (October 31, 2025)
 - **Feature**: Admin approval/rejection workflow for new bookings with rejection notes
 - **Approval States**: pending (default) → approved/rejected
