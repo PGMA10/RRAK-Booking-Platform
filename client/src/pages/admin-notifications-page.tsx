@@ -42,13 +42,7 @@ export default function AdminNotificationsPage() {
 
   const dismissMutation = useMutation({
     mutationFn: async ({bookingId, notificationType}: {bookingId: string, notificationType: string}) => {
-      return apiRequest(`/api/notifications/${bookingId}/dismiss`, {
-        method: 'POST',
-        body: JSON.stringify({ notificationType }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      return apiRequest('POST', `/api/notifications/${bookingId}/dismiss`, { notificationType });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
