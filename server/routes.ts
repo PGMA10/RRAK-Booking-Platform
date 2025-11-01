@@ -715,6 +715,11 @@ export function registerRoutes(app: Express): Server {
 
       const quantity = booking.quantity || 1;
 
+      // Construct base URL with proper scheme
+      const baseUrl = req.headers.origin?.startsWith('http') 
+        ? req.headers.origin 
+        : `https://${req.headers.host}`;
+
       // Create Stripe Checkout session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -732,8 +737,8 @@ export function registerRoutes(app: Express): Server {
           },
         ],
         mode: 'payment',
-        success_url: `${req.headers.origin}/customer/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.headers.origin}/customer/dashboard`,
+        success_url: `${baseUrl}/customer/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/customer/dashboard`,
         customer_email: booking.contactEmail,
         metadata: {
           bookingId: booking.id,
