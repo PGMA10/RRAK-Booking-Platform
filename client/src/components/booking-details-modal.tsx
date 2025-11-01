@@ -240,6 +240,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   };
 
   const getPaymentStatusBadge = () => {
+    if (!booking) return null;
     if (booking.paymentStatus === 'paid') {
       return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Paid</Badge>;
     } else if (booking.paymentStatus === 'pending') {
@@ -250,6 +251,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   };
 
   const getArtworkStatusBadge = () => {
+    if (!booking) return null;
     if (booking.artworkStatus === 'approved') {
       return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
     } else if (booking.artworkStatus === 'under_review') {
@@ -262,6 +264,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   };
 
   const getBookingStatusBadge = () => {
+    if (!booking) return null;
     if (booking.status === 'confirmed') {
       return <Badge className="bg-green-100 text-green-800 border-green-300">Confirmed</Badge>;
     } else if (booking.status === 'cancelled') {
@@ -272,6 +275,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
   };
 
   const getApprovalStatusBadge = () => {
+    if (!booking) return null;
     const status = booking.approvalStatus || 'pending';
     if (status === 'approved') {
       return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
