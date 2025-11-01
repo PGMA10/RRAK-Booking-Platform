@@ -303,6 +303,7 @@ export function registerRoutes(app: Express): Server {
           return date > now;
         }, "Print deadline must be in the future"),
         status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]).default("planning"),
+        baseSlotPrice: z.number().int().positive().optional().nullable(),
       }).refine((data) => {
         return data.printDeadline < data.mailDate;
       }, {
@@ -367,6 +368,7 @@ export function registerRoutes(app: Express): Server {
           return date > now;
         }, "Print deadline must be in the future"),
         status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]),
+        baseSlotPrice: z.number().int().positive().optional().nullable(),
       }).partial().refine((data) => {
         if (data.printDeadline && data.mailDate) {
           return data.printDeadline < data.mailDate;
