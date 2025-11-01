@@ -186,6 +186,18 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  
+  // Add price override columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN price_override INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN price_override_note TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create admin_notifications table
   sqlite.exec(`
