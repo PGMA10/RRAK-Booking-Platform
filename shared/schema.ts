@@ -85,6 +85,14 @@ export const adminNotifications = sqliteTable("admin_notifications", {
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
+export const dismissedNotifications = sqliteTable("dismissed_notifications", {
+  id: text("id").primaryKey(),
+  bookingId: text("booking_id").notNull().references(() => bookings.id),
+  notificationType: text("notification_type").notNull(), // 'new_booking', 'artwork_review', 'cancellation'
+  userId: text("user_id").notNull().references(() => users.id),
+  dismissedAt: integer("dismissed_at", { mode: 'timestamp_ms' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -117,6 +125,11 @@ export const insertAdminNotificationSchema = createInsertSchema(adminNotificatio
   handledAt: true,
 });
 
+export const insertDismissedNotificationSchema = createInsertSchema(dismissedNotifications).omit({
+  id: true,
+  dismissedAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -129,6 +142,8 @@ export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type AdminNotification = typeof adminNotifications.$inferSelect;
 export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
+export type DismissedNotification = typeof dismissedNotifications.$inferSelect;
+export type InsertDismissedNotification = z.infer<typeof insertDismissedNotificationSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {
