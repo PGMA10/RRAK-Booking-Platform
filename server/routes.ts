@@ -1303,18 +1303,66 @@ export function registerRoutes(app: Express): Server {
         bookings = await storage.getBookingsByUser(req.user.id);
       }
 
-      const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
-      const availableSlots = routes.length * 16 - allBookings.length;
+      // Calculate admin-specific metrics
+      if (req.user.role === "admin") {
+        // Total Active Campaigns (planning, booking_open, booking_closed)
+        const activeCampaigns = campaigns.filter(c => 
+          ['planning', 'booking_open', 'booking_closed'].includes(c.status)
+        ).length;
 
-      res.json({
-        activeRoutes: routes.length,
-        availableSlots,
-        totalRevenue: totalRevenue / 100, // Convert cents to dollars
-        bookedCampaigns: bookings.length,
-        totalCustomers: req.user.role === "admin" ? (await storage.getAllBookings()).length : undefined,
-        occupancyRate: req.user.role === "admin" ? Math.round((allBookings.length / (routes.length * 16)) * 100) : undefined,
-      });
+        // Bookings This Month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const bookingsThisMonth = allBookings.filter(b => {
+          const createdAt = new Date(b.createdAt);
+          return createdAt >= startOfMonth;
+        }).length;
+
+        // Revenue This Month (only from paid bookings created this month)
+        const revenueThisMonth = allBookings
+          .filter(b => {
+            const createdAt = new Date(b.createdAt);
+            return createdAt >= startOfMonth && b.paymentStatus === 'paid';
+          })
+          .reduce((sum, booking) => sum + booking.amount, 0);
+
+        // Available Slots (from all active campaigns)
+        const totalSlots = campaigns
+          .filter(c => c.status === 'booking_open' || c.status === 'planning')
+          .reduce((sum, c) => sum + c.totalSlots, 0);
+        const bookedSlots = campaigns
+          .filter(c => c.status === 'booking_open' || c.status === 'planning')
+          .reduce((sum, c) => sum + c.bookedSlots, 0);
+        const availableSlots = totalSlots - bookedSlots;
+
+        // Total unique customers
+        const uniqueCustomers = new Set(allBookings.map(b => b.userId)).size;
+
+        // Occupancy rate
+        const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
+
+        res.json({
+          totalActiveCampaigns: activeCampaigns,
+          bookingsThisMonth,
+          revenueThisMonth: revenueThisMonth / 100, // Convert cents to dollars
+          availableSlots,
+          totalCustomers: uniqueCustomers,
+          occupancyRate,
+        });
+      } else {
+        // Customer stats
+        const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
+        const availableSlots = routes.length * 16 - allBookings.length;
+
+        res.json({
+          activeRoutes: routes.length,
+          availableSlots,
+          totalRevenue: totalRevenue / 100,
+          bookedCampaigns: bookings.length,
+        });
+      }
     } catch (error) {
+      console.error('Dashboard stats error:', error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
