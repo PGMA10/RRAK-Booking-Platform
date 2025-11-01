@@ -582,15 +582,9 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Slot already booked" });
       }
 
-      // Get route and industry details for display
-      const route = await storage.getRoute(validatedData.routeId);
-      const industry = await storage.getIndustry(validatedData.industryId);
-
-      if (!route || !industry) {
-        return res.status(400).json({ message: "Route or industry not found" });
-      }
-
       // Create booking with pending payment status and calculated amount
+      // Note: Stripe checkout session is created separately via GET /api/bookings/:id/checkout-session
+      // This allows admins to set price overrides before payment
       const booking = await storage.createBooking({
         ...validatedData,
         amount: calculatedAmount,
@@ -598,7 +592,64 @@ export function registerRoutes(app: Express): Server {
         paymentStatus: "pending",
       });
 
-      // Create Stripe Checkout session with quantity-based pricing
+      console.log(`📝 [Booking] Created booking ${booking.id} for user ${req.user.username}, amount: $${(calculatedAmount / 100).toFixed(2)}`);
+      res.json({ bookingId: booking.id });
+    } catch (error) {
+      console.error("Booking creation error:", error);
+      res.status(400).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // Create Stripe Checkout Session for existing booking
+  app.get("/api/bookings/:bookingId/checkout-session", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      
+      // Fetch booking with all details
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Authorization: must be booking owner or admin
+      if (booking.userId !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Not authorized to access this booking" });
+      }
+
+      // Only create checkout for pending payments
+      if (booking.paymentStatus !== 'pending') {
+        return res.status(400).json({ 
+          message: `Cannot create checkout session for booking with payment status: ${booking.paymentStatus}` 
+        });
+      }
+
+      // Calculate price: use override if set, otherwise use tiered pricing
+      let finalAmount: number;
+      if (booking.priceOverride !== null && booking.priceOverride !== undefined) {
+        finalAmount = booking.priceOverride;
+        console.log(`💲 [Checkout] Using price override: $${(finalAmount / 100).toFixed(2)} for booking ${bookingId}`);
+      } else {
+        const quantity = booking.quantity || 1;
+        finalAmount = 60000 + ((quantity - 1) * 50000); // $600 + ($500 * additional slots)
+        console.log(`💲 [Checkout] Using calculated price: $${(finalAmount / 100).toFixed(2)} for ${quantity} slot(s)`);
+      }
+
+      // Fetch campaign, route, and industry details for Stripe description
+      const campaign = await storage.getCampaign(booking.campaignId);
+      const route = await storage.getRoute(booking.routeId);
+      const industry = await storage.getIndustry(booking.industryId);
+
+      if (!campaign || !route || !industry) {
+        return res.status(400).json({ message: "Campaign, route, or industry not found" });
+      }
+
+      const quantity = booking.quantity || 1;
+
+      // Create Stripe Checkout session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -607,22 +658,23 @@ export function registerRoutes(app: Express): Server {
               currency: 'usd',
               product_data: {
                 name: `Direct Mail Campaign - ${campaign.name}`,
-                description: `Route: ${route.zipCode} - ${route.name} | Industry: ${industry.name} | ${quantity} slot${quantity > 1 ? 's' : ''}`,
+                description: `Route: ${route.zipCode} - ${route.name} | Industry: ${industry.name} | ${quantity} slot${quantity > 1 ? 's' : ''}${booking.priceOverride ? ' (Custom Price)' : ''}`,
               },
-              unit_amount: calculatedAmount, // Total price in cents based on quantity
+              unit_amount: finalAmount,
             },
             quantity: 1,
           },
         ],
         mode: 'payment',
         success_url: `${req.headers.origin}/customer/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.headers.origin}/customer/booking`,
-        customer_email: validatedData.contactEmail,
+        cancel_url: `${req.headers.origin}/customer/dashboard`,
+        customer_email: booking.contactEmail,
         metadata: {
           bookingId: booking.id,
-          campaignId: validatedData.campaignId,
-          userId: req.user.id,
+          campaignId: booking.campaignId,
+          userId: booking.userId,
           quantity: quantity.toString(),
+          priceOverride: booking.priceOverride ? 'true' : 'false',
         },
       });
 
@@ -631,10 +683,11 @@ export function registerRoutes(app: Express): Server {
         stripeCheckoutSessionId: session.id,
       });
 
-      res.json({ sessionUrl: session.url, bookingId: booking.id });
+      console.log(`✅ [Checkout] Created session ${session.id} for booking ${bookingId}, amount: $${(finalAmount / 100).toFixed(2)}`);
+      res.json({ sessionUrl: session.url });
     } catch (error) {
-      console.error("Checkout session creation error:", error);
-      res.status(400).json({ message: "Failed to create checkout session" });
+      console.error("❌ [Checkout] Session creation error:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
     }
   });
 
