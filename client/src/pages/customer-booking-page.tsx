@@ -207,10 +207,10 @@ export default function CustomerBookingPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
-            <Link href="/">
+            <Link href="/customer/dashboard">
               <Button variant="outline" size="sm" data-testid="button-back-home">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Home
+                Back to Dashboard
               </Button>
             </Link>
             <div>
@@ -488,7 +488,7 @@ export default function CustomerBookingPage() {
 
               {/* Proceed to Payment */}
               <div className="flex justify-end space-x-4">
-                <Link href="/">
+                <Link href="/customer/dashboard">
                   <Button variant="outline" data-testid="button-cancel-booking">
                     Cancel
                   </Button>
