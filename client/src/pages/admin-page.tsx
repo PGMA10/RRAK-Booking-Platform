@@ -50,6 +50,19 @@ export default function AdminPage() {
     return <Redirect to="/" />;
   }
 
+  // Fetch dashboard stats
+  const { data: dashboardStats, isLoading: statsLoading } = useQuery<{
+    totalActiveCampaigns: number;
+    bookingsThisMonth: number;
+    revenueThisMonth: number;
+    availableSlots: number;
+    totalCustomers: number;
+    occupancyRate: number;
+  }>({
+    queryKey: ['/api/dashboard/stats'],
+    enabled: !!user && user.role === "admin",
+  });
+
   // Fetch pending artwork reviews count
   const { data: pendingArtwork } = useQuery<Booking[]>({
     queryKey: ['/api/bookings/artwork/review'],
@@ -114,7 +127,7 @@ export default function AdminPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Total Active Campaigns</p>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-active-campaigns">
-                    {demoStats.totalActiveCampaigns}
+                    {statsLoading ? '...' : dashboardStats?.totalActiveCampaigns || 0}
                   </p>
                 </div>
               </div>
@@ -130,7 +143,7 @@ export default function AdminPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Bookings This Month</p>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-bookings-month">
-                    {demoStats.totalBookingsThisMonth}
+                    {statsLoading ? '...' : dashboardStats?.bookingsThisMonth || 0}
                   </p>
                 </div>
               </div>
@@ -146,7 +159,7 @@ export default function AdminPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Revenue This Month</p>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-revenue-month">
-                    ${demoStats.revenueThisMonth.toLocaleString()}
+                    {statsLoading ? '...' : `$${(dashboardStats?.revenueThisMonth || 0).toLocaleString()}`}
                   </p>
                 </div>
               </div>
@@ -162,7 +175,7 @@ export default function AdminPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Available Slots</p>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-available-slots">
-                    {demoStats.availableSlotsRemaining}
+                    {statsLoading ? '...' : dashboardStats?.availableSlots || 0}
                   </p>
                 </div>
               </div>
