@@ -1644,6 +1644,130 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // CRM Routes - Get all customers with stats
+  app.get("/api/admin/crm/customers", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { search, tag, highValue, sortBy, sortOrder } = req.query;
+      
+      const filters: any = {};
+      if (search) filters.search = String(search);
+      if (tag) filters.tag = String(tag);
+      if (highValue === 'true') filters.highValue = true;
+      if (sortBy) filters.sortBy = String(sortBy);
+      if (sortOrder) filters.sortOrder = String(sortOrder);
+      
+      const customers = await storage.getCustomers(filters);
+      
+      // Convert totalSpent from cents to dollars for response
+      const customersWithDollars = customers.map(c => ({
+        ...c,
+        totalSpent: c.totalSpent / 100,
+      }));
+      
+      res.json(customersWithDollars);
+    } catch (error) {
+      console.error('Get customers error:', error);
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // Get customer details
+  app.get("/api/admin/crm/customer/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { id } = req.params;
+      const details = await storage.getCustomerDetails(id);
+      
+      if (!details) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      
+      // Convert lifetimeValue from cents to dollars
+      res.json({
+        ...details,
+        lifetimeValue: details.lifetimeValue / 100,
+        bookings: details.bookings.map(b => ({
+          ...b,
+          amount: b.amount / 100,
+          amountPaid: b.amountPaid ? b.amountPaid / 100 : null,
+        })),
+      });
+    } catch (error) {
+      console.error('Get customer details error:', error);
+      res.status(500).json({ message: "Failed to fetch customer details" });
+    }
+  });
+
+  // Add customer note
+  app.post("/api/admin/crm/notes", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { customerId, note } = req.body;
+      
+      if (!customerId || !note) {
+        return res.status(400).json({ message: "Customer ID and note are required" });
+      }
+      
+      await storage.addCustomerNote(customerId, note, req.user.id);
+      res.json({ message: "Note added successfully" });
+    } catch (error) {
+      console.error('Add note error:', error);
+      res.status(500).json({ message: "Failed to add note" });
+    }
+  });
+
+  // Add customer tag
+  app.post("/api/admin/crm/tags", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { customerId, tag } = req.body;
+      
+      if (!customerId || !tag) {
+        return res.status(400).json({ message: "Customer ID and tag are required" });
+      }
+      
+      await storage.addCustomerTag(customerId, tag, req.user.id);
+      res.json({ message: "Tag added successfully" });
+    } catch (error) {
+      console.error('Add tag error:', error);
+      res.status(500).json({ message: "Failed to add tag" });
+    }
+  });
+
+  // Remove customer tag
+  app.delete("/api/admin/crm/tags", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { customerId, tag } = req.body;
+      
+      if (!customerId || !tag) {
+        return res.status(400).json({ message: "Customer ID and tag are required" });
+      }
+      
+      await storage.removeCustomerTag(customerId, tag);
+      res.json({ message: "Tag removed successfully" });
+    } catch (error) {
+      console.error('Remove tag error:', error);
+      res.status(500).json({ message: "Failed to remove tag" });
+    }
+  });
+
   // Helper function to format timestamp for recent activity
   function formatTimestamp(timestamp: string): string {
     const now = new Date();
