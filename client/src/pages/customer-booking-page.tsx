@@ -334,17 +334,11 @@ export default function CustomerBookingPage() {
                   
                   {selectedCampaign && (
                     <div className="mt-4 p-4 bg-muted rounded-lg" data-testid="selected-campaign-details">
-                      <div className="grid md:grid-cols-3 gap-4">
+                      <div className="grid md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Mail Date</p>
                           <p className="font-medium">
                             {new Date(selectedCampaign.mailDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Available Slots</p>
-                          <p className="font-medium">
-                            {selectedCampaign.totalSlots - selectedCampaign.bookedSlots} of {selectedCampaign.totalSlots}
                           </p>
                         </div>
                         <div>
