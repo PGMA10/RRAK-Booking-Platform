@@ -104,7 +104,7 @@ export default function CRMCustomerDetailPage() {
 
   const addTagMutation = useMutation({
     mutationFn: async (tag: string) => {
-      return apiRequest(`/api/admin/crm/notes`, {
+      return apiRequest(`/api/admin/crm/tags`, {
         method: 'POST',
         body: JSON.stringify({ customerId, tag }),
         headers: { 'Content-Type': 'application/json' },
