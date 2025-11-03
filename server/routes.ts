@@ -989,7 +989,15 @@ export function registerRoutes(app: Express): Server {
       const printDeadline = new Date(campaign.printDeadline);
       const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      console.log(`📅 [Cancellation] Days until print deadline: ${daysUntilDeadline}`);
+      console.log(`📅 [Cancellation] Refund eligibility check:`, {
+        bookingId,
+        now: now.toISOString(),
+        printDeadline: printDeadline.toISOString(),
+        daysUntilDeadline,
+        paymentStatus: booking.paymentStatus,
+        meetsTimeRequirement: daysUntilDeadline >= 7,
+        meetsPaidRequirement: booking.paymentStatus === 'paid',
+      });
 
       // Determine refund eligibility (7+ days before print deadline)
       const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
