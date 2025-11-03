@@ -48,6 +48,7 @@ export async function seedSQLite() {
         username: "testcustomer",
         password: await hashPassword("customer123"),
         email: "customer@test.com",
+        name: "John Smith",
         businessName: "Test Business",
         phone: "907-555-0100",
         role: "customer",
