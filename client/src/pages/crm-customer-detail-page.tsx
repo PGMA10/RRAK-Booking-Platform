@@ -80,7 +80,7 @@ export default function CRMCustomerDetailPage() {
   const [newTag, setNewTag] = useState("");
 
   const { data: details, isLoading, error } = useQuery<CustomerDetails>({
-    queryKey: [`/api/admin/crm/customer/${customerId}`],
+    queryKey: ['/api/admin/crm/customer', customerId],
     enabled: !!customerId,
   });
 
@@ -93,7 +93,7 @@ export default function CRMCustomerDetailPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/customer/${customerId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
       setNewNote("");
       toast({ title: "Note added successfully" });
     },
@@ -111,7 +111,7 @@ export default function CRMCustomerDetailPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/customer/${customerId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
       setNewTag("");
       toast({ title: "Tag added successfully" });
     },
@@ -129,7 +129,7 @@ export default function CRMCustomerDetailPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/customer/${customerId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
       toast({ title: "Tag removed successfully" });
     },
     onError: () => {
