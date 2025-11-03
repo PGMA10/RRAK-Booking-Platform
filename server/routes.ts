@@ -1463,84 +1463,62 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
+  // Admin Dashboard Stats
+  app.get("/api/admin/dashboard-stats", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     try {
-      const routes = await storage.getAllRoutes();
       const campaigns = await storage.getAllCampaigns();
       const allBookings = await storage.getAllBookings();
       
-      let bookings;
-      if (req.user.role === "admin") {
-        bookings = allBookings;
-      } else {
-        bookings = await storage.getBookingsByUser(req.user.id);
-      }
+      // Find current month's campaign (based on mail date)
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      // Find campaign whose mail date is in the current month
+      const currentCampaign = campaigns.find(c => {
+        if (!c.mailDate) return false;
+        const mailDate = new Date(c.mailDate);
+        return mailDate.getFullYear() === currentYear && mailDate.getMonth() === currentMonth;
+      });
 
-      // Calculate admin-specific metrics
-      if (req.user.role === "admin") {
-        // Find current month's campaign (based on mail date)
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
+      // If we have a current campaign, get its specific stats
+      if (currentCampaign) {
+        // Get bookings for this specific campaign (exclude canceled)
+        const campaignBookings = allBookings.filter(b => 
+          b.campaignId === currentCampaign.id && b.status !== 'canceled'
+        );
         
-        // Find campaign whose mail date is in the current month
-        const currentCampaign = campaigns.find(c => {
-          if (!c.mailDate) return false;
-          const mailDate = new Date(c.mailDate);
-          return mailDate.getFullYear() === currentYear && mailDate.getMonth() === currentMonth;
-        });
-
-        // If we have a current campaign, get its specific stats
-        if (currentCampaign) {
-          // Get bookings for this specific campaign (exclude canceled)
-          const campaignBookings = allBookings.filter(b => 
-            b.campaignId === currentCampaign.id && b.status !== 'canceled'
-          );
-          
-          // Count slots booked (from actual bookings, not campaign counter)
-          const slotsBooked = campaignBookings.length;
-          
-          // Revenue from paid bookings in this campaign
-          const campaignRevenue = campaignBookings
-            .filter(b => b.paymentStatus === 'paid')
-            .reduce((sum, booking) => sum + booking.amount, 0);
-
-          res.json({
-            campaignId: currentCampaign.id,
-            campaignName: currentCampaign.name,
-            slotsBooked: slotsBooked,
-            totalSlots: currentCampaign.totalSlots,
-            printDeadline: currentCampaign.printDeadline,
-            mailDeadline: currentCampaign.mailDate,
-            revenueThisMonth: campaignRevenue / 100, // Convert cents to dollars
-          });
-        } else {
-          // No current campaign - return zeros
-          res.json({
-            campaignId: null,
-            campaignName: null,
-            slotsBooked: 0,
-            totalSlots: 64,
-            printDeadline: null,
-            mailDeadline: null,
-            revenueThisMonth: 0,
-          });
-        }
-      } else {
-        // Customer stats
-        const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
-        const availableSlots = routes.length * 16 - allBookings.length;
+        // Count slots booked (from actual bookings, not campaign counter)
+        const slotsBooked = campaignBookings.length;
+        
+        // Revenue from paid bookings in this campaign
+        const campaignRevenue = campaignBookings
+          .filter(b => b.paymentStatus === 'paid')
+          .reduce((sum, booking) => sum + booking.amount, 0);
 
         res.json({
-          activeRoutes: routes.length,
-          availableSlots,
-          totalRevenue: totalRevenue / 100,
-          bookedCampaigns: bookings.length,
+          campaignId: currentCampaign.id,
+          campaignName: currentCampaign.name,
+          slotsBooked: slotsBooked,
+          totalSlots: currentCampaign.totalSlots,
+          printDeadline: currentCampaign.printDeadline,
+          mailDeadline: currentCampaign.mailDate,
+          revenueThisMonth: campaignRevenue / 100, // Convert cents to dollars
+        });
+      } else {
+        // No current campaign - return zeros
+        res.json({
+          campaignId: null,
+          campaignName: null,
+          slotsBooked: 0,
+          totalSlots: 64,
+          printDeadline: null,
+          mailDeadline: null,
+          revenueThisMonth: 0,
         });
       }
     } catch (error) {
@@ -1549,8 +1527,8 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Recent Activity Feed
-  app.get("/api/dashboard/recent-activity", async (req, res) => {
+  // Admin Recent Activity Feed
+  app.get("/api/admin/recent-activity", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1631,8 +1609,8 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Business Metrics
-  app.get("/api/dashboard/business-metrics", async (req, res) => {
+  // Admin Business Metrics
+  app.get("/api/admin/business-metrics", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
