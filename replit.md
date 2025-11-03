@@ -27,8 +27,8 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM
 - **Development Database**: SQLite
 - **Production Database**: PostgreSQL
-- **Schema**: Users, Routes, Industries, Campaigns, Bookings. Relationships include foreign key constraints.
-- **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason` for bookings; `quantity` for multi-slot bookings.
+- **Schema**: Users, Routes, Industries, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals. Relationships include foreign key constraints.
+- **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason` for bookings; `quantity` for multi-slot bookings; `marketingOptIn`, `referredByUserId`, `referralCode`, `phone` for users.
 - **Timestamp Handling**: SQLite stores dates as INTEGER, converted to Date objects on read.
 
 ### Authentication & Authorization
@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
 - **Multi-Slot Booking System**: Allows booking 1-4 slots per transaction with tiered pricing: $600 for the first slot, $500 for each additional.
 - **Booking Approval System**: Admin workflow for approving or rejecting new bookings with mandatory rejection notes, updating `approvalStatus`.
 - **Pre-Booking Pricing System**: Rule-driven pricing engine with a hierarchical system: User fixed-price/discount, Campaign base price/discount, Default tiered pricing. Rules can be `fixed_price`, `discount_amount`, or `discount_percent`.
+- **Customer Relationship Management (CRM)**: Comprehensive CRM system with customer list view (search, sort, filter), detailed customer profiles showing lifetime value and booking history, customer notes for internal tracking, customer tagging for segmentation, and future-ready infrastructure for email marketing, referral programs ($100 off per referral, stackable, unlimited), and waitlist management.
 
 ### UI/UX Decisions
 - Consistent use of Radix UI and Shadcn/UI for components.
