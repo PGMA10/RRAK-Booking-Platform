@@ -292,6 +292,15 @@ export default function AdminPage() {
                       <p className="text-sm text-muted-foreground text-left">View and manage all campaigns</p>
                     </Button>
                   </Link>
+                  <Link href="/admin/crm">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-manage-crm">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-5 w-5" />
+                        <span className="font-semibold">Manage CRM</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">View customers, track activity, and manage relationships</p>
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
