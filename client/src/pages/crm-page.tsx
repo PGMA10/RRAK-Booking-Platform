@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -48,9 +48,54 @@ export default function CRMPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [highValueOnly, setHighValueOnly] = useState(false);
 
-  const { data: customers, isLoading, error } = useQuery<Customer[]>({
-    queryKey: ['/api/admin/crm/customers', { search, sortBy, sortOrder, highValue: highValueOnly }],
+  const { data: rawCustomers, isLoading, error } = useQuery<Customer[]>({
+    queryKey: ['/api/admin/crm/customers'],
   });
+
+  const customers = useMemo(() => {
+    if (!rawCustomers) return [];
+    
+    let filtered = [...rawCustomers];
+    
+    // Filter by search
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.email.toLowerCase().includes(searchLower) ||
+        c.username.toLowerCase().includes(searchLower) ||
+        (c.businessName?.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Filter by high value
+    if (highValueOnly) {
+      filtered = filtered.filter(c => c.totalSpent >= 1000);
+    }
+    
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = (a.businessName || a.username).localeCompare(b.businessName || b.username);
+          break;
+        case 'totalSpent':
+          comparison = a.totalSpent - b.totalSpent;
+          break;
+        case 'lastBooking':
+          const aDate = a.lastBookingDate ? new Date(a.lastBookingDate).getTime() : 0;
+          const bDate = b.lastBookingDate ? new Date(b.lastBookingDate).getTime() : 0;
+          comparison = aDate - bDate;
+          break;
+        case 'signupDate':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
+  }, [rawCustomers, search, sortBy, sortOrder, highValueOnly]);
 
   const handleSortChange = (newSortBy: typeof sortBy) => {
     if (newSortBy === sortBy) {
