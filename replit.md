@@ -47,6 +47,7 @@ Preferred communication style: Simple, everyday language.
 - **Customer Self-Service Cancellation**: Customer-initiated booking cancellation with automatic Stripe refund processing based on a 7-day policy relative to the print deadline.
 - **Admin Notification Center**: Centralized notifications for new bookings, pending artwork review, and canceled bookings, with a 30-second polling for updates and per-admin dismissal.
 - **Admin Dashboard Current Campaign Focus**: Displays current month's campaign metrics (slots booked, print/mail deadline countdowns, revenue) with auto-refresh.
+- **Admin Dashboard Real-Data Integration**: Dashboard uses live API endpoints (`/api/admin/dashboard-stats`, `/api/admin/recent-activity`, `/api/admin/business-metrics`) to display real-time data including current campaign statistics, recent booking activity, and business metrics. Features TanStack Query with auto-refresh intervals and loading states.
 - **Multi-Slot Booking System**: Allows booking 1-4 slots per transaction with tiered pricing: $600 for the first slot, $500 for each additional.
 - **Booking Approval System**: Admin workflow for approving or rejecting new bookings with mandatory rejection notes, updating `approvalStatus`.
 - **Pre-Booking Pricing System**: Rule-driven pricing engine with a hierarchical system: User fixed-price/discount, Campaign base price/discount, Default tiered pricing. Rules can be `fixed_price`, `discount_amount`, or `discount_percent`.

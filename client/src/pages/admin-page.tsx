@@ -54,7 +54,7 @@ export default function AdminPage() {
     mailDeadline: string | null;
     revenueThisMonth: number;
   }>({
-    queryKey: ['/api/dashboard/stats'],
+    queryKey: ['/api/admin/dashboard-stats'],
     enabled: !!user && user.role === "admin",
     refetchInterval: 60000, // Refresh every minute for countdown updates
   });
@@ -67,7 +67,7 @@ export default function AdminPage() {
     timestamp: string;
     icon: string;
   }>>({
-    queryKey: ['/api/dashboard/recent-activity'],
+    queryKey: ['/api/admin/recent-activity'],
     enabled: !!user && user.role === "admin",
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -78,7 +78,7 @@ export default function AdminPage() {
     occupancyRate: number;
     avgBookingValue: number;
   }>({
-    queryKey: ['/api/dashboard/business-metrics'],
+    queryKey: ['/api/admin/business-metrics'],
     enabled: !!user && user.role === "admin",
     refetchInterval: 60000, // Refresh every minute
   });
@@ -265,143 +265,55 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {demoQuickActions.map((action) => {
-                    const IconComponent = getActivityIcon(action.icon);
-                    
-                    // Special handling for manage-routes to navigate to route management page
-                    if (action.id === 'manage-routes') {
-                      return (
-                        <Link key={action.id} href="/admin/routes">
-                          <Button
-                            variant="outline"
-                            className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
-                            data-testid={`button-${action.id}`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <IconComponent className="h-5 w-5" />
-                              <span className="font-semibold">{action.label}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground text-left">
-                              {action.description}
-                            </p>
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    
-                    // Special handling for manage-industries to navigate to industry management page
-                    if (action.id === 'manage-industries') {
-                      return (
-                        <Link key={action.id} href="/admin/industries">
-                          <Button
-                            variant="outline"
-                            className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
-                            data-testid={`button-${action.id}`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <IconComponent className="h-5 w-5" />
-                              <span className="font-semibold">{action.label}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground text-left">
-                              {action.description}
-                            </p>
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    
-                    // Special handling for manage-campaigns to navigate to campaign management page
-                    if (action.id === 'manage-campaigns') {
-                      return (
-                        <Link key={action.id} href="/admin/campaigns">
-                          <Button
-                            variant="outline"
-                            className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
-                            data-testid={`button-${action.id}`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <IconComponent className="h-5 w-5" />
-                              <span className="font-semibold">{action.label}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground text-left">
-                              {action.description}
-                            </p>
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    
-                    // Special handling for slot-management to navigate to slot grid page
-                    if (action.id === 'slot-management') {
-                      return (
-                        <Link key={action.id} href="/admin/slots">
-                          <Button
-                            variant="outline"
-                            className="h-auto p-4 flex flex-col items-start space-y-2 w-full"
-                            data-testid={`button-${action.id}`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <IconComponent className="h-5 w-5" />
-                              <span className="font-semibold">{action.label}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground text-left">
-                              {action.description}
-                            </p>
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    
-                    // Default rendering for other actions
-                    return (
-                      <Button
-                        key={action.id}
-                        variant="outline"
-                        className="h-auto p-4 flex flex-col items-start space-y-2"
-                        data-testid={`button-${action.id}`}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <IconComponent className="h-5 w-5" />
-                          <span className="font-semibold">{action.label}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground text-left">
-                          {action.description}
-                        </p>
-                      </Button>
-                    );
-                  })}
+                  <Link href="/admin/routes">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-manage-routes">
+                      <div className="flex items-center space-x-2">
+                        <Map className="h-5 w-5" />
+                        <span className="font-semibold">Manage Routes</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">Add, edit, or remove delivery routes</p>
+                    </Button>
+                  </Link>
+                  <Link href="/admin/industries">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-manage-industries">
+                      <div className="flex items-center space-x-2">
+                        <Briefcase className="h-5 w-5" />
+                        <span className="font-semibold">Manage Industries</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">Configure available industry categories</p>
+                    </Button>
+                  </Link>
+                  <Link href="/admin/campaigns">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-create-campaign">
+                      <div className="flex items-center space-x-2">
+                        <Plus className="h-5 w-5" />
+                        <span className="font-semibold">Create Campaign</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">Set up a new direct mail campaign</p>
+                    </Button>
+                  </Link>
                   <Link href="/admin/artwork">
-                    <Button
-                      variant="outline"
-                      className="h-auto p-4 flex flex-col items-start space-y-2 w-full relative"
-                      data-testid="button-artwork-review"
-                    >
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-review-artwork">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center space-x-2">
                           <FileText className="h-5 w-5" />
                           <span className="font-semibold">Review Artwork</span>
                         </div>
                         {pendingCount > 0 && (
-                          <Badge 
-                            variant="destructive" 
-                            className="ml-2 h-6 min-w-6 flex items-center justify-center"
-                            data-testid="badge-pending-count"
-                          >
+                          <Badge variant="destructive" className="ml-2 h-6 min-w-6 flex items-center justify-center" data-testid="badge-pending-count">
                             {pendingCount}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground text-left">
-                        Approve or reject customer artwork submissions
-                      </p>
+                      <p className="text-sm text-muted-foreground text-left">Approve or reject customer artwork submissions</p>
                     </Button>
                   </Link>
                 </div>
               </CardContent>
             </Card>
 
-            {/* 4. Campaign Status Section */}
-            <Card>
+            {/* 4. Campaign Status Section - Commented out (used demo data) */}
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Campaign Status</CardTitle>
               </CardHeader>
@@ -444,7 +356,7 @@ export default function AdminPage() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
 
           {/* Right Column */}
