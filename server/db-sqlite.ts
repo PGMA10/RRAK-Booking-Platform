@@ -36,6 +36,13 @@ export function initializeDatabase() {
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
+  
+  // Add name column to existing users table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN name TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create routes table
   sqlite.exec(`

@@ -42,6 +42,7 @@ interface CustomerDetails {
     id: string;
     email: string;
     username: string;
+    name?: string;
     businessName?: string;
     phone?: string;
     createdAt: string;
@@ -183,7 +184,7 @@ export default function CRMCustomerDetailPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold text-foreground" data-testid="heading-customer-name">
-                {customer.businessName || customer.username}
+                {customer.name || customer.businessName || customer.username}
               </h1>
               <p className="text-muted-foreground mt-1">Customer since {formatDate(customer.createdAt)}</p>
             </div>
@@ -249,6 +250,18 @@ export default function CRMCustomerDetailPage() {
                 <CardTitle>Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {customer.name && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Contact Name</p>
+                    <p className="text-sm font-medium" data-testid="text-customer-name">{customer.name}</p>
+                  </div>
+                )}
+                {customer.businessName && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Business Name</p>
+                    <p className="text-sm font-medium" data-testid="text-customer-business-name">{customer.businessName}</p>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm" data-testid="text-customer-email">{customer.email}</span>

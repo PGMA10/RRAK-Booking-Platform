@@ -81,7 +81,7 @@ export default function AuthPage() {
                 </form>
                 <div className="mt-4 p-3 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Demo Credentials:</p>
-                  <p className="text-sm font-mono">Admin → Username: admin, Password: admin</p>
+                  <p className="text-sm font-mono">Admin → Username: admin, Password: admin123</p>
                   <p className="text-sm font-mono">Customer → Use registered account</p>
                 </div>
 
