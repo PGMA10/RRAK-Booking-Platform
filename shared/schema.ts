@@ -11,6 +11,9 @@ export const users = sqliteTable("users", {
   businessName: text("business_name"),
   phone: text("phone"),
   role: text("role").notNull().default("customer"), // 'customer' or 'admin'
+  marketingOptIn: integer("marketing_opt_in", { mode: 'boolean' }).notNull().default(false),
+  referredByUserId: text("referred_by_user_id"),
+  referralCode: text("referral_code").unique(),
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
@@ -120,6 +123,32 @@ export const pricingRuleApplications = sqliteTable("pricing_rule_applications", 
   appliedAt: integer("applied_at", { mode: 'timestamp_ms' }),
 });
 
+export const customerNotes = sqliteTable("customer_notes", {
+  id: text("id").primaryKey(),
+  customerId: text("customer_id").notNull().references(() => users.id),
+  note: text("note").notNull(),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
+export const customerTags = sqliteTable("customer_tags", {
+  id: text("id").primaryKey(),
+  customerId: text("customer_id").notNull().references(() => users.id),
+  tag: text("tag").notNull(), // 'high-value', 'waitlist', 'vip', etc.
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
+export const referrals = sqliteTable("referrals", {
+  id: text("id").primaryKey(),
+  referrerId: text("referrer_id").notNull().references(() => users.id),
+  referredId: text("referred_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("pending"), // 'pending', 'completed', 'credited'
+  creditAmount: integer("credit_amount").notNull().default(10000), // in cents, default $100
+  creditUsed: integer("credit_used", { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -168,6 +197,21 @@ export const insertPricingRuleApplicationSchema = createInsertSchema(pricingRule
   appliedAt: true,
 });
 
+export const insertCustomerNoteSchema = createInsertSchema(customerNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCustomerTagSchema = createInsertSchema(customerTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -186,6 +230,12 @@ export type PricingRule = typeof pricingRules.$inferSelect;
 export type InsertPricingRule = z.infer<typeof insertPricingRuleSchema>;
 export type PricingRuleApplication = typeof pricingRuleApplications.$inferSelect;
 export type InsertPricingRuleApplication = z.infer<typeof insertPricingRuleApplicationSchema>;
+export type CustomerNote = typeof customerNotes.$inferSelect;
+export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
+export type CustomerTag = typeof customerTags.$inferSelect;
+export type InsertCustomerTag = z.infer<typeof insertCustomerTagSchema>;
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {

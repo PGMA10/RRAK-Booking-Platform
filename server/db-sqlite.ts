@@ -30,6 +30,9 @@ export function initializeDatabase() {
       business_name TEXT,
       phone TEXT,
       role TEXT NOT NULL DEFAULT 'customer',
+      marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+      referred_by_user_id TEXT,
+      referral_code TEXT UNIQUE,
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
@@ -277,6 +280,41 @@ export function initializeDatabase() {
       booking_id TEXT NOT NULL REFERENCES bookings(id),
       user_id TEXT NOT NULL REFERENCES users(id),
       applied_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create customer_notes table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS customer_notes (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      customer_id TEXT NOT NULL REFERENCES users(id),
+      note TEXT NOT NULL,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create customer_tags table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS customer_tags (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      customer_id TEXT NOT NULL REFERENCES users(id),
+      tag TEXT NOT NULL,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create referrals table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      referrer_id TEXT NOT NULL REFERENCES users(id),
+      referred_id TEXT NOT NULL REFERENCES users(id),
+      status TEXT NOT NULL DEFAULT 'pending',
+      credit_amount INTEGER NOT NULL DEFAULT 10000,
+      credit_used INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
 
