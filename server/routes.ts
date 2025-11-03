@@ -1549,6 +1549,139 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Recent Activity Feed
+  app.get("/api/dashboard/recent-activity", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const allBookings = await storage.getAllBookings();
+      const allUsers = await storage.getAllUsers();
+      
+      // Get recent activities (last 10 items)
+      const activities: Array<{
+        id: string;
+        type: 'booking' | 'payment' | 'registration';
+        message: string;
+        timestamp: string;
+        icon: string;
+      }> = [];
+
+      // Add recent bookings (paid ones)
+      const recentBookings = allBookings
+        .filter(b => b.paymentStatus === 'paid')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+
+      for (const booking of recentBookings) {
+        const user = allUsers.find(u => u.id === booking.userId);
+        const campaign = await storage.getCampaign(booking.campaignId);
+        const route = await storage.getRoute(booking.routeId);
+        const industry = await storage.getIndustry(booking.industryId);
+        
+        // Payment activity
+        activities.push({
+          id: `payment-${booking.id}`,
+          type: 'payment',
+          message: `Payment received: $${(booking.amountPaid || booking.amount) / 100} from ${user?.businessName || user?.username || 'Unknown'}`,
+          timestamp: new Date(booking.paymentDate || booking.createdAt).toISOString(),
+          icon: 'dollar-sign'
+        });
+
+        // Booking activity
+        activities.push({
+          id: `booking-${booking.id}`,
+          type: 'booking',
+          message: `New booking: ${industry?.name || 'Unknown Industry'} on Route ${route?.zipCode || 'Unknown'}`,
+          timestamp: new Date(booking.createdAt).toISOString(),
+          icon: 'calendar-check'
+        });
+      }
+
+      // Add recent registrations (last 5 customer registrations)
+      const recentCustomers = allUsers
+        .filter(u => u.role === 'customer')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3);
+
+      for (const customer of recentCustomers) {
+        activities.push({
+          id: `registration-${customer.id}`,
+          type: 'registration',
+          message: `${customer.businessName || customer.username} registered`,
+          timestamp: new Date(customer.createdAt).toISOString(),
+          icon: 'user-plus'
+        });
+      }
+
+      // Sort all activities by timestamp (most recent first) and limit to 10
+      const sortedActivities = activities
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 10)
+        .map(activity => ({
+          ...activity,
+          timestamp: formatTimestamp(activity.timestamp)
+        }));
+
+      res.json(sortedActivities);
+    } catch (error) {
+      console.error('Recent activity error:', error);
+      res.status(500).json({ message: "Failed to fetch recent activity" });
+    }
+  });
+
+  // Business Metrics
+  app.get("/api/dashboard/business-metrics", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const allUsers = await storage.getAllUsers();
+      const allBookings = await storage.getAllBookings();
+      const campaigns = await storage.getAllCampaigns();
+      
+      // Total customers (excluding admin users)
+      const totalCustomers = allUsers.filter(u => u.role === 'customer').length;
+      
+      // Calculate occupancy rate (across all campaigns)
+      const totalSlots = campaigns.reduce((sum, c) => sum + c.totalSlots, 0);
+      const bookedSlots = allBookings.filter(b => b.status !== 'cancelled').length;
+      const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
+      
+      // Calculate average booking value (from paid bookings)
+      const paidBookings = allBookings.filter(b => b.paymentStatus === 'paid');
+      const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.amountPaid || b.amount), 0);
+      const avgBookingValue = paidBookings.length > 0 ? totalRevenue / paidBookings.length : 0;
+
+      res.json({
+        totalCustomers,
+        occupancyRate,
+        avgBookingValue: Math.round(avgBookingValue / 100), // Convert to dollars
+      });
+    } catch (error) {
+      console.error('Business metrics error:', error);
+      res.status(500).json({ message: "Failed to fetch business metrics" });
+    }
+  });
+
+  // Helper function to format timestamp for recent activity
+  function formatTimestamp(timestamp: string): string {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    return date.toLocaleDateString();
+  }
+
   // Admin Notifications
   app.get("/api/notifications/count", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {
