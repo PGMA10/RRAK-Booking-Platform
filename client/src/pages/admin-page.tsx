@@ -24,12 +24,6 @@ import {
   AlertCircle
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
-import { 
-  demoStats, 
-  demoRecentActivities, 
-  demoCampaigns, 
-  demoQuickActions 
-} from "@/lib/demo-data";
 import type { Booking } from "@shared/schema";
 
 const iconMap = {
@@ -63,6 +57,30 @@ export default function AdminPage() {
     queryKey: ['/api/dashboard/stats'],
     enabled: !!user && user.role === "admin",
     refetchInterval: 60000, // Refresh every minute for countdown updates
+  });
+
+  // Fetch recent activity
+  const { data: recentActivities, isLoading: activitiesLoading } = useQuery<Array<{
+    id: string;
+    type: 'booking' | 'payment' | 'registration';
+    message: string;
+    timestamp: string;
+    icon: string;
+  }>>({
+    queryKey: ['/api/dashboard/recent-activity'],
+    enabled: !!user && user.role === "admin",
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch business metrics
+  const { data: businessMetrics, isLoading: metricsLoading } = useQuery<{
+    totalCustomers: number;
+    occupancyRate: number;
+    avgBookingValue: number;
+  }>({
+    queryKey: ['/api/dashboard/business-metrics'],
+    enabled: !!user && user.role === "admin",
+    refetchInterval: 60000, // Refresh every minute
   });
 
   // Calculate countdown for deadlines
@@ -515,27 +533,46 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {demoRecentActivities.map((activity) => {
-                    const IconComponent = getActivityIcon(activity.icon);
-                    return (
-                      <div key={activity.id} className="flex items-start space-x-3">
-                        <div className={`p-1.5 rounded-full ${getActivityColor(activity.type)} bg-current/10`}>
-                          <IconComponent className={`h-4 w-4 ${getActivityColor(activity.type)}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground" data-testid={`activity-${activity.id}`}>
-                            {activity.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground flex items-center mt-1">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {activity.timestamp}
-                          </p>
+                {activitiesLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="flex items-start space-x-3 animate-pulse">
+                        <div className="p-1.5 rounded-full bg-muted w-8 h-8" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-muted rounded w-3/4" />
+                          <div className="h-3 bg-muted rounded w-1/2" />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : recentActivities && recentActivities.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentActivities.map((activity) => {
+                      const IconComponent = getActivityIcon(activity.icon);
+                      return (
+                        <div key={activity.id} className="flex items-start space-x-3">
+                          <div className={`p-1.5 rounded-full ${getActivityColor(activity.type)} bg-current/10`}>
+                            <IconComponent className={`h-4 w-4 ${getActivityColor(activity.type)}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-foreground" data-testid={`activity-${activity.id}`}>
+                              {activity.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center mt-1">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {activity.timestamp}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No recent activity</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -545,24 +582,39 @@ export default function AdminPage() {
                 <CardTitle>Business Metrics</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Total Customers</span>
-                    <span className="font-semibold text-foreground" data-testid="text-total-customers">
-                      {demoStats.totalCustomers}
-                    </span>
+                {metricsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="flex justify-between items-center animate-pulse">
+                        <div className="h-4 bg-muted rounded w-1/3" />
+                        <div className="h-4 bg-muted rounded w-1/4" />
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Occupancy Rate</span>
-                    <span className="font-semibold text-foreground" data-testid="text-occupancy-rate">
-                      {demoStats.occupancyRate}%
-                    </span>
+                ) : businessMetrics ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Customers</span>
+                      <span className="font-semibold text-foreground" data-testid="text-total-customers">
+                        {businessMetrics.totalCustomers}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Occupancy Rate</span>
+                      <span className="font-semibold text-foreground" data-testid="text-occupancy-rate">
+                        {businessMetrics.occupancyRate}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Avg. Booking Value</span>
+                      <span className="font-semibold text-foreground">${businessMetrics.avgBookingValue}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Avg. Booking Value</span>
-                    <span className="font-semibold text-foreground">$600</span>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-muted-foreground">No data available</p>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
