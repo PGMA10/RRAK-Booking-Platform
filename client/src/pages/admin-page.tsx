@@ -264,7 +264,7 @@ export default function AdminPage() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <Link href="/admin/routes">
                     <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-manage-routes">
                       <div className="flex items-center space-x-2">
@@ -290,38 +290,6 @@ export default function AdminPage() {
                         <span className="font-semibold">Manage Campaigns</span>
                       </div>
                       <p className="text-sm text-muted-foreground text-left">View and manage all campaigns</p>
-                    </Button>
-                  </Link>
-                  <Link href="/admin/campaigns">
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-create-campaign">
-                      <div className="flex items-center space-x-2">
-                        <Plus className="h-5 w-5" />
-                        <span className="font-semibold">Create Campaign</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground text-left">Set up a new direct mail campaign</p>
-                    </Button>
-                  </Link>
-                  <Link href="/admin/notifications">
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-view-notifications">
-                      <div className="flex items-center space-x-2">
-                        <Bell className="h-5 w-5" />
-                        <span className="font-semibold">View Notifications</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground text-left">Review all pending notifications</p>
-                    </Button>
-                  </Link>
-                  <Link href="/admin/artwork">
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-review-artwork">
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-5 w-5" />
-                        <span className="font-semibold">Review Artwork</span>
-                        {pendingCount > 0 && (
-                          <Badge variant="destructive" className="ml-auto h-6 min-w-6 flex items-center justify-center" data-testid="badge-pending-count">
-                            {pendingCount}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground text-left">Approve or reject customer artwork submissions</p>
                     </Button>
                   </Link>
                 </div>
