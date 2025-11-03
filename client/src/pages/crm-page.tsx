@@ -33,6 +33,7 @@ interface Customer {
   id: string;
   email: string;
   username: string;
+  name?: string;
   businessName?: string;
   phone?: string;
   totalSpent: number;
@@ -63,6 +64,7 @@ export default function CRMPage() {
       filtered = filtered.filter(c => 
         c.email.toLowerCase().includes(searchLower) ||
         c.username.toLowerCase().includes(searchLower) ||
+        (c.name?.toLowerCase().includes(searchLower)) ||
         (c.businessName?.toLowerCase().includes(searchLower))
       );
     }
@@ -77,7 +79,7 @@ export default function CRMPage() {
       let comparison = 0;
       switch (sortBy) {
         case 'name':
-          comparison = (a.businessName || a.username).localeCompare(b.businessName || b.username);
+          comparison = (a.name || a.businessName || a.username).localeCompare(b.name || b.businessName || b.username);
           break;
         case 'totalSpent':
           comparison = a.totalSpent - b.totalSpent;
@@ -211,8 +213,13 @@ export default function CRMPage() {
                         <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
                           <TableCell>
                             <div className="font-medium" data-testid={`text-customer-name-${customer.id}`}>
-                              {customer.businessName || customer.username}
+                              {customer.name || customer.businessName || customer.username}
                             </div>
+                            {(customer.name && customer.businessName) && (
+                              <div className="text-sm text-muted-foreground">
+                                {customer.businessName}
+                              </div>
+                            )}
                             <div className="text-sm text-muted-foreground">
                               Joined {formatDate(customer.createdAt)}
                             </div>
