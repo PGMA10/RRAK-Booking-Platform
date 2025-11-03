@@ -102,6 +102,40 @@ export interface IStorage {
   createDismissedNotification(bookingId: string, notificationType: string, userId: string): Promise<void>;
   getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>>;
   
+  // CRM - Customer Management
+  getCustomers(filters?: {
+    search?: string;
+    tag?: string;
+    highValue?: boolean;
+    sortBy?: 'name' | 'totalSpent' | 'lastBooking' | 'signupDate';
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<Array<User & {
+    totalSpent: number;
+    bookingCount: number;
+    lastBookingDate?: Date;
+    tags: string[];
+  }>>;
+  
+  getCustomerDetails(customerId: string): Promise<{
+    customer: User;
+    bookings: BookingWithDetails[];
+    notes: Array<{
+      id: string;
+      note: string;
+      createdBy: string;
+      createdByName: string;
+      createdAt: Date;
+    }>;
+    tags: string[];
+    lifetimeValue: number;
+    bookingCount: number;
+    lastBookingDate?: Date;
+  } | undefined>;
+  
+  addCustomerNote(customerId: string, note: string, createdBy: string): Promise<void>;
+  addCustomerTag(customerId: string, tag: string, createdBy: string): Promise<void>;
+  removeCustomerTag(customerId: string, tag: string): Promise<void>;
+  
   sessionStore: session.Store;
 }
 
@@ -1494,6 +1528,280 @@ export class DbStorage implements IStorage {
       bookingId: d.bookingId,
       notificationType: d.notificationType,
     }));
+  }
+
+  async getCustomers(filters?: {
+    search?: string;
+    tag?: string;
+    highValue?: boolean;
+    sortBy?: 'name' | 'totalSpent' | 'lastBooking' | 'signupDate';
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<Array<User & {
+    totalSpent: number;
+    bookingCount: number;
+    lastBookingDate?: Date;
+    tags: string[];
+  }>> {
+    const { customerNotes, customerTags, referrals } = await import("@shared/schema");
+    
+    // Get all customers (role = 'customer')
+    const customers = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.role, 'customer'));
+    
+    // Get all bookings with paid status
+    const allBookings = await db.select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.paymentStatus, 'paid'));
+    
+    // Get all customer tags
+    const allTags = await db.select()
+      .from(customerTags);
+    
+    // Build customer stats map
+    const customerStats = new Map<string, {
+      totalSpent: number;
+      bookingCount: number;
+      lastBookingDate?: Date;
+      tags: string[];
+    }>();
+    
+    // Calculate stats for each customer
+    customers.forEach(customer => {
+      const userBookings = allBookings.filter(b => b.userId === customer.id);
+      const totalSpent = userBookings.reduce((sum, b) => sum + (b.amountPaid || 0), 0);
+      const bookingCount = userBookings.length;
+      const lastBookingDate = userBookings.length > 0
+        ? userBookings.reduce((latest, b) => {
+            const bookingDate = b.paidAt ? (typeof b.paidAt === 'number' ? new Date(b.paidAt) : b.paidAt) : undefined;
+            if (!bookingDate) return latest;
+            if (!latest || bookingDate > latest) return bookingDate;
+            return latest;
+          }, undefined as Date | undefined)
+        : undefined;
+      
+      const tags = allTags
+        .filter(t => t.customerId === customer.id)
+        .map(t => t.tag);
+      
+      customerStats.set(customer.id, {
+        totalSpent,
+        bookingCount,
+        lastBookingDate,
+        tags,
+      });
+    });
+    
+    // Combine customers with stats
+    let results = customers.map(customer => {
+      const stats = customerStats.get(customer.id) || {
+        totalSpent: 0,
+        bookingCount: 0,
+        tags: [],
+      };
+      
+      return {
+        ...customer,
+        createdAt: customer.createdAt ? (typeof customer.createdAt === 'number' ? new Date(customer.createdAt) : customer.createdAt) : null,
+        ...stats,
+      };
+    });
+    
+    // Apply filters
+    if (filters) {
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        results = results.filter(c => 
+          c.email.toLowerCase().includes(searchLower) ||
+          c.businessName?.toLowerCase().includes(searchLower) ||
+          c.username.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      if (filters.tag) {
+        results = results.filter(c => c.tags.includes(filters.tag!));
+      }
+      
+      if (filters.highValue) {
+        // High value = more than $1000 total spent
+        results = results.filter(c => c.totalSpent > 100000); // $1000 in cents
+      }
+      
+      // Apply sorting
+      const sortBy = filters.sortBy || 'signupDate';
+      const sortOrder = filters.sortOrder || 'desc';
+      
+      results.sort((a, b) => {
+        let comparison = 0;
+        
+        switch (sortBy) {
+          case 'name':
+            comparison = (a.businessName || a.username).localeCompare(b.businessName || b.username);
+            break;
+          case 'totalSpent':
+            comparison = a.totalSpent - b.totalSpent;
+            break;
+          case 'lastBooking':
+            const aDate = a.lastBookingDate?.getTime() || 0;
+            const bDate = b.lastBookingDate?.getTime() || 0;
+            comparison = aDate - bDate;
+            break;
+          case 'signupDate':
+            const aSignup = a.createdAt?.getTime() || 0;
+            const bSignup = b.createdAt?.getTime() || 0;
+            comparison = aSignup - bSignup;
+            break;
+        }
+        
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
+    
+    return results;
+  }
+
+  async getCustomerDetails(customerId: string): Promise<{
+    customer: User;
+    bookings: BookingWithDetails[];
+    notes: Array<{
+      id: string;
+      note: string;
+      createdBy: string;
+      createdByName: string;
+      createdAt: Date;
+    }>;
+    tags: string[];
+    lifetimeValue: number;
+    bookingCount: number;
+    lastBookingDate?: Date;
+  } | undefined> {
+    const { customerNotes, customerTags, referrals } = await import("@shared/schema");
+    
+    // Get customer
+    const customer = await this.getUser(customerId);
+    if (!customer || customer.role !== 'customer') {
+      return undefined;
+    }
+    
+    // Get bookings with details
+    const bookingsWithDetails = await db
+      .select({
+        booking: bookingsTable,
+        route: routesTable,
+        industry: industriesTable,
+        campaign: campaignsTable,
+      })
+      .from(bookingsTable)
+      .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
+      .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
+      .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
+      .where(eq(bookingsTable.userId, customerId));
+    
+    const bookings = bookingsWithDetails.map(item => ({
+      ...this.convertBookingTimestamps(item.booking),
+      route: item.route,
+      industry: item.industry,
+      campaign: item.campaign ? {
+        ...item.campaign,
+        mailDate: item.campaign.mailDate ? new Date(item.campaign.mailDate as any) : null,
+        printDeadline: item.campaign.printDeadline ? new Date(item.campaign.printDeadline as any) : null,
+        createdAt: item.campaign.createdAt ? new Date(item.campaign.createdAt as any) : null,
+      } : undefined,
+    }));
+    
+    // Get notes
+    const notesData = await db
+      .select({
+        note: customerNotes,
+        creator: usersTable,
+      })
+      .from(customerNotes)
+      .leftJoin(usersTable, eq(customerNotes.createdBy, usersTable.id))
+      .where(eq(customerNotes.customerId, customerId));
+    
+    const notes = notesData.map(item => ({
+      id: item.note.id,
+      note: item.note.note,
+      createdBy: item.note.createdBy,
+      createdByName: item.creator?.username || 'Unknown',
+      createdAt: item.note.createdAt ? (typeof item.note.createdAt === 'number' ? new Date(item.note.createdAt) : item.note.createdAt) : new Date(),
+    }));
+    
+    // Get tags
+    const tagsData = await db.select()
+      .from(customerTags)
+      .where(eq(customerTags.customerId, customerId));
+    
+    const tags = tagsData.map(t => t.tag);
+    
+    // Calculate lifetime value
+    const paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+    const lifetimeValue = paidBookings.reduce((sum, b) => sum + (b.amountPaid || 0), 0);
+    const bookingCount = bookings.length;
+    
+    // Find last booking date
+    const lastBookingDate = paidBookings.length > 0
+      ? paidBookings.reduce((latest, b) => {
+          const bookingDate = b.paidAt;
+          if (!bookingDate) return latest;
+          if (!latest || bookingDate > latest) return bookingDate;
+          return latest;
+        }, undefined as Date | undefined)
+      : undefined;
+    
+    return {
+      customer,
+      bookings,
+      notes,
+      tags,
+      lifetimeValue,
+      bookingCount,
+      lastBookingDate,
+    };
+  }
+
+  async addCustomerNote(customerId: string, note: string, createdBy: string): Promise<void> {
+    const { customerNotes } = await import("@shared/schema");
+    
+    await db.insert(customerNotes).values({
+      id: randomUUID(),
+      customerId,
+      note,
+      createdBy,
+      createdAt: new Date(),
+    });
+  }
+
+  async addCustomerTag(customerId: string, tag: string, createdBy: string): Promise<void> {
+    const { customerTags } = await import("@shared/schema");
+    
+    // Check if tag already exists for this customer
+    const existing = await db.select()
+      .from(customerTags)
+      .where(and(
+        eq(customerTags.customerId, customerId),
+        eq(customerTags.tag, tag)
+      ));
+    
+    if (existing.length === 0) {
+      await db.insert(customerTags).values({
+        id: randomUUID(),
+        customerId,
+        tag,
+        createdBy,
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  async removeCustomerTag(customerId: string, tag: string): Promise<void> {
+    const { customerTags } = await import("@shared/schema");
+    
+    await db.delete(customerTags)
+      .where(and(
+        eq(customerTags.customerId, customerId),
+        eq(customerTags.tag, tag)
+      ));
   }
 }
 
