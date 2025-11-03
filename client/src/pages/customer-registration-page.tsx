@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation, Redirect } from "wouter";
@@ -7,14 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Building, User, Mail, Phone, FileText, Briefcase, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Building, User, Mail, Phone, FileText, CheckCircle, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
-import type { Industry } from "@shared/schema";
 
 // Customer registration form schema
 const customerRegistrationSchema = z.object({
@@ -24,7 +21,6 @@ const customerRegistrationSchema = z.object({
   contactPersonName: z.string().optional(),
   email: z.string().email("Valid email address is required"),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number too long"),
-  industryId: z.string().min(1, "Please select an industry"),
 });
 
 type CustomerRegistrationData = z.infer<typeof customerRegistrationSchema>;
@@ -44,13 +40,7 @@ export default function CustomerRegistrationPage() {
       contactPersonName: "",
       email: "",
       phone: "",
-      industryId: "",
     },
-  });
-
-  // Data fetching - get industries for dropdown
-  const { data: industries = [] } = useQuery<Industry[]>({
-    queryKey: ["/api/industries"],
   });
   
   // Redirect if already logged in (AFTER all hooks are called)
@@ -238,39 +228,6 @@ export default function CustomerRegistrationPage() {
                             data-testid="input-phone"
                           />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Industry Selection */}
-                  <FormField
-                    control={form.control}
-                    name="industryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <Briefcase className="h-4 w-4" />
-                          Business Industry
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-industry">
-                              <SelectValue placeholder="Select your business industry" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {industries.map((industry) => (
-                              <SelectItem 
-                                key={industry.id} 
-                                value={industry.id}
-                                data-testid={`option-industry-${industry.name.replace(/\s+/g, '-').toLowerCase()}`}
-                              >
-                                {industry.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

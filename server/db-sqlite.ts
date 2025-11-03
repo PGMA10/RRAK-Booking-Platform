@@ -231,6 +231,13 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add industry_description to existing bookings table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN industry_description TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add base_slot_price to campaigns table if it doesn't exist
   try {
     sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);
@@ -278,6 +285,13 @@ export function initializeDatabase() {
       created_by TEXT REFERENCES users(id)
     )
   `);
+
+  // Add display_name to existing pricing_rules table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE pricing_rules ADD COLUMN display_name TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create pricing_rule_applications table
   sqlite.exec(`

@@ -16,6 +16,7 @@ export interface PricingQuote {
   appliedRules: Array<{
     ruleId: string;
     description: string;
+    displayName?: string;
     ruleType: 'fixed_price' | 'discount_amount' | 'discount_percent';
     value: number;
   }>;
@@ -115,6 +116,7 @@ export async function calculatePricingQuote(
       appliedRules: [{
         ruleId: rule.id,
         description: rule.description,
+        displayName: rule.displayName || undefined,
         ruleType: rule.ruleType as 'fixed_price' | 'discount_amount' | 'discount_percent',
         value: rule.value,
       }],
@@ -150,6 +152,7 @@ export async function calculatePricingQuote(
       appliedRules: [{
         ruleId: rule.id,
         description: rule.description,
+        displayName: rule.displayName || undefined,
         ruleType: rule.ruleType as 'fixed_price' | 'discount_amount' | 'discount_percent',
         value: rule.value,
       }],
@@ -201,6 +204,7 @@ export async function calculatePricingQuote(
       appliedRules: [{
         ruleId: rule.id,
         description: rule.description,
+        displayName: rule.displayName || undefined,
         ruleType: rule.ruleType as 'fixed_price' | 'discount_amount' | 'discount_percent',
         value: rule.value,
       }],
@@ -236,6 +240,7 @@ export async function calculatePricingQuote(
       appliedRules: [{
         ruleId: rule.id,
         description: rule.description,
+        displayName: rule.displayName || undefined,
         ruleType: rule.ruleType as 'fixed_price' | 'discount_amount' | 'discount_percent',
         value: rule.value,
       }],

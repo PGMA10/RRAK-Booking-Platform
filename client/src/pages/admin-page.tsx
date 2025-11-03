@@ -21,7 +21,8 @@ import {
   FileText,
   Bell,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Grid
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import type { Booking } from "@shared/schema";
@@ -290,6 +291,15 @@ export default function AdminPage() {
                         <span className="font-semibold">Manage Campaigns</span>
                       </div>
                       <p className="text-sm text-muted-foreground text-left">View and manage all campaigns</p>
+                    </Button>
+                  </Link>
+                  <Link href="/admin/slots">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-slot-grid">
+                      <div className="flex items-center space-x-2">
+                        <Grid className="h-5 w-5" />
+                        <span className="font-semibold">Slot Grid</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">View all 64 slots at a glance per campaign</p>
                     </Button>
                   </Link>
                   <Link href="/admin/crm">

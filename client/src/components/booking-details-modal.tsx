@@ -350,6 +350,15 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
                 </p>
               </div>
             </div>
+            {/* Industry Description for "Other" */}
+            {booking.industryDescription && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm font-medium text-amber-900 mb-1">Business Description (Other Industry)</p>
+                <p className="text-sm text-amber-800" data-testid="text-industry-description">
+                  {booking.industryDescription}
+                </p>
+              </div>
+            )}
           </div>
 
           <Separator />

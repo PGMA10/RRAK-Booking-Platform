@@ -54,6 +54,7 @@ export const bookings = sqliteTable("bookings", {
   campaignId: text("campaign_id").notNull().references(() => campaigns.id),
   routeId: text("route_id").notNull().references(() => routes.id),
   industryId: text("industry_id").notNull().references(() => industries.id),
+  industryDescription: text("industry_description"), // Required when industryId is "Other"
   businessName: text("business_name").notNull(),
   contactEmail: text("contact_email").notNull(),
   contactPhone: text("contact_phone"),
@@ -112,6 +113,7 @@ export const pricingRules = sqliteTable("pricing_rules", {
   usageCount: integer("usage_count").notNull().default(0), // tracks how many times rule has been used
   status: text("status").notNull().default("active"), // 'active' or 'inactive'
   description: text("description").notNull(), // e.g., "New customer $100 discount", "Early bird pricing"
+  displayName: text("display_name"), // Customer-facing label shown with pricing, e.g., "First Campaign Special!"
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
   createdBy: text("created_by").references(() => users.id),
 });

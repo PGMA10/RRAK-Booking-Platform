@@ -5,8 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -15,11 +16,12 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { Campaign, Route, Industry } from "@shared/schema";
 
-// Customer booking form schema
+// Customer booking form schema - dynamic validation will be applied in form submission
 const customerBookingSchema = z.object({
   campaignId: z.string().min(1, "Please select a campaign"),
   routeId: z.string().min(1, "Please select a route"),
   industryId: z.string().min(1, "Please confirm your industry"),
+  industryDescription: z.string().optional(),
   quantity: z.string().min(1, "Please select quantity"),
 });
 
@@ -35,6 +37,7 @@ interface PricingQuote {
   appliedRules: Array<{
     ruleId: string;
     description: string;
+    displayName?: string;
     ruleType: string;
     value: number;
   }>;
@@ -70,6 +73,7 @@ export default function CustomerBookingPage() {
       campaignId: "",
       routeId: "",
       industryId: "",
+      industryDescription: "",
       quantity: "1",
     },
   });
@@ -99,6 +103,9 @@ export default function CustomerBookingPage() {
   const availableCampaigns = campaigns.filter(campaign => 
     campaign.status === "booking_open" || campaign.status === "planning"
   );
+
+  // Filter routes that are active
+  const activeRoutes = routes.filter(route => route.status === "active");
 
   // Check slot availability when all selections are made
   useEffect(() => {
@@ -205,6 +212,21 @@ export default function CustomerBookingPage() {
         description: "Please wait for availability check to complete.",
       });
       return;
+    }
+
+    // Validate industry description when "Other" is selected
+    if (selectedIndustry && selectedIndustry.name.toLowerCase() === "other") {
+      if (!data.industryDescription || data.industryDescription.trim() === "") {
+        form.setError("industryDescription", {
+          type: "manual",
+          message: "Please describe your business when selecting 'Other' industry",
+        });
+        toast({
+          variant: "destructive",
+          description: "Please describe your business to continue.",
+        });
+        return;
+      }
     }
 
     // Create Stripe Checkout session
@@ -378,7 +400,7 @@ export default function CustomerBookingPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {routes.map((route) => (
+                            {activeRoutes.map((route) => (
                               <SelectItem 
                                 key={route.id} 
                                 value={route.id}
@@ -463,6 +485,31 @@ export default function CustomerBookingPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Conditional Industry Description for "Other" */}
+                  {selectedIndustry && selectedIndustry.name.toLowerCase() === "other" && (
+                    <FormField
+                      control={form.control}
+                      name="industryDescription"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Describe Your Business *</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Please describe your business and industry so we can ensure there's no competition with existing bookings..."
+                              className="min-h-[100px]"
+                              data-testid="input-industry-description"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            This helps us verify that your business doesn't compete with other bookings on this route.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   
                   {selectedIndustry && (
                     <div className="mt-4 p-4 bg-muted rounded-lg" data-testid="selected-industry-details">
@@ -529,36 +576,45 @@ export default function CustomerBookingPage() {
                     {pricingQuote && (
                       <div className="mt-4 p-4 bg-muted rounded-lg" data-testid="quantity-pricing-details">
                         <div className="space-y-2 text-sm">
-                          {/* Show base price */}
-                          <div className="flex justify-between">
-                            <span>Base Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''}):</span>
-                            <span className="font-medium">${(pricingQuote.breakdown.basePrice / 100).toFixed(2)}</span>
-                          </div>
-                          
-                          {/* Show discount if applied */}
-                          {pricingQuote.breakdown.discountAmount > 0 && (
-                            <div className="flex justify-between text-green-600">
-                              <span className="flex items-center gap-1">
-                                <Tag className="h-3 w-3" />
-                                Discount Applied:
-                              </span>
-                              <span className="font-medium">-${(pricingQuote.breakdown.discountAmount / 100).toFixed(2)}</span>
+                          {/* Show pricing with strikethrough if discount applied */}
+                          {pricingQuote.breakdown.discountAmount > 0 ? (
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span>Regular Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''}):</span>
+                                <span className="font-medium line-through text-muted-foreground">
+                                  ${(pricingQuote.breakdown.basePrice / 100).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="flex items-center gap-1 text-green-600 font-semibold">
+                                  <Tag className="h-3 w-3" />
+                                  {pricingQuote.appliedRules[0]?.displayName || 'Special Pricing'}:
+                                </span>
+                                <span className="font-bold text-green-600 text-lg">
+                                  ${(pricingQuote.totalPrice / 100).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-600 italic">
+                                You save ${(pricingQuote.breakdown.discountAmount / 100).toFixed(2)}!
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between">
+                              <span>Price ({selectedQuantity} slot{selectedQuantity > 1 ? 's' : ''}):</span>
+                              <span className="font-medium">${(pricingQuote.breakdown.basePrice / 100).toFixed(2)}</span>
                             </div>
                           )}
                           
-                          {/* Show applied pricing rules */}
-                          {pricingQuote.appliedRules.map((rule) => (
-                            <div key={rule.ruleId} className="flex justify-between text-xs text-blue-600">
-                              <span className="italic">• {rule.description}</span>
+                          {/* Show pricing rules details */}
+                          {pricingQuote.appliedRules.length > 0 && (
+                            <div className="pt-2 border-t border-border">
+                              {pricingQuote.appliedRules.map((rule) => (
+                                <div key={rule.ruleId} className="text-xs text-muted-foreground italic">
+                                  • {rule.description}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                          
-                          <div className="border-t border-border pt-2 flex justify-between font-bold">
-                            <span>Total Price:</span>
-                            <span className="text-lg text-green-600">
-                              ${(pricingQuote.totalPrice / 100).toLocaleString()}
-                            </span>
-                          </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -605,13 +661,18 @@ export default function CustomerBookingPage() {
                             </p>
                           ) : pricingQuote ? (
                             <div className="space-y-1">
+                              {pricingQuote.breakdown.discountAmount > 0 && (
+                                <p className="text-sm text-muted-foreground line-through">
+                                  {formatCurrency(pricingQuote.breakdown.basePrice)}
+                                </p>
+                              )}
                               <p className="text-2xl font-bold text-green-600" data-testid="text-slot-price">
                                 {formatCurrency(pricingQuote.totalPrice)}
                               </p>
-                              {pricingQuote.breakdown.discountAmount > 0 && (
-                                <p className="text-xs text-green-600 flex items-center gap-1">
+                              {pricingQuote.breakdown.discountAmount > 0 && pricingQuote.appliedRules[0]?.displayName && (
+                                <p className="text-xs font-semibold text-green-600 flex items-center gap-1">
                                   <Tag className="h-3 w-3" />
-                                  Saving ${(pricingQuote.breakdown.discountAmount / 100).toFixed(2)}
+                                  {pricingQuote.appliedRules[0].displayName}
                                 </p>
                               )}
                             </div>
