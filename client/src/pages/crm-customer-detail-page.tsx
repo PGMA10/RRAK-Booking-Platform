@@ -86,11 +86,7 @@ export default function CRMCustomerDetailPage() {
 
   const addNoteMutation = useMutation({
     mutationFn: async (note: string) => {
-      return apiRequest(`/api/admin/crm/notes`, {
-        method: 'POST',
-        body: JSON.stringify({ customerId, note }),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiRequest('POST', `/api/admin/crm/notes`, { customerId, note });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
@@ -104,11 +100,7 @@ export default function CRMCustomerDetailPage() {
 
   const addTagMutation = useMutation({
     mutationFn: async (tag: string) => {
-      return apiRequest(`/api/admin/crm/tags`, {
-        method: 'POST',
-        body: JSON.stringify({ customerId, tag }),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiRequest('POST', `/api/admin/crm/tags`, { customerId, tag });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
@@ -122,11 +114,7 @@ export default function CRMCustomerDetailPage() {
 
   const removeTagMutation = useMutation({
     mutationFn: async (tag: string) => {
-      return apiRequest(`/api/admin/crm/tags`, {
-        method: 'DELETE',
-        body: JSON.stringify({ customerId, tag }),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiRequest('DELETE', `/api/admin/crm/tags`, { customerId, tag });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/crm/customer', customerId] });
