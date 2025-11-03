@@ -21,6 +21,7 @@ const customerRegistrationSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username too long"),
   password: z.string().min(6, "Password must be at least 6 characters").max(50, "Password too long"),
   businessName: z.string().min(1, "Business name is required").max(100, "Business name too long"),
+  contactPersonName: z.string().optional(),
   email: z.string().email("Valid email address is required"),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number too long"),
   industryId: z.string().min(1, "Please select an industry"),
@@ -40,6 +41,7 @@ export default function CustomerRegistrationPage() {
       username: "",
       password: "",
       businessName: "",
+      contactPersonName: "",
       email: "",
       phone: "",
       industryId: "",
@@ -63,6 +65,7 @@ export default function CustomerRegistrationPage() {
       username: data.username,
       password: data.password,
       email: data.email,
+      name: data.contactPersonName,
       businessName: data.businessName,
       phone: data.phone,
     });
