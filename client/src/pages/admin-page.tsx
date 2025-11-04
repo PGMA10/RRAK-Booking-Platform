@@ -22,7 +22,8 @@ import {
   Bell,
   ChevronRight,
   AlertCircle,
-  Grid
+  Grid,
+  Sparkles
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import type { Booking } from "@shared/schema";
@@ -117,6 +118,8 @@ export default function AdminPage() {
   const { data: notificationSummary } = useQuery<{
     newBookings: number;
     artworkReviews: number;
+    designBriefs: number;
+    designRevisions: number;
     total: number;
   }>({
     queryKey: ['/api/notifications/summary'],
@@ -311,6 +314,20 @@ export default function AdminPage() {
                       <p className="text-sm text-muted-foreground text-left">View customers, track activity, and manage relationships</p>
                     </Button>
                   </Link>
+                  <Link href="/admin/design-briefs">
+                    <Button variant="outline" className="h-auto p-4 flex flex-col items-start space-y-2 w-full" data-testid="button-review-ad-materials">
+                      <div className="flex items-center space-x-2">
+                        <Sparkles className="h-5 w-5" />
+                        <span className="font-semibold">Review Ad Materials</span>
+                        {notificationSummary && (notificationSummary.designBriefs > 0 || notificationSummary.designRevisions > 0) && (
+                          <Badge variant="destructive" className="ml-auto">
+                            {(notificationSummary.designBriefs || 0) + (notificationSummary.designRevisions || 0)}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">Manage design briefs and customer design approvals</p>
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -422,6 +439,31 @@ export default function AdminPage() {
                         {notificationSummary && notificationSummary.artworkReviews > 0 && (
                           <Badge variant="outline" data-testid="badge-artwork-reviews-count">
                             {notificationSummary.artworkReviews}
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Design Briefs & Revisions */}
+                  <Link href="/admin/design-briefs">
+                    <div className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid="action-item-design-briefs">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                          <Sparkles className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Design Materials</p>
+                          <p className="text-sm text-muted-foreground">
+                            {((notificationSummary?.designBriefs || 0) + (notificationSummary?.designRevisions || 0))} pending review
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {notificationSummary && ((notificationSummary.designBriefs || 0) + (notificationSummary.designRevisions || 0)) > 0 && (
+                          <Badge variant="outline" data-testid="badge-design-briefs-count">
+                            {(notificationSummary.designBriefs || 0) + (notificationSummary.designRevisions || 0)}
                           </Badge>
                         )}
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />

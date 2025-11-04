@@ -1518,6 +1518,9 @@ export function registerRoutes(app: Express): Server {
           designStatus: 'brief_submitted',
         });
 
+        // Create admin notification for new design brief submission
+        await storage.createNotification('design_brief_submitted', bookingId);
+
         res.json(updatedBooking);
       } catch (error) {
         console.error("Design brief submission error:", error);
@@ -1667,6 +1670,9 @@ export function registerRoutes(app: Express): Server {
         revisionCount: booking.revisionCount + 1,
         designStatus: 'revision_requested',
       });
+
+      // Create admin notification for revision request
+      await storage.createNotification('design_revision_requested', updatedDesign.bookingId);
 
       res.json(updatedDesign);
     } catch (error) {
@@ -2200,12 +2206,16 @@ export function registerRoutes(app: Express): Server {
       const newBookings = await storage.getNotificationsByType('new_booking', req.user.id);
       const artworkReviews = await storage.getNotificationsByType('artwork_review', req.user.id);
       const canceledBookings = await storage.getNotificationsByType('canceled_booking', req.user.id);
+      const designBriefs = await storage.getNotificationsByType('design_brief_submitted', req.user.id);
+      const designRevisions = await storage.getNotificationsByType('design_revision_requested', req.user.id);
       
       res.json({
         newBookings: newBookings.length,
         artworkReviews: artworkReviews.length,
         canceledBookings: canceledBookings.length,
-        total: newBookings.length + artworkReviews.length + canceledBookings.length,
+        designBriefs: designBriefs.length,
+        designRevisions: designRevisions.length,
+        total: newBookings.length + artworkReviews.length + canceledBookings.length + designBriefs.length + designRevisions.length,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch notification summary" });
