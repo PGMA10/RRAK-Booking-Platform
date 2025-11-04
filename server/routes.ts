@@ -28,12 +28,99 @@ function parseDateAtNoonAKST(dateString: string): Date {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 21, 0, 0, 0));
 }
 
-// Configure multer for artwork uploads
+// Configure multer for file uploads
+// Create upload directories
 const uploadsDir = path.join(process.cwd(), "uploads", "artwork");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+const logosDir = path.join(process.cwd(), "uploads", "logos");
+const imagesDir = path.join(process.cwd(), "uploads", "images");
+const designsDir = path.join(process.cwd(), "uploads", "designs");
 
+[uploadsDir, logosDir, imagesDir, designsDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// Logo upload configuration
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, logosDir);
+  },
+  filename: (req, file, cb) => {
+    const bookingId = req.params.bookingId || 'unknown';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `logo-${bookingId}-${timestamp}${ext}`);
+  },
+});
+
+const uploadLogo = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
+});
+
+// Optional image upload configuration
+const imageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, imagesDir);
+  },
+  filename: (req, file, cb) => {
+    const bookingId = req.params.bookingId || 'unknown';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `image-${bookingId}-${timestamp}${ext}`);
+  },
+});
+
+const uploadImage = multer({
+  storage: imageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
+});
+
+// Completed design upload configuration
+const designStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, designsDir);
+  },
+  filename: (req, file, cb) => {
+    const bookingId = req.params.bookingId || 'unknown';
+    const revisionNumber = req.body.revisionNumber || '0';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `design-${bookingId}-rev${revisionNumber}-${timestamp}${ext}`);
+  },
+});
+
+const uploadDesign = multer({
+  storage: designStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
+});
+
+// Legacy artwork upload configuration (kept for backward compatibility)
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
