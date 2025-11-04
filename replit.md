@@ -27,8 +27,8 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM
 - **Development Database**: SQLite
 - **Production Database**: PostgreSQL
-- **Schema**: Users, Routes, Industries, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals. Relationships include foreign key constraints.
-- **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason` for bookings; `quantity` for multi-slot bookings; `marketingOptIn`, `referredByUserId`, `referralCode`, `phone` for users.
+- **Schema**: Users, Routes, Industries, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals, DesignRevisions. Relationships include foreign key constraints.
+- **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason` for bookings; `quantity` for multi-slot bookings; `marketingOptIn`, `referredByUserId`, `referralCode`, `phone` for users; `mainMessage`, `qrCodeDestination`, `brandColor`, `adStyle`, `logoFilePath`, `optionalImagePath`, `designStatus`, `revisionCount` for ad design briefs.
 - **Timestamp Handling**: SQLite stores dates as INTEGER, converted to Date objects on read.
 
 ### Authentication & Authorization
@@ -53,6 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Pre-Booking Pricing System**: Rule-driven pricing engine with a hierarchical system: User fixed-price/discount, Campaign base price/discount, Default tiered pricing. Rules can be `fixed_price`, `discount_amount`, or `discount_percent`.
 - **Customer Relationship Management (CRM)**: Comprehensive CRM system with customer list view (search, sort, filter), detailed customer profiles showing lifetime value and booking history, customer notes for internal tracking, customer tagging for segmentation, and future-ready infrastructure for email marketing, referral programs ($100 off per referral, stackable, unlimited), and waitlist management.
 - **"Other" Industry Unlimited Availability**: The "Other" industry category always shows as available regardless of existing bookings, allowing multiple businesses with different offerings to select it. When selected, customers must provide a mandatory description of their business type for admin review.
+- **Ad Design Brief System**: Comprehensive collaborative ad design workflow where customers submit detailed design briefs with brand materials (logo, main message, QR code preferences, brand colors, ad style, optional images), admins create custom designs, and customers can approve or request revisions (up to 2 revisions for 3 total design attempts). Features dedicated `design_revisions` table for tracking revision history, separate file storage for logos (`uploads/logos`), images (`uploads/images`), and completed designs (`uploads/designs`), and full audit trail with upload/review timestamps.
 
 ### UI/UX Decisions
 - Consistent use of Radix UI and Shadcn/UI for components.

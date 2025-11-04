@@ -12,6 +12,7 @@ import CalendarPage from "@/pages/calendar-page";
 import AdminPage from "@/pages/admin-page";
 import AdminArtworkReviewPage from "@/pages/admin-artwork-review-page";
 import AdminNotificationsPage from "@/pages/admin-notifications-page";
+import AdminDesignBriefsPage from "@/pages/admin-design-briefs-page";
 import RouteManagementPage from "@/pages/route-management-page";
 import IndustryManagementPage from "@/pages/industry-management-page";
 import CampaignManagementPage from "@/pages/campaign-management-page";
@@ -33,6 +34,7 @@ function Router() {
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/admin" component={AdminPage} />
       <ProtectedRoute path="/admin/artwork" component={AdminArtworkReviewPage} />
+      <ProtectedRoute path="/admin/design-briefs" component={AdminDesignBriefsPage} />
       <ProtectedRoute path="/admin/notifications" component={AdminNotificationsPage} />
       <ProtectedRoute path="/admin/routes" component={RouteManagementPage} />
       <ProtectedRoute path="/admin/industries" component={IndustryManagementPage} />

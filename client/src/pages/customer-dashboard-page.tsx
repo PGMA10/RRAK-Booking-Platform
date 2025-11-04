@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
+import { AdDesignBriefForm } from "@/components/ad-design-brief-form";
+import { CustomerDesignApprovalModal } from "@/components/customer-design-approval-modal";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
@@ -39,6 +41,7 @@ export default function CustomerDashboardPage() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<{ bookingId: string; file: File } | null>(null);
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
 
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
@@ -508,73 +511,51 @@ export default function CustomerDashboardPage() {
                       </div>
                     )}
 
-                    {(booking.artworkStatus === 'approved' || booking.artworkStatus === 'under_review') ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {booking.artworkStatus === 'approved' && (
-                          <p className="text-green-600 font-medium">
-                            ✓ Artwork approved and ready for printing
-                          </p>
-                        )}
-                        {booking.artworkStatus === 'under_review' && (
-                          <p className="text-blue-600 font-medium">
-                            ⏱ Artwork is being reviewed by our team
-                          </p>
-                        )}
+                    {/* Show Ad Design Brief form if no brief submitted yet */}
+                    {(!booking.designStatus || booking.designStatus === 'pending_design') ? (
+                      <div className="mt-3">
+                        <AdDesignBriefForm
+                          bookingId={booking.id}
+                          businessName={booking.businessName}
+                          onSuccess={() => {
+                            queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+                          }}
+                        />
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="file"
-                          id={`file-${booking.id}`}
-                          accept="image/png,image/jpeg,application/pdf"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileSelect(booking.id, file);
-                          }}
-                          className="hidden"
-                          data-testid={`input-artwork-${booking.id}`}
-                        />
-                        <label htmlFor={`file-${booking.id}`} className="flex-1">
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                            type="button"
-                            onClick={() => document.getElementById(`file-${booking.id}`)?.click()}
-                            data-testid={`button-select-file-${booking.id}`}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {booking.artworkFileName ? 'Replace Artwork' : 'Select Artwork File'}
-                          </Button>
-                        </label>
-                        {selectedFile?.bookingId === booking.id && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground truncate max-w-xs">
-                              {selectedFile.file.name}
-                            </span>
+                      <>
+                        {/* Show design status for submitted briefs */}
+                        {booking.designStatus === 'brief_submitted' && (
+                          <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+                            ⏱ Design brief submitted - awaiting admin review
+                          </div>
+                        )}
+                        {booking.designStatus === 'pending_approval' && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                              👁 Design ready for your review
+                            </div>
                             <Button
-                              size="sm"
-                              onClick={handleUpload}
-                              disabled={uploadArtworkMutation.isPending}
-                              data-testid={`button-upload-${booking.id}`}
+                              onClick={() => setReviewBookingId(booking.id)}
+                              className="w-full"
+                              data-testid={`button-review-design-${booking.id}`}
                             >
-                              {uploadArtworkMutation.isPending ? 'Uploading...' : 'Upload'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setSelectedFile(null)}
-                              data-testid={`button-cancel-${booking.id}`}
-                            >
-                              <X className="h-4 w-4" />
+                              Review Design
                             </Button>
                           </div>
                         )}
-                      </div>
+                        {booking.designStatus === 'revision_requested' && (
+                          <div className="flex items-center gap-2 text-sm text-orange-600 font-medium">
+                            🔄 Revision requested - awaiting updated design
+                          </div>
+                        )}
+                        {booking.designStatus === 'approved' && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                            ✓ Design approved and ready for printing
+                          </div>
+                        )}
+                      </>
                     )}
-                    
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Accepted formats: PNG, JPG, PDF (max 10MB)
-                    </div>
                   </div>
                 ))}
               </div>
@@ -658,6 +639,15 @@ export default function CustomerDashboardPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Design Review Modal */}
+        {reviewBookingId && bookings && (
+          <CustomerDesignApprovalModal
+            booking={bookings.find(b => b.id === reviewBookingId)!}
+            open={!!reviewBookingId}
+            onClose={() => setReviewBookingId(null)}
+          />
+        )}
       </div>
     </div>
   );
