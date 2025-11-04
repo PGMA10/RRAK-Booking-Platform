@@ -238,6 +238,60 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add ad design brief columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN main_message TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN qr_code_destination TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN qr_code_url TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN qr_code_label TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN brand_color TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN ad_style TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN logo_file_path TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN optional_image_path TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
+  // Add design approval workflow columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN design_status TEXT NOT NULL DEFAULT 'pending_design'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN revision_count INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add base_slot_price to campaigns table if it doesn't exist
   try {
     sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);
@@ -336,6 +390,22 @@ export function initializeDatabase() {
       credit_amount INTEGER NOT NULL DEFAULT 10000,
       credit_used INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create design_revisions table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS design_revisions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      booking_id TEXT NOT NULL REFERENCES bookings(id),
+      revision_number INTEGER NOT NULL,
+      design_file_path TEXT NOT NULL,
+      status TEXT NOT NULL,
+      customer_feedback TEXT,
+      uploaded_by TEXT NOT NULL REFERENCES users(id),
+      uploaded_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+      reviewed_at INTEGER,
+      UNIQUE(booking_id, revision_number)
     )
   `);
 

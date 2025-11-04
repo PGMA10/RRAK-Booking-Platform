@@ -79,6 +79,16 @@ export const bookings = sqliteTable("bookings", {
   artworkUploadedAt: integer("artwork_uploaded_at", { mode: 'timestamp_ms' }),
   artworkReviewedAt: integer("artwork_reviewed_at", { mode: 'timestamp_ms' }),
   artworkRejectionReason: text("artwork_rejection_reason"),
+  mainMessage: text("main_message"), // Customer's main ad message (40 char limit)
+  qrCodeDestination: text("qr_code_destination"), // 'website', 'special_offer', 'google_business', 'booking_page', 'contact_form'
+  qrCodeUrl: text("qr_code_url"), // URL for QR code destination
+  qrCodeLabel: text("qr_code_label"), // Text near QR code (20 char limit), default "SCAN FOR OFFER"
+  brandColor: text("brand_color"), // Primary brand color (hex)
+  adStyle: text("ad_style"), // 'bold', 'professional', 'warm'
+  logoFilePath: text("logo_file_path"), // Customer's logo file
+  optionalImagePath: text("optional_image_path"), // Optional product/storefront/team photo
+  designStatus: text("design_status").notNull().default("pending_design"), // 'pending_design', 'sent_for_approval', 'approved', 'revision_requested'
+  revisionCount: integer("revision_count").notNull().default(0), // 0-2, tracks number of revisions requested
   cancellationDate: integer("cancellation_date", { mode: 'timestamp_ms' }),
   refundAmount: integer("refund_amount"), // in cents
   refundStatus: text("refund_status"), // 'pending', 'processed', 'no_refund', 'failed'
@@ -152,6 +162,18 @@ export const referrals = sqliteTable("referrals", {
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
+export const designRevisions = sqliteTable("design_revisions", {
+  id: text("id").primaryKey(),
+  bookingId: text("booking_id").notNull().references(() => bookings.id),
+  revisionNumber: integer("revision_number").notNull(), // 0 = initial design, 1 = first revision, 2 = second revision
+  designFilePath: text("design_file_path").notNull(), // Path to design file for this revision
+  status: text("status").notNull(), // 'pending_review', 'approved', 'revision_requested'
+  customerFeedback: text("customer_feedback"), // Customer's feedback when requesting revision
+  uploadedBy: text("uploaded_by").notNull().references(() => users.id), // Admin who uploaded this revision
+  uploadedAt: integer("uploaded_at", { mode: 'timestamp_ms' }),
+  reviewedAt: integer("reviewed_at", { mode: 'timestamp_ms' }), // When customer reviewed this version
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -216,6 +238,12 @@ export const insertReferralSchema = createInsertSchema(referrals).omit({
   createdAt: true,
 });
 
+export const insertDesignRevisionSchema = createInsertSchema(designRevisions).omit({
+  id: true,
+  uploadedAt: true,
+  reviewedAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -240,6 +268,8 @@ export type CustomerTag = typeof customerTags.$inferSelect;
 export type InsertCustomerTag = z.infer<typeof insertCustomerTagSchema>;
 export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type DesignRevision = typeof designRevisions.$inferSelect;
+export type InsertDesignRevision = z.infer<typeof insertDesignRevisionSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {
