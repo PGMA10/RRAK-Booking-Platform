@@ -613,15 +613,19 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if slot is already booked
-      const existingBooking = await storage.getBooking(
-        validatedData.campaignId,
-        validatedData.routeId,
-        validatedData.industryId
-      );
+      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      const industry = await storage.getIndustry(validatedData.industryId);
+      
+      if (!industry || industry.name !== "Other") {
+        const existingBooking = await storage.getBooking(
+          validatedData.campaignId,
+          validatedData.routeId,
+          validatedData.industryId
+        );
 
-      if (existingBooking) {
-        return res.status(400).json({ message: "Slot already booked" });
+        if (existingBooking) {
+          return res.status(400).json({ message: "Slot already booked" });
+        }
       }
 
       // Calculate price using pricing service (considers all pricing rules and campaign base price)
@@ -919,15 +923,19 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if slot is already booked
-      const existingBooking = await storage.getBooking(
-        validatedData.campaignId,
-        validatedData.routeId,
-        validatedData.industryId
-      );
+      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      const industry = await storage.getIndustry(validatedData.industryId);
+      
+      if (!industry || industry.name !== "Other") {
+        const existingBooking = await storage.getBooking(
+          validatedData.campaignId,
+          validatedData.routeId,
+          validatedData.industryId
+        );
 
-      if (existingBooking) {
-        return res.status(400).json({ message: "Slot already booked" });
+        if (existingBooking) {
+          return res.status(400).json({ message: "Slot already booked" });
+        }
       }
 
       // Mock payment processing (legacy endpoint, kept for backwards compatibility)
@@ -1386,15 +1394,19 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Campaign not found" });
       }
 
-      // Check if slot is already booked
-      const existingBooking = await storage.getBooking(
-        validatedData.campaignId,
-        validatedData.routeId,
-        validatedData.industryId
-      );
+      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      const industry = await storage.getIndustry(validatedData.industryId);
+      
+      if (!industry || industry.name !== "Other") {
+        const existingBooking = await storage.getBooking(
+          validatedData.campaignId,
+          validatedData.routeId,
+          validatedData.industryId
+        );
 
-      if (existingBooking) {
-        return res.status(400).json({ message: "Slot already booked" });
+        if (existingBooking) {
+          return res.status(400).json({ message: "Slot already booked" });
+        }
       }
 
       // Create admin booking with mock user ID if not provided
