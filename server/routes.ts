@@ -1717,6 +1717,68 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Serve logo files
+  app.get("/api/bookings/:bookingId/logo", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Only allow the booking owner or admin to view the logo
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view this logo" });
+      }
+
+      if (!booking.logoFilePath || !fs.existsSync(booking.logoFilePath)) {
+        return res.status(404).json({ message: "Logo file not found" });
+      }
+
+      // Send the file
+      res.sendFile(path.resolve(booking.logoFilePath));
+    } catch (error) {
+      console.error("Logo file retrieval error:", error);
+      res.status(500).json({ message: "Failed to retrieve logo file" });
+    }
+  });
+
+  // Serve optional image files
+  app.get("/api/bookings/:bookingId/optional-image", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Only allow the booking owner or admin to view the image
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view this image" });
+      }
+
+      if (!booking.optionalImagePath || !fs.existsSync(booking.optionalImagePath)) {
+        return res.status(404).json({ message: "Optional image file not found" });
+      }
+
+      // Send the file
+      res.sendFile(path.resolve(booking.optionalImagePath));
+    } catch (error) {
+      console.error("Optional image retrieval error:", error);
+      res.status(500).json({ message: "Failed to retrieve optional image file" });
+    }
+  });
+
   // Slot Grid Management
   app.get("/api/slots/:campaignId", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {

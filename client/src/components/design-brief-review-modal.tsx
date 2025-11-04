@@ -228,9 +228,17 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                   <div>
                     <Label>Logo</Label>
                     {booking.logoFilePath ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <FileText className="h-4 w-4" />
-                        <span className="text-sm">Logo uploaded</span>
+                      <div className="mt-1">
+                        <a 
+                          href={`/api/bookings/${booking.id}/logo`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          data-testid="link-download-logo"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span>View Logo</span>
+                        </a>
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground mt-1">No logo uploaded</p>
@@ -239,9 +247,17 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                   <div>
                     <Label>Optional Image</Label>
                     {booking.optionalImagePath ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <FileText className="h-4 w-4" />
-                        <span className="text-sm">Image uploaded</span>
+                      <div className="mt-1">
+                        <a 
+                          href={`/api/bookings/${booking.id}/optional-image`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          data-testid="link-download-image"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span>View Image</span>
+                        </a>
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground mt-1">No additional image</p>
