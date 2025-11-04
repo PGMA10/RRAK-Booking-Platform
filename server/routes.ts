@@ -537,6 +537,16 @@ export function registerRoutes(app: Express): Server {
     try {
       const { campaignId, routeId, industryId } = req.params;
       console.log("🔍 [Availability] Checking:", { campaignId, routeId, industryId });
+      
+      // Get the industry to check if it's "Other"
+      const industry = await storage.getIndustry(industryId);
+      
+      // "Other" industry is always available since multiple businesses can select it
+      if (industry && industry.name === "Other") {
+        console.log("✅ [Availability] 'Other' industry - always available");
+        return res.json({ available: true });
+      }
+      
       const booking = await storage.getBooking(campaignId, routeId, industryId);
       console.log("✅ [Availability] Result:", { available: !booking, bookingFound: !!booking });
       res.json({ available: !booking });

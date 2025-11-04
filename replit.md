@@ -52,6 +52,7 @@ Preferred communication style: Simple, everyday language.
 - **Booking Approval System**: Admin workflow for approving or rejecting new bookings with mandatory rejection notes, updating `approvalStatus`.
 - **Pre-Booking Pricing System**: Rule-driven pricing engine with a hierarchical system: User fixed-price/discount, Campaign base price/discount, Default tiered pricing. Rules can be `fixed_price`, `discount_amount`, or `discount_percent`.
 - **Customer Relationship Management (CRM)**: Comprehensive CRM system with customer list view (search, sort, filter), detailed customer profiles showing lifetime value and booking history, customer notes for internal tracking, customer tagging for segmentation, and future-ready infrastructure for email marketing, referral programs ($100 off per referral, stackable, unlimited), and waitlist management.
+- **"Other" Industry Unlimited Availability**: The "Other" industry category always shows as available regardless of existing bookings, allowing multiple businesses with different offerings to select it. When selected, customers must provide a mandatory description of their business type for admin review.
 
 ### UI/UX Decisions
 - Consistent use of Radix UI and Shadcn/UI for components.
