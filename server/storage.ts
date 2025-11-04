@@ -13,9 +13,11 @@ import {
   type Booking,
   type InsertBooking,
   type BookingWithDetails,
+  type DesignRevision,
+  type InsertDesignRevision,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -135,6 +137,13 @@ export interface IStorage {
   addCustomerNote(customerId: string, note: string, createdBy: string): Promise<void>;
   addCustomerTag(customerId: string, tag: string, createdBy: string): Promise<void>;
   removeCustomerTag(customerId: string, tag: string): Promise<void>;
+  
+  // Design Revisions
+  createDesignRevision(designRevision: InsertDesignRevision): Promise<DesignRevision>;
+  getDesignRevisionById(id: string): Promise<DesignRevision | undefined>;
+  getDesignRevisionsByBooking(bookingId: string): Promise<DesignRevision[]>;
+  getLatestDesignRevision(bookingId: string): Promise<DesignRevision | undefined>;
+  updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined>;
   
   sessionStore: session.Store;
 }
@@ -1802,6 +1811,59 @@ export class DbStorage implements IStorage {
         eq(customerTags.customerId, customerId),
         eq(customerTags.tag, tag)
       ));
+  }
+
+  // Design Revisions
+  async createDesignRevision(designRevision: InsertDesignRevision): Promise<DesignRevision> {
+    const revisionWithId = {
+      ...designRevision,
+      id: randomUUID().replace(/-/g, ''),
+      uploadedAt: new Date(),
+    };
+    const result = await db.insert(designRevisionsTable).values(revisionWithId).returning();
+    return result[0];
+  }
+
+  async getDesignRevisionById(id: string): Promise<DesignRevision | undefined> {
+    const result = await db.select()
+      .from(designRevisionsTable)
+      .where(eq(designRevisionsTable.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getDesignRevisionsByBooking(bookingId: string): Promise<DesignRevision[]> {
+    const result = await db.select()
+      .from(designRevisionsTable)
+      .where(eq(designRevisionsTable.bookingId, bookingId))
+      .orderBy(designRevisionsTable.revisionNumber);
+    return result;
+  }
+
+  async getLatestDesignRevision(bookingId: string): Promise<DesignRevision | undefined> {
+    const result = await db.select()
+      .from(designRevisionsTable)
+      .where(eq(designRevisionsTable.bookingId, bookingId))
+      .orderBy(sql`${designRevisionsTable.revisionNumber} DESC`)
+      .limit(1);
+    return result[0];
+  }
+
+  async updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined> {
+    const updates: Partial<DesignRevision> = {
+      status,
+      reviewedAt: new Date(),
+    };
+    
+    if (customerFeedback) {
+      updates.customerFeedback = customerFeedback;
+    }
+    
+    const result = await db.update(designRevisionsTable)
+      .set(updates)
+      .where(eq(designRevisionsTable.id, id))
+      .returning();
+    return result[0];
   }
 }
 

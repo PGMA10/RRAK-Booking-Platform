@@ -1440,6 +1440,277 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Ad Design Brief Management
+  app.post("/api/bookings/:bookingId/design-brief", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Create a multer instance that handles both logo and optional image with proper storage
+    const briefUpload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          if (file.fieldname === 'logo') {
+            cb(null, logosDir);
+          } else if (file.fieldname === 'optionalImage') {
+            cb(null, imagesDir);
+          } else {
+            cb(new Error('Unexpected field'), '');
+          }
+        },
+        filename: (req, file, cb) => {
+          const bookingId = req.params.bookingId || 'unknown';
+          const timestamp = Date.now();
+          const ext = path.extname(file.originalname);
+          const prefix = file.fieldname === 'logo' ? 'logo' : 'image';
+          cb(null, `${prefix}-${bookingId}-${timestamp}${ext}`);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(null, false);
+        }
+      },
+    });
+
+    briefUpload.fields([
+      { name: 'logo', maxCount: 1 },
+      { name: 'optionalImage', maxCount: 1 }
+    ])(req, res, async (err) => {
+      try {
+        if (err) {
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res.status(400).json({ message: "File too large. Maximum size is 5MB per file." });
+            }
+            return res.status(400).json({ message: err.message });
+          }
+          return res.status(400).json({ message: "File upload error" });
+        }
+
+        const { bookingId } = req.params;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        
+        const booking = await storage.getBookingById(bookingId);
+        if (!booking) {
+          return res.status(404).json({ message: "Booking not found" });
+        }
+
+        if (booking.userId !== req.user.id) {
+          return res.status(403).json({ message: "Not authorized to submit design brief for this booking" });
+        }
+
+        const briefData = JSON.parse(req.body.briefData);
+        
+        const updatedBooking = await storage.updateBooking(bookingId, {
+          mainMessage: briefData.mainMessage,
+          qrCodeDestination: briefData.qrCodeDestination,
+          qrCodeUrl: briefData.qrCodeUrl,
+          qrCodeLabel: briefData.qrCodeLabel,
+          brandColor: briefData.brandColor,
+          adStyle: briefData.adStyle,
+          logoFilePath: files.logo ? files.logo[0].path : null,
+          optionalImagePath: files.optionalImage ? files.optionalImage[0].path : null,
+          designStatus: 'brief_submitted',
+        });
+
+        res.json(updatedBooking);
+      } catch (error) {
+        console.error("Design brief submission error:", error);
+        res.status(500).json({ message: "Failed to submit design brief" });
+      }
+    });
+  });
+
+  app.post("/api/bookings/:bookingId/design", (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    uploadDesign.single('design')(req, res, async (err) => {
+      try {
+        if (err) {
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res.status(400).json({ message: "File too large. Maximum size is 10MB." });
+            }
+            return res.status(400).json({ message: err.message });
+          }
+          return res.status(400).json({ message: "File upload error" });
+        }
+
+        const { bookingId } = req.params;
+        const file = req.file;
+
+        if (!file) {
+          return res.status(400).json({ message: "No design file uploaded" });
+        }
+
+        const booking = await storage.getBookingById(bookingId);
+        if (!booking) {
+          fs.unlinkSync(file.path);
+          return res.status(404).json({ message: "Booking not found" });
+        }
+
+        if (booking.revisionCount >= 3) {
+          fs.unlinkSync(file.path);
+          return res.status(400).json({ message: "Maximum revisions (3) reached" });
+        }
+
+        const designRevision = await storage.createDesignRevision({
+          bookingId,
+          revisionNumber: booking.revisionCount,
+          designFilePath: file.path,
+          status: 'pending_review',
+          uploadedBy: req.user.id,
+        });
+
+        const updatedBooking = await storage.updateBooking(bookingId, {
+          designStatus: 'pending_approval',
+        });
+
+        res.json({ designRevision, booking: updatedBooking });
+      } catch (error) {
+        console.error("Design upload error:", error);
+        res.status(500).json({ message: "Failed to upload design" });
+      }
+    });
+  });
+
+  app.get("/api/bookings/:bookingId/designs", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view designs for this booking" });
+      }
+
+      const designs = await storage.getDesignRevisionsByBooking(bookingId);
+      res.json(designs);
+    } catch (error) {
+      console.error("Design retrieval error:", error);
+      res.status(500).json({ message: "Failed to retrieve designs" });
+    }
+  });
+
+  app.patch("/api/designs/:designId/approve", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { designId } = req.params;
+      const designs = await storage.getDesignRevisionsByBooking(''); // Need to get design by ID
+      
+      // Find the design across all bookings - we'll need to update this
+      // For now, let's update the design status directly
+      const updatedDesign = await storage.updateDesignRevisionStatus(designId, 'approved');
+      
+      if (!updatedDesign) {
+        return res.status(404).json({ message: "Design not found" });
+      }
+
+      // Update booking status
+      await storage.updateBooking(updatedDesign.bookingId, {
+        designStatus: 'approved',
+      });
+
+      res.json(updatedDesign);
+    } catch (error) {
+      console.error("Design approval error:", error);
+      res.status(500).json({ message: "Failed to approve design" });
+    }
+  });
+
+  app.patch("/api/designs/:designId/request-revision", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { designId } = req.params;
+      const { feedback } = req.body;
+
+      if (!feedback || feedback.trim().length === 0) {
+        return res.status(400).json({ message: "Feedback is required when requesting revisions" });
+      }
+
+      const updatedDesign = await storage.updateDesignRevisionStatus(designId, 'revision_requested', feedback);
+      
+      if (!updatedDesign) {
+        return res.status(404).json({ message: "Design not found" });
+      }
+
+      const booking = await storage.getBookingById(updatedDesign.bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.revisionCount >= 2) {
+        return res.status(400).json({ message: "Maximum revisions reached. Cannot request more changes." });
+      }
+
+      await storage.updateBooking(updatedDesign.bookingId, {
+        revisionCount: booking.revisionCount + 1,
+        designStatus: 'revision_requested',
+      });
+
+      res.json(updatedDesign);
+    } catch (error) {
+      console.error("Design revision request error:", error);
+      res.status(500).json({ message: "Failed to request design revision" });
+    }
+  });
+
+  app.get("/api/designs/:designId/file", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { designId } = req.params;
+      const design = await storage.getDesignRevisionById(designId);
+      
+      if (!design) {
+        return res.status(404).json({ message: "Design not found" });
+      }
+
+      // Get the booking to verify authorization
+      const booking = await storage.getBookingById(design.bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Only allow the booking owner or admin to view the design
+      if (booking.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view this design" });
+      }
+
+      if (!design.designFilePath || !fs.existsSync(design.designFilePath)) {
+        return res.status(404).json({ message: "Design file not found" });
+      }
+
+      // Send the file
+      res.sendFile(path.resolve(design.designFilePath));
+    } catch (error) {
+      console.error("Design file retrieval error:", error);
+      res.status(500).json({ message: "Failed to retrieve design file" });
+    }
+  });
+
   // Slot Grid Management
   app.get("/api/slots/:campaignId", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {
