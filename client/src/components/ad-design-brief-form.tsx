@@ -38,6 +38,7 @@ const designBriefSchema = z.object({
   additionalColor1: z.string().optional(),
   additionalColor2: z.string().optional(),
   adStyle: z.string().min(1, "Ad style is required"),
+  designNotes: z.string().optional(),
 }).refine((data) => {
   // If QR destination is not "none", URL is required
   if (data.qrCodeDestination !== "none" && !data.qrCodeUrl) {
@@ -84,6 +85,7 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
       additionalColor1: "",
       additionalColor2: "",
       adStyle: "modern",
+      designNotes: "",
     },
   });
 
@@ -524,6 +526,30 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
                 </label>
               </div>
             </div>
+
+            {/* Additional Notes */}
+            <FormField
+              control={form.control}
+              name="designNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Additional Notes or Questions</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Any questions, concerns, or special requests about your design?"
+                      {...field}
+                      data-testid="input-design-notes"
+                      className="resize-none"
+                      rows={4}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Let us know if you have any questions or specific requests for your ad design
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Submit Button */}
             <Button
