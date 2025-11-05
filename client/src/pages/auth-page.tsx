@@ -43,7 +43,6 @@ export default function AuthPage() {
                 {/* Login Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Login</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Admin dashboard or customer booking access</p>
                 </div>
                 
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -100,11 +99,6 @@ export default function AuthPage() {
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
                     </Link>
-                    
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800 font-medium">Already have an account?</p>
-                      <p className="text-xs text-blue-700 mt-1">Use the login form above with your registered username and password</p>
-                    </div>
                   </div>
                   
                   <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
