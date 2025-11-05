@@ -143,20 +143,20 @@ export default function AuthPage() {
               </p>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-primary">4 Routes</div>
-                  <div className="text-muted-foreground">Anchorage areas</div>
+                  <div className="font-semibold text-primary">Everything Included</div>
+                  <div className="text-muted-foreground">Design + Print + Mail</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-accent">16 Industries</div>
-                  <div className="text-muted-foreground">Per route</div>
+                  <div className="font-semibold text-accent">5,000 Households</div>
+                  <div className="text-muted-foreground">Per campaign</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-chart-3">$600</div>
-                  <div className="text-muted-foreground">Per slot</div>
+                  <div className="font-semibold text-chart-3">$400 Launch Special</div>
+                  <div className="text-muted-foreground">Save $200 (Regular $600)</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-chart-5">Monthly</div>
-                  <div className="text-muted-foreground">Campaigns</div>
+                  <div className="font-semibold text-chart-5">16 Industries</div>
+                  <div className="text-muted-foreground">Exclusive slots per route</div>
                 </div>
               </div>
             </div>
