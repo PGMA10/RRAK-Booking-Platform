@@ -91,6 +91,7 @@ export const bookings = sqliteTable("bookings", {
   logoFilePath: text("logo_file_path"), // Customer's logo file
   optionalImagePath: text("optional_image_path"), // Optional product/storefront/team photo
   designNotes: text("design_notes"), // Customer's additional notes/questions/concerns about design
+  customFonts: text("custom_fonts"), // Customer's custom font preferences (optional)
   designStatus: text("design_status").notNull().default("pending_design"), // 'pending_design', 'sent_for_approval', 'approved', 'revision_requested'
   revisionCount: integer("revision_count").notNull().default(0), // 0-2, tracks number of revisions requested
   cancellationDate: integer("cancellation_date", { mode: 'timestamp_ms' }),

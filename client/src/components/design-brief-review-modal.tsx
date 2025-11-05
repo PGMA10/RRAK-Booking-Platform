@@ -336,6 +336,23 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                 </CardContent>
               </Card>
             )}
+
+            {/* Custom Fonts */}
+            {booking.customFonts && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Custom Fonts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap" data-testid="text-custom-fonts">
+                    {booking.customFonts}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="designs" className="space-y-4 mt-4">

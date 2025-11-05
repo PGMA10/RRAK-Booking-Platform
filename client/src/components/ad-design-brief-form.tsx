@@ -39,6 +39,7 @@ const designBriefSchema = z.object({
   additionalColor2: z.string().optional(),
   adStyle: z.string().min(1, "Ad style is required"),
   designNotes: z.string().optional(),
+  customFonts: z.string().optional(),
 }).refine((data) => {
   // If QR destination is not "none", URL is required
   if (data.qrCodeDestination !== "none" && !data.qrCodeUrl) {
@@ -86,6 +87,7 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
       additionalColor2: "",
       adStyle: "modern",
       designNotes: "",
+      customFonts: "",
     },
   });
 
@@ -545,6 +547,33 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
                   </FormControl>
                   <FormDescription>
                     Let us know if you have any questions or specific requests for your ad design
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Custom Fonts */}
+            <FormField
+              control={form.control}
+              name="customFonts"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Custom Fonts (Optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="e.g., Montserrat Bold for headings, Open Sans for body text. Or provide a link to your brand fonts."
+                      {...field}
+                      data-testid="input-custom-fonts"
+                      className="resize-none"
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Specify any custom fonts you'd like us to use, or provide a link to download your brand fonts
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
