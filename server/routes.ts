@@ -1643,10 +1643,13 @@ export function registerRoutes(app: Express): Server {
         d => d.revisionNumber === design.revisionNumber
       );
 
-      // Update all designs in the same revision to approved
+      // Update the selected design to approved, others to not_selected
       await Promise.all(
         revisionsInGroup.map(d => 
-          storage.updateDesignRevisionStatus(d.id, 'approved')
+          storage.updateDesignRevisionStatus(
+            d.id, 
+            d.id === designId ? 'approved' : 'not_selected'
+          )
         )
       );
 
