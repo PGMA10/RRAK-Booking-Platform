@@ -453,26 +453,53 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                 <CardContent>
                   <div className="space-y-3">
                     {designs.map((design) => (
-                      <div key={design.id} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
+                      <div key={design.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">Revision {design.revisionNumber}</Badge>
                             <Badge className={
                               design.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              design.status === 'not_selected' ? 'bg-gray-100 text-gray-800' :
                               design.status === 'revision_requested' ? 'bg-orange-100 text-orange-800' :
                               'bg-blue-100 text-blue-800'
                             }>
-                              {design.status}
+                              {design.status === 'not_selected' ? 'Not Selected' : design.status.replace(/_/g, ' ')}
                             </Badge>
                           </div>
                           <span className="text-sm text-muted-foreground">
                             {new Date(design.uploadedAt || '').toLocaleDateString()}
                           </span>
                         </div>
+                        
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-sm font-medium truncate">
+                              {design.designFilePath?.split('/').pop() || 'Design file'}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`/api/designs/${design.id}/file`, '_blank')}
+                            data-testid={`button-view-design-${design.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Design
+                          </Button>
+                        </div>
+
+                        {design.adminNotes && (
+                          <div className="mt-2 bg-green-50 border border-green-200 p-3 rounded text-sm">
+                            <Label className="text-xs font-medium text-green-900">Admin Notes:</Label>
+                            <p className="mt-1 text-green-800 whitespace-pre-wrap">{design.adminNotes}</p>
+                          </div>
+                        )}
+                        
                         {design.customerFeedback && (
-                          <div className="mt-2 bg-muted p-2 rounded text-sm">
-                            <Label className="text-xs text-muted-foreground">Customer Feedback:</Label>
-                            <p className="mt-1">{design.customerFeedback}</p>
+                          <div className="mt-2 bg-orange-50 border border-orange-200 p-3 rounded text-sm">
+                            <Label className="text-xs font-medium text-orange-900">Customer Feedback:</Label>
+                            <p className="mt-1 text-orange-800 whitespace-pre-wrap">{design.customerFeedback}</p>
                           </div>
                         )}
                       </div>
