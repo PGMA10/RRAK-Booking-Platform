@@ -30,7 +30,7 @@ interface DesignBriefReviewModalProps {
 }
 
 export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefReviewModalProps) {
-  const [designFile, setDesignFile] = useState<File | null>(null);
+  const [designFiles, setDesignFiles] = useState<File[]>([]);
   const [adminNotes, setAdminNotes] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -42,10 +42,12 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
 
   const uploadDesignMutation = useMutation({
     mutationFn: async () => {
-      if (!designFile) throw new Error("No file selected");
+      if (designFiles.length === 0) throw new Error("No files selected");
 
       const formData = new FormData();
-      formData.append('design', designFile);
+      designFiles.forEach((file) => {
+        formData.append('designs', file);
+      });
       formData.append('revisionNumber', String(booking.revisionCount || 0));
       if (adminNotes) {
         formData.append('adminNotes', adminNotes);
@@ -69,9 +71,9 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
       queryClient.invalidateQueries({ queryKey: ['/api/bookings', booking.id, 'designs'] });
       toast({
         title: "Design uploaded successfully",
-        description: "The customer will be notified to review the design.",
+        description: `${designFiles.length} file${designFiles.length > 1 ? 's' : ''} uploaded. The customer will be notified to review the design.`,
       });
-      setDesignFile(null);
+      setDesignFiles([]);
       setAdminNotes("");
     },
     onError: (error: Error) => {
@@ -84,16 +86,25 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
   });
 
   const handleUploadDesign = () => {
-    if (!designFile) {
+    if (designFiles.length === 0) {
       toast({
-        title: "No file selected",
-        description: "Please select a design file to upload",
+        title: "No files selected",
+        description: "Please select at least one design file to upload",
         variant: "destructive",
       });
       return;
     }
 
     uploadDesignMutation.mutate();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setDesignFiles(files);
+  };
+
+  const removeFile = (index: number) => {
+    setDesignFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -348,14 +359,15 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                   </div>
                 ) : (
                   <>
-                    <div>
+                    <div className="space-y-3">
                       <input
                         id="design-upload"
                         type="file"
                         accept="image/png,image/jpeg,image/jpg,application/pdf"
-                        onChange={(e) => setDesignFile(e.target.files?.[0] || null)}
+                        onChange={handleFileChange}
                         className="hidden"
                         data-testid="input-design-file"
+                        multiple
                       />
                       <label htmlFor="design-upload">
                         <Button
@@ -366,9 +378,37 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                           data-testid="button-select-design"
                         >
                           <Upload className="h-4 w-4 mr-2" />
-                          {designFile ? designFile.name : 'Select Design File (PNG, JPG, PDF)'}
+                          {designFiles.length === 0 
+                            ? 'Select Design Files (PNG, JPG, PDF)' 
+                            : `${designFiles.length} file${designFiles.length > 1 ? 's' : ''} selected`}
                         </Button>
                       </label>
+
+                      {designFiles.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm text-muted-foreground">Selected Files:</Label>
+                          <div className="space-y-1">
+                            {designFiles.map((file, index) => (
+                              <div 
+                                key={index} 
+                                className="flex items-center justify-between bg-muted px-3 py-2 rounded text-sm"
+                              >
+                                <span className="truncate flex-1" data-testid={`file-name-${index}`}>{file.name}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeFile(index)}
+                                  className="h-6 w-6 p-0 ml-2"
+                                  data-testid={`button-remove-file-${index}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -390,7 +430,7 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                     <Button
                       className="w-full"
                       onClick={handleUploadDesign}
-                      disabled={!designFile || uploadDesignMutation.isPending}
+                      disabled={designFiles.length === 0 || uploadDesignMutation.isPending}
                       data-testid="button-upload-design"
                     >
                       {uploadDesignMutation.isPending ? 'Uploading...' : 'Upload & Send for Customer Approval'}
