@@ -37,10 +37,8 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
   const latestDesign = latestRevisionDesigns.length > 0 ? latestRevisionDesigns[0] : null;
 
   const approveDesignMutation = useMutation({
-    mutationFn: async () => {
-      if (!latestDesign) throw new Error("No design available");
-
-      const response = await fetch(`/api/designs/${latestDesign.id}/approve`, {
+    mutationFn: async (designId: string) => {
+      const response = await fetch(`/api/designs/${designId}/approve`, {
         method: 'PATCH',
         credentials: 'include',
       });
@@ -147,26 +145,56 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
 
                 <div className="space-y-3">
                   {latestRevisionDesigns.map((design, index) => (
-                    <div key={design.id} className="bg-muted rounded-lg p-6 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium" data-testid={`design-version-${index}`}>
-                            Version {index + 1}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {design.designFilePath?.split('/').pop() || 'Design file'}
+                    <div key={design.id} className="bg-muted rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-8 w-8 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium" data-testid={`design-version-${index}`}>
+                              {latestRevisionDesigns.length > 1 ? `Version ${index + 1}` : 'Design'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {design.designFilePath?.split('/').pop() || 'Design file'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/api/designs/${design.id}/file`, '_blank')}
+                          data-testid={`button-view-design-${index}`}
+                        >
+                          View Design
+                        </Button>
+                      </div>
+                      
+                      {latestDesign.status === 'pending_review' && (
+                        <Button
+                          className="w-full"
+                          onClick={() => approveDesignMutation.mutate(design.id)}
+                          disabled={approveDesignMutation.isPending}
+                          data-testid={`button-approve-design-${index}`}
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          {approveDesignMutation.isPending ? 'Approving...' : 'Approve This Version'}
+                        </Button>
+                      )}
+                      
+                      {design.status === 'approved' && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <p className="text-sm text-green-800 text-center font-medium">
+                            ✅ Approved
                           </p>
                         </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(`/api/designs/${design.id}/file`, '_blank')}
-                        data-testid={`button-view-design-${index}`}
-                      >
-                        View Design
-                      </Button>
+                      )}
+                      
+                      {design.status === 'not_selected' && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-sm text-gray-600 text-center">
+                            Not Selected
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -200,63 +228,32 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
                 </p>
               </div>
 
-              {/* Approval Actions */}
-              {latestDesign.status === 'pending_review' && (
-                <>
-                  <div className="border-t pt-4">
-                    <div className="flex gap-3">
-                      <Button
-                        className="flex-1"
-                        onClick={() => approveDesignMutation.mutate()}
-                        disabled={approveDesignMutation.isPending}
-                        data-testid="button-approve-design"
-                      >
-                        <Check className="h-4 w-4 mr-2" />
-                        {approveDesignMutation.isPending ? 'Approving...' : 'Approve Design'}
-                      </Button>
-                      
-                      {canRequestRevision && (
-                        <Button
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => document.getElementById('feedback-section')?.scrollIntoView({ behavior: 'smooth' })}
-                          data-testid="button-request-changes"
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Request Changes
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Request Changes Section */}
-                  {canRequestRevision && (
-                    <div id="feedback-section" className="border-t pt-4">
-                      <Label htmlFor="feedback" className="flex items-center gap-2 mb-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Request Changes
-                      </Label>
-                      <Textarea
-                        id="feedback"
-                        placeholder="Please describe the changes you'd like to see..."
-                        value={feedback}
-                        onChange={(e) => setFeedback(e.target.value)}
-                        className="mb-3"
-                        rows={4}
-                        data-testid="textarea-feedback"
-                      />
-                      <Button
-                        variant="secondary"
-                        onClick={() => requestRevisionMutation.mutate()}
-                        disabled={!feedback.trim() || requestRevisionMutation.isPending}
-                        data-testid="button-submit-revision-request"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        {requestRevisionMutation.isPending ? 'Submitting...' : 'Submit Revision Request'}
-                      </Button>
-                    </div>
-                  )}
-                </>
+              {/* Request Changes Section */}
+              {latestDesign.status === 'pending_review' && canRequestRevision && (
+                <div id="feedback-section" className="border-t pt-4">
+                  <Label htmlFor="feedback" className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Not Happy with Any Version? Request Changes
+                  </Label>
+                  <Textarea
+                    id="feedback"
+                    placeholder="Describe what you'd like changed in the design..."
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    className="mb-3"
+                    rows={4}
+                    data-testid="textarea-feedback"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => requestRevisionMutation.mutate()}
+                    disabled={!feedback.trim() || requestRevisionMutation.isPending}
+                    data-testid="button-submit-revision-request"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    {requestRevisionMutation.isPending ? 'Submitting...' : 'Submit Revision Request'}
+                  </Button>
+                </div>
               )}
 
               {latestDesign.status === 'approved' && (
