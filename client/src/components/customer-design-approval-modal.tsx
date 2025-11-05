@@ -150,6 +150,21 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
                 </div>
               </div>
 
+              {/* Admin Notes */}
+              {latestDesign.adminNotes && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-900 mb-1">Message from Designer:</p>
+                      <p className="text-sm text-green-800 whitespace-pre-wrap" data-testid="text-admin-notes">
+                        {latestDesign.adminNotes}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Revision Information */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
