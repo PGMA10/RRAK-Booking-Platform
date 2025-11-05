@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ interface DesignBriefReviewModalProps {
 
 export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefReviewModalProps) {
   const [designFile, setDesignFile] = useState<File | null>(null);
+  const [adminNotes, setAdminNotes] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -45,6 +47,9 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
       const formData = new FormData();
       formData.append('design', designFile);
       formData.append('revisionNumber', String(booking.revisionCount || 0));
+      if (adminNotes) {
+        formData.append('adminNotes', adminNotes);
+      }
 
       const response = await fetch(`/api/bookings/${booking.id}/design`, {
         method: 'POST',
@@ -67,6 +72,7 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
         description: "The customer will be notified to review the design.",
       });
       setDesignFile(null);
+      setAdminNotes("");
     },
     onError: (error: Error) => {
       toast({
@@ -363,6 +369,22 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                           {designFile ? designFile.name : 'Select Design File (PNG, JPG, PDF)'}
                         </Button>
                       </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-notes">Notes for Customer (Optional)</Label>
+                      <Textarea
+                        id="admin-notes"
+                        placeholder="e.g., I've created two versions for you to choose from. Let me know which one you prefer and we can refine it from there!"
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        rows={3}
+                        className="resize-none"
+                        data-testid="input-admin-notes"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Add any instructions, answers to their questions, or context about the design
+                      </p>
                     </div>
 
                     <Button
