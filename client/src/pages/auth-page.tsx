@@ -135,7 +135,7 @@ export default function AuthPage() {
             <div className="text-center lg:text-left">
               <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">
                 Reach Alaska Customers Through Direct Mail
-                <span className="text-primary block">We Handle Everything</span>
+                <span className="text-primary block mt-2">We Handle Everything</span>
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-lg">
                 Professional design, premium printing, and guaranteed delivery to 5,000+ Anchorage households. 
