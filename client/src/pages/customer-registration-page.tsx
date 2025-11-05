@@ -270,36 +270,36 @@ export default function CustomerRegistrationPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
+                    <h4 className="font-medium">Professional Design Included</h4>
+                    <p className="text-sm text-muted-foreground">
+                      We create your custom ad—no designer needed. Just tell us your offer and we handle the rest.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
                     <h4 className="font-medium">Exclusive Industry Slots</h4>
                     <p className="text-sm text-muted-foreground">
-                      Only one business per industry per route - no direct competition
+                      Only one business per industry per route. Zero competition on your postcard.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium">Professional Direct Mail</h4>
+                    <h4 className="font-medium">Complete Turnkey Service</h4>
                     <p className="text-sm text-muted-foreground">
-                      High-quality postcards delivered to thousands of households
+                      Design, premium printing, and EDDM delivery to 5,000+ households. You provide the offer, we do everything else.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium">Targeted Routes</h4>
+                    <h4 className="font-medium">Launch Special: $400</h4>
                     <p className="text-sm text-muted-foreground">
-                      Choose specific Anchorage zip codes that match your service area
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium">Affordable Marketing</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Just $600 per slot - cost-effective way to reach new customers
+                      Everything included for $400 (Save $200). Regular price $600.
                     </p>
                   </div>
                 </div>
