@@ -34,7 +34,9 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
     ? designs.filter(d => d.revisionNumber === latestRevisionNumber)
     : [];
 
-  const latestDesign = latestRevisionDesigns.length > 0 ? latestRevisionDesigns[0] : null;
+  // Find the approved design if one exists, otherwise use the first one for status
+  const approvedDesign = latestRevisionDesigns.find(d => d.status === 'approved');
+  const latestDesign = approvedDesign || (latestRevisionDesigns.length > 0 ? latestRevisionDesigns[0] : null);
 
   const approveDesignMutation = useMutation({
     mutationFn: async (designId: string) => {
@@ -52,6 +54,7 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings', booking.id, 'designs'] });
       toast({
         title: "Design approved",
         description: "Your design has been approved and is ready for printing!",
