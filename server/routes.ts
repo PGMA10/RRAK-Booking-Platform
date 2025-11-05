@@ -1630,22 +1630,32 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { designId } = req.params;
-      const designs = await storage.getDesignRevisionsByBooking(''); // Need to get design by ID
       
-      // Find the design across all bookings - we'll need to update this
-      // For now, let's update the design status directly
-      const updatedDesign = await storage.updateDesignRevisionStatus(designId, 'approved');
-      
-      if (!updatedDesign) {
+      // Get the design to find its revision details
+      const design = await storage.getDesignRevisionById(designId);
+      if (!design) {
         return res.status(404).json({ message: "Design not found" });
       }
 
+      // Get all designs in the same revision (for multi-file uploads)
+      const allDesigns = await storage.getDesignRevisionsByBooking(design.bookingId);
+      const revisionsInGroup = allDesigns.filter(
+        d => d.revisionNumber === design.revisionNumber
+      );
+
+      // Update all designs in the same revision to approved
+      await Promise.all(
+        revisionsInGroup.map(d => 
+          storage.updateDesignRevisionStatus(d.id, 'approved')
+        )
+      );
+
       // Update booking status
-      await storage.updateBooking(updatedDesign.bookingId, {
+      await storage.updateBooking(design.bookingId, {
         designStatus: 'approved',
       });
 
-      res.json(updatedDesign);
+      res.json(design);
     } catch (error) {
       console.error("Design approval error:", error);
       res.status(500).json({ message: "Failed to approve design" });
@@ -1665,13 +1675,13 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Feedback is required when requesting revisions" });
       }
 
-      const updatedDesign = await storage.updateDesignRevisionStatus(designId, 'revision_requested', feedback);
-      
-      if (!updatedDesign) {
+      // Get the design to find its revision details
+      const design = await storage.getDesignRevisionById(designId);
+      if (!design) {
         return res.status(404).json({ message: "Design not found" });
       }
 
-      const booking = await storage.getBookingById(updatedDesign.bookingId);
+      const booking = await storage.getBookingById(design.bookingId);
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
@@ -1680,15 +1690,28 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Maximum revisions reached. Cannot request more changes." });
       }
 
-      await storage.updateBooking(updatedDesign.bookingId, {
+      // Get all designs in the same revision (for multi-file uploads)
+      const allDesigns = await storage.getDesignRevisionsByBooking(design.bookingId);
+      const revisionsInGroup = allDesigns.filter(
+        d => d.revisionNumber === design.revisionNumber
+      );
+
+      // Update all designs in the same revision to revision_requested
+      await Promise.all(
+        revisionsInGroup.map(d => 
+          storage.updateDesignRevisionStatus(d.id, 'revision_requested', feedback)
+        )
+      );
+
+      await storage.updateBooking(design.bookingId, {
         revisionCount: booking.revisionCount + 1,
         designStatus: 'revision_requested',
       });
 
       // Create admin notification for revision request
-      await storage.createNotification('design_revision_requested', updatedDesign.bookingId);
+      await storage.createNotification('design_revision_requested', design.bookingId);
 
-      res.json(updatedDesign);
+      res.json(design);
     } catch (error) {
       console.error("Design revision request error:", error);
       res.status(500).json({ message: "Failed to request design revision" });
