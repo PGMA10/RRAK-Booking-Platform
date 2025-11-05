@@ -84,6 +84,9 @@ export const bookings = sqliteTable("bookings", {
   qrCodeUrl: text("qr_code_url"), // URL for QR code destination
   qrCodeLabel: text("qr_code_label"), // Text near QR code (20 char limit), default "SCAN FOR OFFER"
   brandColor: text("brand_color"), // Primary brand color (hex)
+  secondaryColor: text("secondary_color"), // Secondary brand color (hex) - optional
+  additionalColor1: text("additional_color_1"), // Third brand color (hex) - optional
+  additionalColor2: text("additional_color_2"), // Fourth brand color (hex) - optional
   adStyle: text("ad_style"), // 'bold', 'professional', 'warm'
   logoFilePath: text("logo_file_path"), // Customer's logo file
   optionalImagePath: text("optional_image_path"), // Optional product/storefront/team photo

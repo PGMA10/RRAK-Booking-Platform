@@ -270,6 +270,21 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN secondary_color TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN additional_color_1 TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN additional_color_2 TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
     sqlite.exec(`ALTER TABLE bookings ADD COLUMN logo_file_path TEXT`);
   } catch (e) {
     // Column already exists, ignore

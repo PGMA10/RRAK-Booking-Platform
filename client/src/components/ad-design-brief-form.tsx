@@ -34,6 +34,9 @@ const designBriefSchema = z.object({
   qrCodeUrl: z.string().optional(),
   qrCodeLabel: z.string().optional(),
   brandColor: z.string().min(1, "Brand color is required"),
+  secondaryColor: z.string().optional(),
+  additionalColor1: z.string().optional(),
+  additionalColor2: z.string().optional(),
   adStyle: z.string().min(1, "Ad style is required"),
 }).refine((data) => {
   // If QR destination is not "none", URL is required
@@ -77,6 +80,9 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
       qrCodeUrl: "",
       qrCodeLabel: "",
       brandColor: "#000000",
+      secondaryColor: "",
+      additionalColor1: "",
+      additionalColor2: "",
       adStyle: "modern",
     },
   });
@@ -327,40 +333,135 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
               </>
             )}
 
-            {/* Brand Color */}
-            <FormField
-              control={form.control}
-              name="brandColor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Palette className="h-4 w-4" />
-                    Primary Brand Color
-                  </FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="color"
-                        {...field}
-                        className="w-20 h-10 cursor-pointer"
-                        data-testid="input-brand-color"
-                      />
-                      <Input
-                        type="text"
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        placeholder="#000000"
-                        className="flex-1"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    The main color that represents your brand
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Brand Colors */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="brandColor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Palette className="h-4 w-4" />
+                      Primary Brand Color
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="color"
+                          {...field}
+                          className="w-20 h-10 cursor-pointer"
+                          data-testid="input-brand-color"
+                        />
+                        <Input
+                          type="text"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="#000000"
+                          className="flex-1"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      The main color that represents your brand
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="secondaryColor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Secondary Color (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="color"
+                          {...field}
+                          className="w-20 h-10 cursor-pointer"
+                          data-testid="input-secondary-color"
+                        />
+                        <Input
+                          type="text"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="#000000"
+                          className="flex-1"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Additional brand color if you use one
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="additionalColor1"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Color 1 (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="color"
+                          {...field}
+                          className="w-20 h-10 cursor-pointer"
+                          data-testid="input-additional-color-1"
+                        />
+                        <Input
+                          type="text"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="#000000"
+                          className="flex-1"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Third color for your brand palette
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="additionalColor2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Color 2 (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="color"
+                          {...field}
+                          className="w-20 h-10 cursor-pointer"
+                          data-testid="input-additional-color-2"
+                        />
+                        <Input
+                          type="text"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          placeholder="#000000"
+                          className="flex-1"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Fourth color for your brand palette
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Ad Style */}
             <FormField

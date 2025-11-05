@@ -162,7 +162,7 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Palette className="h-4 w-4" />
-                  Brand Color & Style
+                  Brand Colors & Style
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -176,6 +176,42 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                     <span className="font-mono" data-testid="text-brand-color">{booking.brandColor || 'Not set'}</span>
                   </div>
                 </div>
+                {booking.secondaryColor && (
+                  <div className="flex items-center gap-4">
+                    <Label>Secondary Color:</Label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ backgroundColor: booking.secondaryColor }}
+                      />
+                      <span className="font-mono" data-testid="text-secondary-color">{booking.secondaryColor}</span>
+                    </div>
+                  </div>
+                )}
+                {booking.additionalColor1 && (
+                  <div className="flex items-center gap-4">
+                    <Label>Additional Color 1:</Label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ backgroundColor: booking.additionalColor1 }}
+                      />
+                      <span className="font-mono" data-testid="text-additional-color-1">{booking.additionalColor1}</span>
+                    </div>
+                  </div>
+                )}
+                {booking.additionalColor2 && (
+                  <div className="flex items-center gap-4">
+                    <Label>Additional Color 2:</Label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ backgroundColor: booking.additionalColor2 }}
+                      />
+                      <span className="font-mono" data-testid="text-additional-color-2">{booking.additionalColor2}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <Label>Ad Style:</Label>
                   <Badge variant="outline" data-testid="text-ad-style">{booking.adStyle || 'Not specified'}</Badge>
