@@ -1538,7 +1538,7 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Admin access required" });
     }
 
-    uploadDesign.single('design')(req, res, async (err) => {
+    uploadDesign.array('designs', 10)(req, res, async (err) => {
       try {
         if (err) {
           if (err instanceof multer.MulterError) {
@@ -1551,39 +1551,46 @@ export function registerRoutes(app: Express): Server {
         }
 
         const { bookingId } = req.params;
-        const file = req.file;
+        const files = req.files as Express.Multer.File[] | undefined;
 
-        if (!file) {
-          return res.status(400).json({ message: "No design file uploaded" });
+        if (!files || files.length === 0) {
+          return res.status(400).json({ message: "No design files uploaded" });
         }
 
         const booking = await storage.getBookingById(bookingId);
         if (!booking) {
-          fs.unlinkSync(file.path);
+          // Cleanup uploaded files
+          files.forEach(file => fs.unlinkSync(file.path));
           return res.status(404).json({ message: "Booking not found" });
         }
 
         if (booking.revisionCount >= 3) {
-          fs.unlinkSync(file.path);
+          // Cleanup uploaded files
+          files.forEach(file => fs.unlinkSync(file.path));
           return res.status(400).json({ message: "Maximum revisions (3) reached" });
         }
 
         const adminNotes = req.body.adminNotes || null;
 
-        const designRevision = await storage.createDesignRevision({
-          bookingId,
-          revisionNumber: booking.revisionCount,
-          designFilePath: file.path,
-          status: 'pending_review',
-          adminNotes,
-          uploadedBy: req.user.id,
-        });
+        // Create a design revision for each uploaded file
+        const designRevisions = await Promise.all(
+          files.map(file => 
+            storage.createDesignRevision({
+              bookingId,
+              revisionNumber: booking.revisionCount,
+              designFilePath: file.path,
+              status: 'pending_review',
+              adminNotes,
+              uploadedBy: req.user.id,
+            })
+          )
+        );
 
         const updatedBooking = await storage.updateBooking(bookingId, {
           designStatus: 'pending_approval',
         });
 
-        res.json({ designRevision, booking: updatedBooking });
+        res.json({ designRevisions, booking: updatedBooking });
       } catch (error) {
         console.error("Design upload error:", error);
         res.status(500).json({ message: "Failed to upload design" });
