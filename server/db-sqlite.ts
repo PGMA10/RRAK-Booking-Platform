@@ -429,5 +429,12 @@ export function initializeDatabase() {
     )
   `);
 
+  // Add admin_notes column to design_revisions table if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE design_revisions ADD COLUMN admin_notes TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   console.log("✅ SQLite tables initialized");
 }
