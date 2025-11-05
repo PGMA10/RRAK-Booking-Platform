@@ -107,10 +107,12 @@ export default function AuthPage() {
                       <span className="text-sm font-medium text-green-800">Business Registration Benefits</span>
                     </div>
                     <ul className="text-xs text-green-700 space-y-1">
-                      <li>• Complete business verification process</li>
-                      <li>• Industry confirmation</li>
-                      <li>• Streamlined booking for future campaigns</li>
-                      <li>• Priority access to new routes and features</li>
+                      <li>✓ Custom ad design included (normally $200-500 extra)</li>
+                      <li>✓ Premium printing on high-quality glossy stock</li>
+                      <li>✓ Guaranteed exclusive industry slot—no competitors</li>
+                      <li>✓ EDDM delivery to 5,000+ targeted households</li>
+                      <li>✓ QR code tracking to measure results</li>
+                      <li>✓ Priority access to new routes and campaigns</li>
                     </ul>
                   </div>
                 </div>
