@@ -1568,11 +1568,14 @@ export function registerRoutes(app: Express): Server {
           return res.status(400).json({ message: "Maximum revisions (3) reached" });
         }
 
+        const adminNotes = req.body.adminNotes || null;
+
         const designRevision = await storage.createDesignRevision({
           bookingId,
           revisionNumber: booking.revisionCount,
           designFilePath: file.path,
           status: 'pending_review',
+          adminNotes,
           uploadedBy: req.user.id,
         });
 
