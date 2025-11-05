@@ -148,7 +148,7 @@ export default function AuthPage() {
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
                   <div className="font-semibold text-accent">5,000 Households</div>
-                  <div className="text-muted-foreground">Per campaign</div>
+                  <div className="text-muted-foreground">per route</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
                   <div className="font-semibold text-chart-3">$400 Launch Special</div>
