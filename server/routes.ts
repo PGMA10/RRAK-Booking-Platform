@@ -1518,6 +1518,7 @@ export function registerRoutes(app: Express): Server {
           adStyle: briefData.adStyle,
           logoFilePath: files.logo ? files.logo[0].path : null,
           optionalImagePath: files.optionalImage ? files.optionalImage[0].path : null,
+          designNotes: briefData.designNotes,
           designStatus: 'brief_submitted',
         });
 
