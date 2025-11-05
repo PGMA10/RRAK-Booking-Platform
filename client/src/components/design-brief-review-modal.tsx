@@ -302,6 +302,23 @@ export function DesignBriefReviewModal({ booking, open, onClose }: DesignBriefRe
                 </div>
               </CardContent>
             </Card>
+
+            {/* Additional Notes */}
+            {booking.designNotes && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Customer Notes & Questions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap" data-testid="text-design-notes">
+                    {booking.designNotes}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="designs" className="space-y-4 mt-4">
