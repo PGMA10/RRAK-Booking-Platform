@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, Calendar, MapPin, Briefcase, DollarSign, Mail, Phone, FileText, Upload, Home, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle, Calendar, MapPin, Briefcase, DollarSign, Mail, Phone, FileText, Upload, Home, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import type { BookingWithDetails } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -318,27 +318,26 @@ export default function CustomerConfirmationPage() {
             </CardContent>
           </Card>
 
-          {/* Next Steps - Artwork Upload */}
+          {/* Next Steps - Design Brief */}
           {isPaid && (
             <Card className="border-blue-200 bg-blue-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-blue-800">
-                  <Upload className="h-5 w-5" />
-                  Next Step: Upload Your Artwork
+                  <Sparkles className="h-5 w-5" />
+                  Next Step: Submit Design Brief
                 </CardTitle>
                 <CardDescription className="text-blue-700">
-                  Complete your booking by submitting your ad design
+                  Complete your booking by telling us about your ad design preferences
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-blue-700">
-                  To finalize your campaign booking, please upload your artwork for review and approval.
-                  Accepted formats: PNG, JPG, or PDF (max 10MB).
+                  To finalize your campaign booking, please submit your design brief with your brand materials, colors, messaging, and design preferences. Our team will create a professional custom design for you!
                 </p>
                 <Link href="/customer/dashboard">
-                  <Button size="lg" className="w-full" data-testid="button-upload-artwork">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Artwork Now
+                  <Button size="lg" className="w-full" data-testid="button-submit-brief">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Submit Design Brief
                   </Button>
                 </Link>
               </CardContent>
@@ -360,9 +359,9 @@ export default function CustomerConfirmationPage() {
                     <span className="text-sm font-bold text-blue-600">1</span>
                   </div>
                   <div>
-                    <h4 className="font-medium">Upload Your Artwork</h4>
+                    <h4 className="font-medium">Submit Design Brief</h4>
                     <p className="text-sm text-muted-foreground">
-                      Submit your ad design for review through your customer dashboard.
+                      Tell us about your brand, colors, messaging, and design preferences through your customer dashboard.
                     </p>
                   </div>
                 </div>
@@ -372,9 +371,9 @@ export default function CustomerConfirmationPage() {
                     <span className="text-sm font-bold text-blue-600">2</span>
                   </div>
                   <div>
-                    <h4 className="font-medium">Artwork Review</h4>
+                    <h4 className="font-medium">Custom Design Creation</h4>
                     <p className="text-sm text-muted-foreground">
-                      Our team will review and approve your artwork within 2-3 business days.
+                      Our team will create a professional custom design based on your brief. You'll review and approve the design (up to 2 revisions included).
                     </p>
                   </div>
                 </div>
@@ -384,9 +383,9 @@ export default function CustomerConfirmationPage() {
                     <span className="text-sm font-bold text-blue-600">3</span>
                   </div>
                   <div>
-                    <h4 className="font-medium">Printing & Mailing</h4>
+                    <h4 className="font-medium">Professional Printing & Delivery</h4>
                     <p className="text-sm text-muted-foreground">
-                      Professional printing and delivery to all households in your selected route on {formatDate(booking.campaign?.mailDate || null)}.
+                      Premium printing and EDDM delivery to all 5,000+ households in your selected route on {formatDate(booking.campaign?.mailDate || null)}.
                     </p>
                   </div>
                 </div>
