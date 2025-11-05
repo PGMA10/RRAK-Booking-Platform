@@ -173,6 +173,7 @@ export const designRevisions = sqliteTable("design_revisions", {
   designFilePath: text("design_file_path").notNull(), // Path to design file for this revision
   status: text("status").notNull(), // 'pending_review', 'approved', 'revision_requested'
   customerFeedback: text("customer_feedback"), // Customer's feedback when requesting revision
+  adminNotes: text("admin_notes"), // Admin's notes/instructions when uploading design
   uploadedBy: text("uploaded_by").notNull().references(() => users.id), // Admin who uploaded this revision
   uploadedAt: integer("uploaded_at", { mode: 'timestamp_ms' }),
   reviewedAt: integer("reviewed_at", { mode: 'timestamp_ms' }), // When customer reviewed this version
