@@ -25,7 +25,16 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
     enabled: open && !!booking.id,
   });
 
-  const latestDesign = designs && designs.length > 0 ? designs[designs.length - 1] : null;
+  // Group designs by revision number and get the latest revision
+  const latestRevisionNumber = designs && designs.length > 0 
+    ? Math.max(...designs.map(d => d.revisionNumber))
+    : null;
+  
+  const latestRevisionDesigns = designs && latestRevisionNumber !== null
+    ? designs.filter(d => d.revisionNumber === latestRevisionNumber)
+    : [];
+
+  const latestDesign = latestRevisionDesigns.length > 0 ? latestRevisionDesigns[0] : null;
 
   const approveDesignMutation = useMutation({
     mutationFn: async () => {
@@ -120,6 +129,9 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Label>Revision #{latestDesign.revisionNumber}</Label>
+                    {latestRevisionDesigns.length > 1 && (
+                      <Badge variant="secondary">{latestRevisionDesigns.length} versions</Badge>
+                    )}
                     <Badge className={
                       latestDesign.status === 'pending_review' ? 'bg-blue-100 text-blue-800' :
                       latestDesign.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -133,20 +145,30 @@ export function CustomerDesignApprovalModal({ booking, open, onClose }: Customer
                   </span>
                 </div>
 
-                <div className="bg-muted rounded-lg p-8 flex items-center justify-center min-h-[200px]">
-                  <div className="text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Design file available for download</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => window.open(`/api/designs/${latestDesign.id}/file`, '_blank')}
-                      data-testid="button-view-design"
-                    >
-                      View Design
-                    </Button>
-                  </div>
+                <div className="space-y-3">
+                  {latestRevisionDesigns.map((design, index) => (
+                    <div key={design.id} className="bg-muted rounded-lg p-6 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium" data-testid={`design-version-${index}`}>
+                            Version {index + 1}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {design.designFilePath?.split('/').pop() || 'Design file'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/api/designs/${design.id}/file`, '_blank')}
+                        data-testid={`button-view-design-${index}`}
+                      >
+                        View Design
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
