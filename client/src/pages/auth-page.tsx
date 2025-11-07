@@ -125,7 +125,7 @@ export default function AuthPage() {
             <div className="text-center lg:text-left">
               <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">
                 Reach Alaska Customers Through Direct Mail
-                <span className="text-primary block mt-2">We Handle Everything</span>
+                <span className="block mt-2" style={{ color: '#EE5E18' }}>We Handle Everything</span>
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-lg">
                 Professional design, premium printing, and guaranteed delivery to 5,000+ Anchorage households. 
@@ -133,19 +133,19 @@ export default function AuthPage() {
               </p>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-primary">Everything Included</div>
+                  <div className="font-semibold" style={{ color: '#EE5E18' }}>Everything Included</div>
                   <div className="text-muted-foreground">Design + Print + Mail</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-accent">5,000 Households</div>
+                  <div className="font-semibold" style={{ color: '#EE5E18' }}>5,000 Households</div>
                   <div className="text-muted-foreground">per route</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-chart-3">$400 Launch Special</div>
+                  <div className="font-semibold" style={{ color: '#EE5E18' }}>$400 Launch Special</div>
                   <div className="text-muted-foreground">Save $200 (Regular $600)</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold text-chart-5">16 Industries</div>
+                  <div className="font-semibold" style={{ color: '#EE5E18' }}>16 Industries</div>
                   <div className="text-muted-foreground">Exclusive slots per route</div>
                 </div>
               </div>
