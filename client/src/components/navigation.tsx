@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link, useLocation } from "wouter";
 import { LogOut, Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import logoImage from "@assets/Mail and Map Connection Logo_1762489170332.png";
 
 export function Navigation() {
   const { user, logoutMutation } = useAuth();
@@ -34,8 +35,11 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Link href="/">
-                <h1 className="text-2xl font-bold text-primary" data-testid="link-home">Route Reach AK</h1>
+              <Link href="/" data-testid="link-home">
+                <div className="flex items-center gap-3">
+                  <img src={logoImage} alt="Route Reach AK" className="h-10 w-auto" />
+                  <h1 className="text-xl font-bold text-primary hidden sm:block">Route Reach AK</h1>
+                </div>
               </Link>
             </div>
             <div className="hidden md:block ml-10">

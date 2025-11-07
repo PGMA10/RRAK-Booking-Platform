@@ -9,25 +9,59 @@
 
 ### A. Color Palette
 
-**Primary Colors:**
-- Dark Mode Primary: 200 65% 45% (Alaska glacier blue)
-- Light Mode Primary: 205 70% 40% (deeper ocean blue)
-- Dark Mode Background: 220 15% 12%
-- Light Mode Background: 210 20% 98%
+**Route Reach AK Brand Colors:**
+- **Dark Blue (Primary):** #052D4B | hsl(205, 88%, 16%)
+  - Brand color from logo
+  - Use for: Primary buttons, body text, headings, navigation
+  - Hover state: hsl(205, 88%, 24%)
+  - Active state: hsl(205, 88%, 11%)
+  - Excellent 12.3:1 contrast ratio on white backgrounds
+  
+- **Orange (Accent):** #EE5E18 | hsl(20, 86%, 51%)
+  - Brand accent color from logo
+  - Use for: Large headings (18pt+ bold), icons, badges, status indicators, statistics/numbers
+  - **DO NOT use for:** Small text, thin typography, primary button labels
+  - Reason: Only 3.3:1 contrast against white (fails WCAG for small text)
+  - Safe for large bold text and decorative elements
+
+**Light Mode Colors:**
+- Background: hsl(210, 25%, 98%) - Cool off-white
+- Foreground/Text: hsl(205, 88%, 16%) - Dark blue
+- Card: hsl(0, 0%, 100%) - Pure white
+- Muted: hsl(210, 25%, 96%) - Light gray backgrounds
+- Border: hsl(210, 25%, 90%) - Subtle borders
+
+**Dark Mode Colors:**
+- Background: hsl(205, 30%, 8%) - Very dark blue-tinted
+- Foreground/Text: hsl(210, 20%, 92%) - Light text
+- Primary: hsl(205, 70%, 45%) - Lighter blue (visible on dark)
+- Accent: hsl(20, 86%, 55%) - Brighter orange (dark mode visibility)
+- Card: hsl(205, 25%, 12%) - Dark blue card
+
+**Button Strategy:**
+- **Primary Buttons:** Dark blue (#052D4B) background + white text
+  - Excellent contrast: 12.3:1 ratio
+  - Hover: Lighter blue hsl(205, 88%, 24%)
+- **Secondary Buttons:** Light gray background + dark blue text
+  - Uses hsl(210, 20%, 95%) background with dark blue text
+  - Meets WCAG AA with >12:1 contrast
+  - **Note:** Orange cannot be used for secondary button text due to insufficient contrast (3.3:1)
+- **Accent/Badge Elements:** Very light orange background with dark blue text
+  - Light mode: hsl(20, 95%, 96%) background + dark blue text
+  - Dark mode: Dark orange background hsl(20, 40%, 25%) + bright orange text hsl(20, 86%, 70%)
+- **Hover States:** Use lighter blue variants for interactive feedback
 
 **Semantic Colors:**
-- Success: 150 60% 45% (northern lights green)
-- Warning: 35 85% 55%
-- Error: 0 70% 50%
-- Info: 200 65% 50%
+- Success: hsl(150, 60%, 45%) - Green for approvals
+- Warning: hsl(35, 85%, 55%) - Yellow for pending
+- Error: hsl(0, 70%, 50%) - Red for rejections
+- Info: hsl(205, 60%, 50%) - Blue for information
 
-**Neutral Scale:**
-- Text Primary (dark): 210 15% 95%
-- Text Primary (light): 220 20% 15%
-- Text Secondary (dark): 210 10% 70%
-- Text Secondary (light): 220 15% 45%
-- Border (dark): 220 15% 25%
-- Border (light): 210 20% 88%
+**Accessibility Notes:**
+- All text meets WCAG AA standards (4.5:1 minimum)
+- Orange accent limited to large/bold elements or decorative use
+- Dark blue provides excellent readability for body text
+- Focus indicators use dark blue ring with sufficient contrast
 
 ### B. Typography
 
