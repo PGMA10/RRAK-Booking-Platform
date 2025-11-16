@@ -52,10 +52,13 @@ export function CampaignAvailabilityDialog({
   }, [campaignRoutes]);
 
   useEffect(() => {
-    if (campaignIndustries) {
+    if (campaignIndustries && campaignIndustries.length > 0) {
       setSelectedIndustryIds(new Set(campaignIndustries.map(i => i.id)));
+    } else if (campaignIndustries && campaignIndustries.length === 0 && allIndustries.length > 0) {
+      // Default to all industries selected when none are configured yet
+      setSelectedIndustryIds(new Set(allIndustries.map(i => i.id)));
     }
-  }, [campaignIndustries]);
+  }, [campaignIndustries, allIndustries]);
 
   const updateRoutesMutation = useMutation({
     mutationFn: async (routeIds: string[]) => {
