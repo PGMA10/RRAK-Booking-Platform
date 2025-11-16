@@ -97,6 +97,8 @@ export function initializeDatabase() {
       total_slots INTEGER NOT NULL DEFAULT 64,
       booked_slots INTEGER NOT NULL DEFAULT 0,
       revenue INTEGER NOT NULL DEFAULT 0,
+      base_slot_price INTEGER,
+      additional_slot_price INTEGER,
       created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
     )
   `);
