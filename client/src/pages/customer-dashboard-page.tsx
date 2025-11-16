@@ -43,6 +43,7 @@ export default function CustomerDashboardPage() {
   const [selectedFile, setSelectedFile] = useState<{ bookingId: string; file: File } | null>(null);
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
+  const [expandedDesignBriefs, setExpandedDesignBriefs] = useState<Set<string>>(new Set());
 
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
@@ -238,6 +239,19 @@ export default function CustomerDashboardPage() {
     }
   };
 
+  // Toggle design brief expansion
+  const toggleDesignBrief = (bookingId: string) => {
+    setExpandedDesignBriefs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookingId)) {
+        newSet.delete(bookingId);
+      } else {
+        newSet.add(bookingId);
+      }
+      return newSet;
+    });
+  };
+
   // Calculate next upcoming print and mail deadlines
   const getNextDeadlines = () => {
     if (!bookings || !campaigns) return { nextPrintDeadline: null, nextMailDate: null };
@@ -246,18 +260,24 @@ export default function CustomerDashboardPage() {
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
     
     const printDeadlines = confirmedBookings
-      .map(b => campaignMap.get(b.campaignId)?.printDeadline)
-      .filter((date): date is number => date !== undefined && new Date(date) > now)
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      .map(b => {
+        const deadline = campaignMap.get(b.campaignId)?.printDeadline;
+        return deadline !== undefined ? new Date(deadline) : null;
+      })
+      .filter((date): date is Date => date !== null && date > now)
+      .sort((a, b) => a.getTime() - b.getTime());
     
     const mailDates = confirmedBookings
-      .map(b => campaignMap.get(b.campaignId)?.mailDate)
-      .filter((date): date is number => date !== undefined && new Date(date) > now)
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      .map(b => {
+        const mailDate = campaignMap.get(b.campaignId)?.mailDate;
+        return mailDate !== undefined ? new Date(mailDate) : null;
+      })
+      .filter((date): date is Date => date !== null && date > now)
+      .sort((a, b) => a.getTime() - b.getTime());
     
     return {
-      nextPrintDeadline: printDeadlines.length > 0 ? new Date(printDeadlines[0]) : null,
-      nextMailDate: mailDates.length > 0 ? new Date(mailDates[0]) : null,
+      nextPrintDeadline: printDeadlines.length > 0 ? printDeadlines[0] : null,
+      nextMailDate: mailDates.length > 0 ? mailDates[0] : null,
     };
   };
 
@@ -577,13 +597,47 @@ export default function CustomerDashboardPage() {
                     {/* Show Ad Design Brief form if no brief submitted yet */}
                     {(!booking.designStatus || booking.designStatus === 'pending_design') ? (
                       <div className="mt-3">
-                        <AdDesignBriefForm
-                          bookingId={booking.id}
-                          businessName={booking.businessName}
-                          onSuccess={() => {
-                            queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-                          }}
-                        />
+                        {!expandedDesignBriefs.has(booking.id) ? (
+                          <div className="relative">
+                            <Button
+                              onClick={() => toggleDesignBrief(booking.id)}
+                              variant="outline"
+                              className="w-full relative"
+                              data-testid={`button-open-design-brief-${booking.id}`}
+                              aria-expanded={false}
+                              aria-controls={`design-brief-panel-${booking.id}`}
+                            >
+                              <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></div>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Complete Design Brief
+                            </Button>
+                            <p className="text-xs text-muted-foreground text-center mt-2">
+                              Click to provide brand materials and design preferences
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2" id={`design-brief-panel-${booking.id}`}>
+                            <Button
+                              onClick={() => toggleDesignBrief(booking.id)}
+                              variant="ghost"
+                              size="sm"
+                              data-testid={`button-close-design-brief-${booking.id}`}
+                              aria-expanded={true}
+                              aria-controls={`design-brief-panel-${booking.id}`}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Close Form
+                            </Button>
+                            <AdDesignBriefForm
+                              bookingId={booking.id}
+                              businessName={booking.businessName}
+                              onSuccess={() => {
+                                queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+                                toggleDesignBrief(booking.id);
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
