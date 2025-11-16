@@ -633,6 +633,119 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Campaign Routes and Industries Management
+  app.get("/api/campaigns/:id/routes", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      const routes = await storage.getCampaignRoutes(req.params.id);
+      res.json(routes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch campaign routes" });
+    }
+  });
+
+  app.put("/api/campaigns/:id/routes", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      const { routeIds } = req.body;
+      if (!Array.isArray(routeIds)) {
+        return res.status(400).json({ message: "routeIds must be an array" });
+      }
+      
+      if (!routeIds.every(id => typeof id === 'string')) {
+        return res.status(400).json({ message: "All routeIds must be strings" });
+      }
+      
+      // Validate that all route IDs exist
+      const allRoutes = await storage.getAllRoutes();
+      const validRouteIds = new Set(allRoutes.map(r => r.id));
+      const invalidIds = routeIds.filter(id => !validRouteIds.has(id));
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ 
+          message: "Invalid route IDs",
+          invalidIds 
+        });
+      }
+      
+      await storage.setCampaignRoutes(req.params.id, routeIds);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update campaign routes" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/industries", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      const industries = await storage.getCampaignIndustries(req.params.id);
+      res.json(industries);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch campaign industries" });
+    }
+  });
+
+  app.put("/api/campaigns/:id/industries", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      const { industryIds } = req.body;
+      if (!Array.isArray(industryIds)) {
+        return res.status(400).json({ message: "industryIds must be an array" });
+      }
+      
+      if (!industryIds.every(id => typeof id === 'string')) {
+        return res.status(400).json({ message: "All industryIds must be strings" });
+      }
+      
+      // Validate that all industry IDs exist
+      const allIndustries = await storage.getAllIndustries();
+      const validIndustryIds = new Set(allIndustries.map(i => i.id));
+      const invalidIds = industryIds.filter(id => !validIndustryIds.has(id));
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ 
+          message: "Invalid industry IDs",
+          invalidIds 
+        });
+      }
+      
+      await storage.setCampaignIndustries(req.params.id, industryIds);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update campaign industries" });
+    }
+  });
+
   // Bookings
   app.get("/api/bookings", async (req, res) => {
     if (!req.isAuthenticated()) {

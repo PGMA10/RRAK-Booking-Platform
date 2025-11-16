@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { CampaignAvailabilityDialog } from "@/components/campaign-availability-dialog";
 
 import type { Campaign } from "@shared/schema";
 
@@ -96,6 +97,7 @@ export default function CampaignManagementPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [deleteCampaignId, setDeleteCampaignId] = useState<string | null>(null);
+  const [availabilityCampaign, setAvailabilityCampaign] = useState<Campaign | null>(null);
 
   // Fetch campaigns
   const { data: campaigns = [], isLoading } = useQuery({
@@ -540,6 +542,9 @@ export default function CampaignManagementPage() {
                         <DropdownMenuItem onClick={() => handleEdit(campaign)} data-testid={`button-edit-${campaign.id}`}>
                           Edit Details
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setAvailabilityCampaign(campaign)} data-testid={`button-availability-${campaign.id}`}>
+                          Manage Availability
+                        </DropdownMenuItem>
                         {getValidNextStatuses(campaign.status).length > 0 && (
                           <>
                             {getValidNextStatuses(campaign.status).map((status) => (
@@ -726,6 +731,16 @@ export default function CampaignManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Campaign Availability Dialog */}
+      {availabilityCampaign && (
+        <CampaignAvailabilityDialog
+          campaignId={availabilityCampaign.id}
+          campaignName={availabilityCampaign.name}
+          open={!!availabilityCampaign}
+          onOpenChange={(open) => !open && setAvailabilityCampaign(null)}
+        />
+      )}
     </div>
   );
 }
