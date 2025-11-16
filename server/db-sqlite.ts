@@ -277,6 +277,23 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add pricing metadata columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN base_price_before_discounts INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN loyalty_discount_applied INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN counts_toward_loyalty INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add ad design brief columns to existing bookings table if they don't exist
   try {
     sqlite.exec(`ALTER TABLE bookings ADD COLUMN main_message TEXT`);
