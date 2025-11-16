@@ -29,6 +29,11 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserLoyalty(id: string, loyalty: {
+    loyaltySlotsEarned?: number;
+    loyaltyDiscountsAvailable?: number;
+    loyaltyYearReset?: number;
+  }): Promise<User | undefined>;
   
   // Routes
   getAllRoutes(): Promise<Route[]>;
@@ -832,6 +837,19 @@ export class DbStorage implements IStorage {
       createdAt: (user as any).createdAt || new Date(),
     };
     const result = await db.insert(usersTable).values(userWithId).returning();
+    return result[0];
+  }
+
+  async updateUserLoyalty(id: string, loyalty: {
+    loyaltySlotsEarned?: number;
+    loyaltyDiscountsAvailable?: number;
+    loyaltyYearReset?: number;
+  }): Promise<User | undefined> {
+    const result = await db
+      .update(usersTable)
+      .set(loyalty)
+      .where(eq(usersTable.id, id))
+      .returning();
     return result[0];
   }
 

@@ -44,6 +44,7 @@ export default function CustomerDashboardPage() {
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
   const [expandedDesignBriefs, setExpandedDesignBriefs] = useState<Set<string>>(new Set());
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
@@ -346,7 +347,7 @@ export default function CustomerDashboardPage() {
                       const campaign = campaignMap.get(b.campaignId);
                       const mailDate = campaign?.mailDate ? new Date(campaign.mailDate) : null;
                       const now = new Date();
-                      return b.status === 'confirmed' && mailDate && mailDate > now;
+                      return b.status === 'confirmed' && b.paymentStatus === 'paid' && mailDate && mailDate > now;
                     }).length || 0}
                   </p>
                 </div>
@@ -390,14 +391,90 @@ export default function CustomerDashboardPage() {
           </Card>
         </div>
 
+        {/* Loyalty Program Progress Widget */}
+        {user && (
+          <Card className="mb-8 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-800">
+                <CheckCircle className="h-5 w-5" />
+                Appreciation Rewards Program
+              </CardTitle>
+              <CardDescription>Earn $150 off for every 3 slots booked at regular price</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Available Discounts */}
+                <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                  <p className="text-2xl font-bold text-purple-600">{user.loyaltyDiscountsAvailable || 0}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Available Discounts</p>
+                  <p className="text-xs text-purple-600 mt-2 font-medium">
+                    {user.loyaltyDiscountsAvailable > 0 ? `$${(user.loyaltyDiscountsAvailable * 150).toFixed(0)} off your next booking!` : 'Keep booking to earn rewards'}
+                  </p>
+                </div>
+                
+                {/* Progress to Next Discount */}
+                <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {(user.loyaltySlotsEarned || 0) % 3} / 3
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Slots Toward Next Discount</p>
+                  <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all"
+                      style={{ width: `${(((user.loyaltySlotsEarned || 0) % 3) / 3) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* Total Slots Earned This Year */}
+                <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                  <p className="text-2xl font-bold text-green-600">{user.loyaltySlotsEarned || 0}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total Slots Booked ({new Date().getFullYear()})</p>
+                  <p className="text-xs text-green-600 mt-2 font-medium">
+                    {Math.floor((user.loyaltySlotsEarned || 0) / 3)} discount{Math.floor((user.loyaltySlotsEarned || 0) / 3) !== 1 ? 's' : ''} earned so far
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  💡 <strong>How it works:</strong> Book slots at the regular price ($600/slot), and for every 3 slots you book, you'll automatically earn a $150 discount on your next booking. Discounts stack and carry over until used!
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* My Bookings Section */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              My Campaign Bookings
-            </CardTitle>
-            <CardDescription>View and manage your direct mail campaign reservations</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  My Campaign Bookings
+                </CardTitle>
+                <CardDescription>View and manage your direct mail campaign reservations</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={!showAllHistory ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowAllHistory(false)}
+                  data-testid="button-filter-current"
+                >
+                  Current & Upcoming
+                </Button>
+                <Button
+                  variant={showAllHistory ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowAllHistory(true)}
+                  data-testid="button-filter-all"
+                >
+                  All History
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -408,7 +485,13 @@ export default function CustomerDashboardPage() {
               </div>
             ) : bookings && bookings.length > 0 ? (
               <div className="space-y-4">
-                {bookings.map((booking) => (
+                {bookings.filter(booking => {
+                  if (showAllHistory) return true;
+                  const campaign = campaignMap.get(booking.campaignId);
+                  const printDeadline = campaign?.printDeadline ? new Date(campaign.printDeadline) : null;
+                  const now = new Date();
+                  return printDeadline && printDeadline > now;
+                }).map((booking) => (
                   <div 
                     key={booking.id} 
                     className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"

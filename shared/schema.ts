@@ -15,6 +15,9 @@ export const users = sqliteTable("users", {
   marketingOptIn: integer("marketing_opt_in", { mode: 'boolean' }).notNull().default(false),
   referredByUserId: text("referred_by_user_id"),
   referralCode: text("referral_code").unique(),
+  loyaltySlotsEarned: integer("loyalty_slots_earned").notNull().default(0), // Total slots purchased at regular price in current year
+  loyaltyDiscountsAvailable: integer("loyalty_discounts_available").notNull().default(0), // Number of $150 discounts earned but not yet used
+  loyaltyYearReset: integer("loyalty_year_reset").notNull().default(new Date().getFullYear()), // Year when loyalty counters were last reset
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
@@ -180,6 +183,15 @@ export const designRevisions = sqliteTable("design_revisions", {
   reviewedAt: integer("reviewed_at", { mode: 'timestamp_ms' }), // When customer reviewed this version
 });
 
+export const adminSettings = sqliteTable("admin_settings", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(), // e.g., 'bulk_booking_campaigns', 'bulk_booking_discount', 'loyalty_slots_threshold', 'loyalty_discount_amount'
+  value: text("value").notNull(), // stored as string, parsed as needed
+  description: text("description"), // human-readable description of what this setting controls
+  updatedAt: integer("updated_at", { mode: 'timestamp_ms' }),
+  updatedBy: text("updated_by").references(() => users.id),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -250,6 +262,11 @@ export const insertDesignRevisionSchema = createInsertSchema(designRevisions).om
   reviewedAt: true,
 });
 
+export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -276,6 +293,8 @@ export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
 export type DesignRevision = typeof designRevisions.$inferSelect;
 export type InsertDesignRevision = z.infer<typeof insertDesignRevisionSchema>;
+export type AdminSetting = typeof adminSettings.$inferSelect;
+export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {

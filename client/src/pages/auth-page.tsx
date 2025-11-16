@@ -110,7 +110,7 @@ export default function AuthPage() {
                       <li>✓ Custom ad design included (normally $200-500 extra)</li>
                       <li>✓ Premium printing on high-quality glossy stock</li>
                       <li>✓ Guaranteed exclusive industry slot—no competitors</li>
-                      <li>✓ EDDM delivery to 5,000+ targeted households</li>
+                      <li>✓ EDDM delivery to 5,000 targeted households</li>
                       <li>✓ QR code tracking to measure results</li>
                       <li>✓ Priority access to new routes and campaigns</li>
                     </ul>
@@ -128,7 +128,7 @@ export default function AuthPage() {
                 <span className="block mt-2" style={{ color: '#EE5E18' }}>We Handle Everything</span>
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-                Professional design, premium printing, and guaranteed delivery to 5,000+ Anchorage households. 
+                Professional design, premium printing, and guaranteed delivery to 5,000 Anchorage households. 
                 Book your exclusive industry slot and we'll create a custom ad that gets results. No designer needed.
               </p>
               <div className="grid grid-cols-2 gap-4 text-sm">

@@ -28,6 +28,80 @@ function parseDateAtNoonAKST(dateString: string): Date {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 21, 0, 0, 0));
 }
 
+// Process loyalty program tracking after a booking is paid
+async function processLoyaltyTracking(
+  userId: string,
+  bookingId: string,
+  slotsBooked: number,
+  amountPaid: number
+): Promise<void> {
+  const LOYALTY_DISCOUNT_AMOUNT = 15000; // $150 in cents
+  const LOYALTY_SLOTS_THRESHOLD = 3; // Earn 1 discount per 3 slots
+  const DEFAULT_FIRST_SLOT_PRICE = 60000; // $600 in cents
+  const DEFAULT_ADDITIONAL_SLOT_PRICE = 50000; // $500 in cents
+  
+  // Get user details
+  const user = await storage.getUser(userId);
+  if (!user) return;
+  
+  const currentYear = new Date().getFullYear();
+  
+  // Check if year has changed - reset loyalty counters if so
+  let currentUserData = user;
+  if (user.loyaltyYearReset !== currentYear) {
+    await storage.updateUserLoyalty(userId, {
+      loyaltySlotsEarned: 0,
+      loyaltyDiscountsAvailable: 0,
+      loyaltyYearReset: currentYear,
+    });
+    console.log(`🔄 [Loyalty] Reset loyalty counters for user ${userId} for year ${currentYear}`);
+    
+    // Refresh user data after reset to avoid using stale counters
+    const updatedUser = await storage.getUser(userId);
+    if (updatedUser) {
+      currentUserData = updatedUser;
+    }
+  }
+  
+  // Check if a loyalty discount was applied to this booking
+  const defaultPrice = DEFAULT_FIRST_SLOT_PRICE + ((slotsBooked - 1) * DEFAULT_ADDITIONAL_SLOT_PRICE);
+  const wasLoyaltyDiscountApplied = (amountPaid === defaultPrice - LOYALTY_DISCOUNT_AMOUNT);
+  
+  if (wasLoyaltyDiscountApplied && currentUserData.loyaltyDiscountsAvailable > 0) {
+    // Deduct the used loyalty discount
+    await storage.updateUserLoyalty(userId, {
+      loyaltyDiscountsAvailable: currentUserData.loyaltyDiscountsAvailable - 1,
+    });
+    console.log(`🎟️ [Loyalty] Used loyalty discount for user ${userId}. Remaining: ${currentUserData.loyaltyDiscountsAvailable - 1}`);
+  }
+  
+  // Check if this booking was paid at regular price (not discounted)
+  // Regular price means it matches the default tiered pricing
+  const wasPaidAtRegularPrice = (amountPaid === defaultPrice);
+  
+  if (wasPaidAtRegularPrice) {
+    // Add slots to loyalty counter (use currentUserData which has fresh values after potential reset)
+    const newSlotsEarned = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) + slotsBooked;
+    
+    // Calculate how many new discounts were earned
+    const newDiscountsEarned = Math.floor(newSlotsEarned / LOYALTY_SLOTS_THRESHOLD) - 
+                                Math.floor((currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) / LOYALTY_SLOTS_THRESHOLD);
+    
+    const newDiscountsAvailable = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltyDiscountsAvailable : 0) + newDiscountsEarned;
+    
+    await storage.updateUserLoyalty(userId, {
+      loyaltySlotsEarned: newSlotsEarned,
+      loyaltyDiscountsAvailable: newDiscountsAvailable,
+    });
+    
+    console.log(`⭐ [Loyalty] User ${userId} earned ${slotsBooked} slots. Total: ${newSlotsEarned}/3. Discounts available: ${newDiscountsAvailable}`);
+    
+    if (newDiscountsEarned > 0) {
+      console.log(`🎉 [Loyalty] User ${userId} earned ${newDiscountsEarned} new discount(s)!`);
+    }
+  }
+}
+
 // Configure multer for file uploads
 // Create upload directories
 const uploadsDir = path.join(process.cwd(), "uploads", "artwork");
@@ -903,6 +977,12 @@ export function registerRoutes(app: Express): Server {
           });
           
           console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
+          
+          // Process loyalty program tracking
+          const booking = await storage.getBooking(bookingId);
+          if (booking) {
+            await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
+          }
         } else {
           console.log("❌ [Stripe Webhook] No booking ID in metadata");
         }

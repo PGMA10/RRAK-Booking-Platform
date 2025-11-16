@@ -97,7 +97,7 @@ export async function calculatePricingQuote(
   // Calculate default tiered price
   const defaultPrice = DEFAULT_FIRST_SLOT_PRICE + ((quantity - 1) * DEFAULT_ADDITIONAL_SLOT_PRICE);
 
-  // Apply pricing hierarchy: user fixed > user discount > campaign base > campaign discount > default
+  // Apply pricing hierarchy: user fixed > loyalty discount > user discount > campaign base > campaign discount > default
   
   // Step 1: Check for user-specific fixed price rules
   const userFixedPriceRules = availableRules.filter(
@@ -124,7 +124,38 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 2: Check for user-specific discount rules
+  // Step 2: Check for loyalty program discount (earned through repeat purchases)
+  // Only apply if loyalty counters are from the current year
+  const currentYear = new Date().getFullYear();
+  const hasValidLoyaltyDiscount = 
+    user.loyaltyYearReset === currentYear && 
+    user.loyaltyDiscountsAvailable && 
+    user.loyaltyDiscountsAvailable > 0;
+    
+  if (hasValidLoyaltyDiscount) {
+    const LOYALTY_DISCOUNT_AMOUNT = 15000; // $150 in cents
+    const discountAmount = LOYALTY_DISCOUNT_AMOUNT;
+    const finalPrice = Math.max(0, defaultPrice - discountAmount);
+
+    return {
+      totalPrice: finalPrice,
+      breakdown: {
+        basePrice: defaultPrice,
+        discountAmount,
+        finalPrice,
+      },
+      appliedRules: [{
+        ruleId: 'loyalty-discount',
+        description: 'Appreciation Discount - Earned by booking 3+ slots at regular price',
+        displayName: 'Appreciation Discount',
+        ruleType: 'discount_amount',
+        value: LOYALTY_DISCOUNT_AMOUNT,
+      }],
+      priceSource: 'user_discount',
+    };
+  }
+
+  // Step 3: Check for user-specific discount rules
   const userDiscountRules = availableRules.filter(
     r => r.userId === userId && (r.ruleType === 'discount_amount' || r.ruleType === 'discount_percent')
   ).sort((a, b) => b.priority - a.priority);
@@ -160,7 +191,7 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 3: Check for campaign base price (overrides default pricing)
+  // Step 4: Check for campaign base price (overrides default pricing)
   if (campaign.baseSlotPrice !== null) {
     const campaignBasePrice = campaign.baseSlotPrice * quantity;
     const isPriceIncrease = campaignBasePrice > defaultPrice;
@@ -176,7 +207,7 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 4: Check for campaign-wide discount rules
+  // Step 5: Check for campaign-wide discount rules
   const campaignDiscountRules = availableRules.filter(
     r => r.campaignId === campaignId && !r.userId && (r.ruleType === 'discount_amount' || r.ruleType === 'discount_percent')
   ).sort((a, b) => b.priority - a.priority);
@@ -212,7 +243,7 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 5: Check for global discount rules
+  // Step 6: Check for global discount rules
   const globalDiscountRules = availableRules.filter(
     r => !r.campaignId && !r.userId && (r.ruleType === 'discount_amount' || r.ruleType === 'discount_percent')
   ).sort((a, b) => b.priority - a.priority);
@@ -248,7 +279,7 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 6: Fall back to default tiered pricing
+  // Step 7: Fall back to default tiered pricing
   return {
     totalPrice: defaultPrice,
     breakdown: {

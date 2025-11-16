@@ -44,6 +44,25 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
 
+  // Add loyalty program columns to users table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN loyalty_slots_earned INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN loyalty_discounts_available INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN loyalty_year_reset INTEGER NOT NULL DEFAULT ${new Date().getFullYear()}`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   // Create routes table
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS routes (
@@ -440,6 +459,18 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+
+  // Create admin_settings table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL,
+      description TEXT,
+      updated_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+      updated_by TEXT REFERENCES users(id)
+    )
+  `);
 
   console.log("✅ SQLite tables initialized");
 }
