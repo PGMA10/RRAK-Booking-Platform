@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -237,6 +238,31 @@ export default function CustomerDashboardPage() {
     }
   };
 
+  // Calculate next upcoming print and mail deadlines
+  const getNextDeadlines = () => {
+    if (!bookings || !campaigns) return { nextPrintDeadline: null, nextMailDate: null };
+    
+    const now = new Date();
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+    
+    const printDeadlines = confirmedBookings
+      .map(b => campaignMap.get(b.campaignId)?.printDeadline)
+      .filter((date): date is number => date !== undefined && new Date(date) > now)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    
+    const mailDates = confirmedBookings
+      .map(b => campaignMap.get(b.campaignId)?.mailDate)
+      .filter((date): date is number => date !== undefined && new Date(date) > now)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    
+    return {
+      nextPrintDeadline: printDeadlines.length > 0 ? new Date(printDeadlines[0]) : null,
+      nextMailDate: mailDates.length > 0 ? new Date(mailDates[0]) : null,
+    };
+  };
+
+  const { nextPrintDeadline, nextMailDate } = getNextDeadlines();
+
   return (
     <div className="min-h-screen bg-background">
       <DemoBanner />
@@ -252,7 +278,7 @@ export default function CustomerDashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           <Link href="/customer/booking">
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
@@ -306,6 +332,38 @@ export default function CustomerDashboardPage() {
                 </div>
                 <div className="p-3 bg-green-500/10 rounded-lg">
                   <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Next Print Deadline</p>
+                  <p className="text-sm font-semibold text-foreground mt-1" data-testid="text-print-deadline">
+                    {nextPrintDeadline ? format(nextPrintDeadline, 'MMM d, yyyy') : 'None'}
+                  </p>
+                </div>
+                <div className="p-3 bg-orange-500/10 rounded-lg">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Next Mail Date</p>
+                  <p className="text-sm font-semibold text-foreground mt-1" data-testid="text-mail-date">
+                    {nextMailDate ? format(nextMailDate, 'MMM d, yyyy') : 'None'}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <Calendar className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
