@@ -17,8 +17,6 @@ import { Navigation } from "@/components/navigation";
 interface CampaignSelection {
   campaignId: string;
   routeId: string;
-  industryId: string;
-  industryDescription?: string;
 }
 
 export default function MultiCampaignBookingPage() {
@@ -29,8 +27,10 @@ export default function MultiCampaignBookingPage() {
     return <Redirect to="/auth" />;
   }
 
+  const [sharedIndustryId, setSharedIndustryId] = useState<string>("");
+  const [sharedIndustryDescription, setSharedIndustryDescription] = useState<string>("");
   const [selections, setSelections] = useState<CampaignSelection[]>([
-    { campaignId: "", routeId: "", industryId: "", industryDescription: "" }
+    { campaignId: "", routeId: "" }
   ]);
 
   const { data: campaigns = [] } = useQuery<Campaign[]>({
@@ -53,7 +53,7 @@ export default function MultiCampaignBookingPage() {
 
   const addCampaignSelection = () => {
     if (selections.length < 3) {
-      setSelections([...selections, { campaignId: "", routeId: "", industryId: "", industryDescription: "" }]);
+      setSelections([...selections, { campaignId: "", routeId: "" }]);
     }
   };
 
@@ -74,6 +74,8 @@ export default function MultiCampaignBookingPage() {
       const response = await apiRequest("POST", "/api/multi-campaign-checkout", {
         selections: selections.map(s => ({
           ...s,
+          industryId: sharedIndustryId,
+          industryDescription: sharedIndustryDescription,
           businessName: user?.businessName || user?.username || "Unknown Business",
           contactEmail: user?.email || "",
           contactPhone: user?.phone || "",
@@ -94,22 +96,31 @@ export default function MultiCampaignBookingPage() {
   });
 
   const handleProceedToPayment = () => {
-    // Validation
+    // Validation for shared industry
+    if (!sharedIndustryId) {
+      toast({
+        variant: "destructive",
+        description: "Please select your industry",
+      });
+      return;
+    }
+    
+    const selectedIndustry = industries.find(ind => ind.id === sharedIndustryId);
+    if (selectedIndustry && selectedIndustry.name.toLowerCase() === "other" && !sharedIndustryDescription?.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Please describe your business type",
+      });
+      return;
+    }
+    
+    // Validation for campaigns
     for (let i = 0; i < selections.length; i++) {
       const sel = selections[i];
-      if (!sel.campaignId || !sel.routeId || !sel.industryId) {
+      if (!sel.campaignId || !sel.routeId) {
         toast({
           variant: "destructive",
           description: `Please complete all selections for Campaign ${i + 1}`,
-        });
-        return;
-      }
-      
-      const industry = industries.find(ind => ind.id === sel.industryId);
-      if (industry && industry.name.toLowerCase() === "other" && !sel.industryDescription?.trim()) {
-        toast({
-          variant: "destructive",
-          description: `Please describe your business for Campaign ${i + 1}`,
         });
         return;
       }
@@ -138,10 +149,13 @@ export default function MultiCampaignBookingPage() {
   const bulkDiscount = selections.length === 3 ? 300 : 0;
   const finalTotal = calculateTotal();
 
-  const isFormValid = selections.every(s => 
-    s.campaignId && s.routeId && s.industryId &&
-    (industries.find(i => i.id === s.industryId)?.name.toLowerCase() !== "other" || s.industryDescription?.trim())
-  );
+  const selectedIndustry = industries.find(i => i.id === sharedIndustryId);
+  const isOtherIndustry = selectedIndustry?.name.toLowerCase() === "other";
+  
+  const isFormValid = 
+    sharedIndustryId &&
+    (!isOtherIndustry || sharedIndustryDescription?.trim()) &&
+    selections.every(s => s.campaignId && s.routeId);
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,12 +189,59 @@ export default function MultiCampaignBookingPage() {
           </div>
         </div>
 
+        {/* Shared Industry Selection */}
+        <Card className="mb-6 border-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5" />
+              Your Industry
+            </CardTitle>
+            <CardDescription>
+              This industry will apply to all campaigns in this booking
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Select Your Industry</label>
+              <Select
+                value={sharedIndustryId}
+                onValueChange={setSharedIndustryId}
+              >
+                <SelectTrigger data-testid="select-shared-industry">
+                  <SelectValue placeholder="Choose your industry..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {industries.map(industry => (
+                    <SelectItem key={industry.id} value={industry.id}>
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        {industry.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isOtherIndustry && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Describe Your Business</label>
+                <Textarea
+                  placeholder="Please describe your business type..."
+                  value={sharedIndustryDescription}
+                  onChange={(e) => setSharedIndustryDescription(e.target.value)}
+                  className="min-h-[80px]"
+                  data-testid="textarea-shared-industry-description"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="space-y-6">
           {selections.map((selection, index) => {
             const selectedCampaign = availableCampaigns.find(c => c.id === selection.campaignId);
             const selectedRoute = activeRoutes.find(r => r.id === selection.routeId);
-            const selectedIndustry = industries.find(i => i.id === selection.industryId);
-            const isOtherIndustry = selectedIndustry?.name.toLowerCase() === "other";
 
             return (
               <Card key={index} className="border-2">
@@ -257,41 +318,6 @@ export default function MultiCampaignBookingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Your Industry</label>
-                    <Select
-                      value={selection.industryId}
-                      onValueChange={(value) => updateSelection(index, 'industryId', value)}
-                    >
-                      <SelectTrigger data-testid={`select-industry-${index}`}>
-                        <SelectValue placeholder="Choose your industry..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {industries.map(industry => (
-                          <SelectItem key={industry.id} value={industry.id}>
-                            <div className="flex items-center gap-2">
-                              <Briefcase className="h-4 w-4" />
-                              {industry.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {isOtherIndustry && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Describe Your Business</label>
-                      <Textarea
-                        placeholder="Please describe your business type..."
-                        value={selection.industryDescription || ""}
-                        onChange={(e) => updateSelection(index, 'industryDescription', e.target.value)}
-                        className="min-h-[80px]"
-                        data-testid={`textarea-industry-description-${index}`}
-                      />
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );

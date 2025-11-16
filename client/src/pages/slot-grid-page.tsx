@@ -300,37 +300,41 @@ export default function SlotGridPage() {
               ) : slotGrid ? (
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
-                    {/* Route headers */}
-                    <div className="grid grid-cols-5 gap-2 mb-4">
-                      <div className="text-sm font-medium text-muted-foreground">Industries</div>
-                      {slotGrid.slots
-                        .reduce((routes: Route[], slot) => {
-                          if (!routes.find(r => r.id === slot.route.id)) {
-                            routes.push(slot.route);
-                          }
-                          return routes;
-                        }, [])
-                        .map((route) => (
-                          <div key={route.id} className="text-center">
-                            <div className="text-sm font-medium text-foreground flex items-center justify-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {route.zipCode}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{route.name}</div>
-                          </div>
-                        ))}
-                    </div>
-                    
-                    {/* Grid rows */}
-                    {slotGrid.slots
-                      .reduce((industries: Industry[], slot) => {
-                        if (!industries.find(i => i.id === slot.industry.id)) {
-                          industries.push(slot.industry);
+                    {(() => {
+                      const uniqueRoutes = slotGrid.slots.reduce((routes: Route[], slot) => {
+                        if (!routes.find(r => r.id === slot.route.id)) {
+                          routes.push(slot.route);
                         }
-                        return industries;
-                      }, [])
-                      .map((industry) => (
-                        <div key={industry.id} className="grid grid-cols-5 gap-2 mb-2">
+                        return routes;
+                      }, []);
+                      const gridTemplateColumns = `minmax(150px, auto) repeat(${uniqueRoutes.length}, 1fr)`;
+                      
+                      return (
+                        <>
+                          {/* Route headers */}
+                          <div className="grid gap-2 mb-4" style={{ gridTemplateColumns }}>
+                            <div className="text-sm font-medium text-muted-foreground">Industries</div>
+                            {uniqueRoutes.map((route) => (
+                              <div key={route.id} className="text-center">
+                                <div className="text-sm font-medium text-foreground flex items-center justify-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {route.zipCode}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{route.name}</div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Grid rows */}
+                          {slotGrid.slots
+                            .reduce((industries: Industry[], slot) => {
+                              if (!industries.find(i => i.id === slot.industry.id)) {
+                                industries.push(slot.industry);
+                              }
+                              return industries;
+                            }, [])
+                            .map((industry) => (
+                              <div key={industry.id} className="grid gap-2 mb-2" style={{ gridTemplateColumns }}>
                           {/* Industry label */}
                           <div className="flex items-center text-sm font-medium text-foreground">
                             <Briefcase className="h-3 w-3 mr-1" />
@@ -382,6 +386,9 @@ export default function SlotGridPage() {
                             })}
                         </div>
                       ))}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
