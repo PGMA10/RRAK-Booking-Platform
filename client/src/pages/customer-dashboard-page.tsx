@@ -296,7 +296,12 @@ export default function CustomerDashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Campaigns</p>
                   <p className="text-lg font-semibold text-foreground mt-1" data-testid="text-active-bookings">
-                    {bookings?.filter(b => b.status === 'confirmed').length || 0}
+                    {bookings?.filter(b => {
+                      const campaign = campaignMap.get(b.campaignId);
+                      const mailDate = campaign?.mailDate ? new Date(campaign.mailDate) : null;
+                      const now = new Date();
+                      return b.status === 'confirmed' && mailDate && mailDate > now;
+                    }).length || 0}
                   </p>
                 </div>
                 <div className="p-3 bg-green-500/10 rounded-lg">
