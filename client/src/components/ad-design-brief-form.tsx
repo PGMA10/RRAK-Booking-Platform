@@ -216,7 +216,7 @@ export function AdDesignBriefForm({ bookingId, businessName, onSuccess }: AdDesi
                   <FormControl>
                     <div className="space-y-2">
                       <Textarea
-                        placeholder="e.g., Quality Plumbing Services - Available 24/7"
+                        placeholder="e.g., Water heater install seasonal discount"
                         {...field}
                         maxLength={40}
                         data-testid="input-main-message"
