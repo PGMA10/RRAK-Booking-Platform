@@ -286,7 +286,7 @@ export default function SlotGridPage() {
                 Slot Availability Grid
               </CardTitle>
               <CardDescription>
-                64 slots total: 4 routes × 16 industries. Click on slots to book or manage.
+                Click on slots to book or manage.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -297,7 +297,7 @@ export default function SlotGridPage() {
                     <p className="text-muted-foreground">Loading slot grid...</p>
                   </div>
                 </div>
-              ) : slotGrid ? (
+              ) : slotGrid && slotGrid.slots.length > 0 ? (
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
                     {(() => {
@@ -395,8 +395,9 @@ export default function SlotGridPage() {
                 <div className="flex items-center justify-center h-96">
                   <div className="text-center">
                     <Grid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium text-muted-foreground">No slot data available</p>
-                    <p className="text-sm text-muted-foreground">Select a campaign to view slot availability</p>
+                    <p className="text-lg font-medium text-muted-foreground">No slots configured</p>
+                    <p className="text-sm text-muted-foreground mt-2">Configure routes and industries for this campaign</p>
+                    <p className="text-sm text-muted-foreground">Go to Campaign Management → click ⋮ menu → "Manage Availability"</p>
                   </div>
                 </div>
               )}
