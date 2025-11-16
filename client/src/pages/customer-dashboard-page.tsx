@@ -343,21 +343,6 @@ export default function CustomerDashboardPage() {
             </Card>
           </Link>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
-                  <p className="text-lg font-semibold text-foreground mt-1" data-testid="text-total-bookings">
-                    {bookings?.length || 0}
-                  </p>
-                </div>
-                <div className="p-3 bg-accent/10 rounded-lg">
-                  <Package className="h-6 w-6 text-accent" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardContent className="p-6">

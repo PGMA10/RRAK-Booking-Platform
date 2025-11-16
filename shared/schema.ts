@@ -47,7 +47,8 @@ export const campaigns = sqliteTable("campaigns", {
   totalSlots: integer("total_slots").notNull().default(64),
   bookedSlots: integer("booked_slots").notNull().default(0),
   revenue: integer("revenue").notNull().default(0), // in cents
-  baseSlotPrice: integer("base_slot_price"), // in cents, custom base price for this campaign (overrides default $600)
+  baseSlotPrice: integer("base_slot_price"), // in cents, price for first slot in this campaign (overrides default $600)
+  additionalSlotPrice: integer("additional_slot_price"), // in cents, price for slots 2-4 in this campaign (overrides default $500)
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 

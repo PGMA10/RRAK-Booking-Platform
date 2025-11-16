@@ -15,9 +15,10 @@ import {
   type BookingWithDetails,
   type DesignRevision,
   type InsertDesignRevision,
+  type AdminSetting,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -149,6 +150,11 @@ export interface IStorage {
   getDesignRevisionsByBooking(bookingId: string): Promise<DesignRevision[]>;
   getLatestDesignRevision(bookingId: string): Promise<DesignRevision | undefined>;
   updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined>;
+  
+  // Admin Settings
+  getAllAdminSettings(): Promise<AdminSetting[]>;
+  getAdminSetting(key: string): Promise<AdminSetting | undefined>;
+  setAdminSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<AdminSetting>;
   
   sessionStore: session.Store;
 }
@@ -1882,6 +1888,50 @@ export class DbStorage implements IStorage {
       .where(eq(designRevisionsTable.id, id))
       .returning();
     return result[0];
+  }
+
+  // Admin Settings
+  async getAllAdminSettings(): Promise<AdminSetting[]> {
+    const result = await db.select()
+      .from(adminSettingsTable)
+      .orderBy(adminSettingsTable.key);
+    return result;
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSetting | undefined> {
+    const result = await db.select()
+      .from(adminSettingsTable)
+      .where(eq(adminSettingsTable.key, key))
+      .limit(1);
+    return result[0];
+  }
+
+  async setAdminSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<AdminSetting> {
+    const existing = await this.getAdminSetting(key);
+    
+    if (existing) {
+      const result = await db.update(adminSettingsTable)
+        .set({
+          value,
+          description: description || existing.description,
+          updatedAt: new Date(),
+          updatedBy,
+        })
+        .where(eq(adminSettingsTable.key, key))
+        .returning();
+      return result[0];
+    } else {
+      const newSetting = {
+        id: randomUUID().replace(/-/g, ''),
+        key,
+        value,
+        description,
+        updatedAt: new Date(),
+        updatedBy,
+      };
+      const result = await db.insert(adminSettingsTable).values(newSetting).returning();
+      return result[0];
+    }
   }
 }
 

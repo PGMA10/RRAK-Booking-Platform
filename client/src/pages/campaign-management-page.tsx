@@ -30,6 +30,7 @@ const campaignFormSchema = z.object({
   printDeadline: z.string().min(1, "Print deadline is required"),
   status: z.enum(["planning", "booking_open", "booking_closed", "printed", "mailed", "completed"]).default("planning"),
   baseSlotPrice: z.string().optional(),
+  additionalSlotPrice: z.string().optional(),
 }).refine((data) => {
   // Validate that print deadline is before mail date
   if (data.printDeadline && data.mailDate) {
@@ -110,6 +111,7 @@ export default function CampaignManagementPage() {
       printDeadline: "",
       status: "planning",
       baseSlotPrice: "",
+      additionalSlotPrice: "",
     },
   });
 
@@ -122,6 +124,7 @@ export default function CampaignManagementPage() {
       printDeadline: "",
       status: "planning",
       baseSlotPrice: "",
+      additionalSlotPrice: "",
     },
   });
 
@@ -190,11 +193,14 @@ export default function CampaignManagementPage() {
   });
 
   const onCreateSubmit = (data: CampaignFormData) => {
-    // Transform baseSlotPrice from dollars string to cents integer
+    // Transform prices from dollars string to cents integer
     const transformed = {
       ...data,
       baseSlotPrice: data.baseSlotPrice && data.baseSlotPrice !== "" 
         ? Math.round(parseFloat(data.baseSlotPrice) * 100) 
+        : null,
+      additionalSlotPrice: data.additionalSlotPrice && data.additionalSlotPrice !== ""
+        ? Math.round(parseFloat(data.additionalSlotPrice) * 100)
         : null
     };
     createMutation.mutate(transformed as any);
@@ -202,11 +208,14 @@ export default function CampaignManagementPage() {
 
   const onEditSubmit = (data: CampaignFormData) => {
     if (!editingCampaign) return;
-    // Transform baseSlotPrice from dollars string to cents integer
+    // Transform prices from dollars string to cents integer
     const transformed = {
       ...data,
       baseSlotPrice: data.baseSlotPrice && data.baseSlotPrice !== "" 
         ? Math.round(parseFloat(data.baseSlotPrice) * 100) 
+        : null,
+      additionalSlotPrice: data.additionalSlotPrice && data.additionalSlotPrice !== ""
+        ? Math.round(parseFloat(data.additionalSlotPrice) * 100)
         : null
     };
     updateMutation.mutate({ id: editingCampaign.id, data: transformed as any });
@@ -339,7 +348,7 @@ export default function CampaignManagementPage() {
                   name="baseSlotPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Base Slot Price (Optional)</FormLabel>
+                      <FormLabel>First Slot Price (Optional)</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -354,7 +363,32 @@ export default function CampaignManagementPage() {
                           />
                         </div>
                       </FormControl>
-                      <p className="text-sm text-muted-foreground">Leave empty to use default tiered pricing ($600 first slot + $500 each additional)</p>
+                      <p className="text-sm text-muted-foreground">Price for the first slot (default: $600)</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="additionalSlotPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Additional Slots Price (Optional)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            min="0"
+                            placeholder="500.00"
+                            className="pl-7"
+                            data-testid="input-additional-slot-price"
+                            {...field} 
+                          />
+                        </div>
+                      </FormControl>
+                      <p className="text-sm text-muted-foreground">Price for slots 2-4 (default: $500)</p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -605,7 +639,7 @@ export default function CampaignManagementPage() {
                 name="baseSlotPrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Base Slot Price (Optional)</FormLabel>
+                    <FormLabel>First Slot Price (Optional)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -620,7 +654,32 @@ export default function CampaignManagementPage() {
                         />
                       </div>
                     </FormControl>
-                    <p className="text-sm text-muted-foreground">Leave empty to use default tiered pricing ($600 first slot + $500 each additional)</p>
+                    <p className="text-sm text-muted-foreground">Price for the first slot (default: $600)</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="additionalSlotPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Slots Price (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input 
+                          type="number" 
+                          step="0.01"
+                          min="0"
+                          placeholder="500.00"
+                          className="pl-7"
+                          data-testid="input-edit-additional-slot-price"
+                          {...field} 
+                        />
+                      </div>
+                    </FormControl>
+                    <p className="text-sm text-muted-foreground">Price for slots 2-4 (default: $500)</p>
                     <FormMessage />
                   </FormItem>
                 )}

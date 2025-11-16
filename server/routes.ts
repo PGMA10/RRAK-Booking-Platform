@@ -2647,6 +2647,62 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin Settings Routes
+  app.get("/api/admin/settings", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const settings = await storage.getAllAdminSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching admin settings:', error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.get("/api/admin/settings/:key", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { key } = req.params;
+      const setting = await storage.getAdminSetting(key);
+      
+      if (!setting) {
+        return res.status(404).json({ message: "Setting not found" });
+      }
+      
+      res.json(setting);
+    } catch (error) {
+      console.error('Error fetching admin setting:', error);
+      res.status(500).json({ message: "Failed to fetch setting" });
+    }
+  });
+
+  app.put("/api/admin/settings/:key", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { key } = req.params;
+      const { value, description } = req.body;
+
+      if (value === undefined || value === null) {
+        return res.status(400).json({ message: "Value is required" });
+      }
+
+      await storage.setAdminSetting(key, String(value), description, req.user.id);
+      res.json({ success: true, key, value });
+    } catch (error) {
+      console.error('Error updating admin setting:', error);
+      res.status(500).json({ message: "Failed to update setting" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
