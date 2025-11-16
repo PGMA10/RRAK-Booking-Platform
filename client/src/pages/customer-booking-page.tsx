@@ -297,6 +297,33 @@ export default function CustomerBookingPage() {
           </div>
         </div>
 
+        {/* Promotional Card for Bulk Discount */}
+        <div className="max-w-4xl mx-auto mb-6">
+          <Link href="/customer/booking/multi">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200" data-testid="card-bulk-discount-promo">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-700">💰 Special Offer</p>
+                    <p className="text-2xl font-bold text-purple-900 mt-1">Save $300 When You Book 3 Campaigns!</p>
+                    <p className="text-sm text-purple-700 mt-2">
+                      Book three different mail dates together for just $1,500 instead of $1,800
+                    </p>
+                  </div>
+                  <div className="p-4 bg-purple-600/10 rounded-lg">
+                    <Tag className="h-8 w-8 text-purple-600" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button variant="default" size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white" data-testid="button-view-bulk-discount">
+                    View Bulk Booking Option <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
         <div className="max-w-4xl mx-auto">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleProceedToPayment)} className="space-y-8">
