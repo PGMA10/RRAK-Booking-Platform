@@ -103,7 +103,25 @@ export function initializeDatabase() {
     )
   `);
   
-  // print_deadline column is already in the main CREATE TABLE statement above
+  // Create campaign_routes junction table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS campaign_routes (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+      route_id TEXT NOT NULL REFERENCES routes(id),
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create campaign_industries junction table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS campaign_industries (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+      industry_id TEXT NOT NULL REFERENCES industries(id),
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
 
   // Create bookings table
   sqlite.exec(`
@@ -118,7 +136,7 @@ export function initializeDatabase() {
       contact_email TEXT NOT NULL,
       contact_phone TEXT,
       amount INTEGER NOT NULL DEFAULT 60000,
-      status TEXT NOT NULL DEFAULT 'confirmed',
+      status TEXT NOT NULL DEFAULT 'pending',
       payment_status TEXT NOT NULL DEFAULT 'pending',
       stripe_checkout_session_id TEXT,
       stripe_payment_intent_id TEXT,

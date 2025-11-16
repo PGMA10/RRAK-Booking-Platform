@@ -52,6 +52,20 @@ export const campaigns = sqliteTable("campaigns", {
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 
+export const campaignRoutes = sqliteTable("campaign_routes", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  routeId: text("route_id").notNull().references(() => routes.id),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
+export const campaignIndustries = sqliteTable("campaign_industries", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  industryId: text("industry_id").notNull().references(() => industries.id),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
 export const bookings = sqliteTable("bookings", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
@@ -268,6 +282,16 @@ export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
   updatedAt: true,
 });
 
+export const insertCampaignRouteSchema = createInsertSchema(campaignRoutes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCampaignIndustrySchema = createInsertSchema(campaignIndustries).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -296,6 +320,10 @@ export type DesignRevision = typeof designRevisions.$inferSelect;
 export type InsertDesignRevision = z.infer<typeof insertDesignRevisionSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
+export type CampaignRoute = typeof campaignRoutes.$inferSelect;
+export type InsertCampaignRoute = z.infer<typeof insertCampaignRouteSchema>;
+export type CampaignIndustry = typeof campaignIndustries.$inferSelect;
+export type InsertCampaignIndustry = z.infer<typeof insertCampaignIndustrySchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {

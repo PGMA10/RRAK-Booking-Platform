@@ -18,7 +18,7 @@ import {
   type AdminSetting,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -56,6 +56,16 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<boolean>;
+  
+  // Campaign Routes & Industries (per-campaign availability)
+  getCampaignRoutes(campaignId: string): Promise<Route[]>;
+  getCampaignIndustries(campaignId: string): Promise<Industry[]>;
+  addRouteToCampaign(campaignId: string, routeId: string): Promise<void>;
+  addIndustryToCampaign(campaignId: string, industryId: string): Promise<void>;
+  removeRouteFromCampaign(campaignId: string, routeId: string): Promise<void>;
+  removeIndustryFromCampaign(campaignId: string, industryId: string): Promise<void>;
+  setCampaignRoutes(campaignId: string, routeIds: string[]): Promise<void>;
+  setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void>;
   
   // Bookings
   getAllBookings(): Promise<Booking[]>;
@@ -164,6 +174,8 @@ export class MemStorage implements IStorage {
   private routes: Map<string, Route> = new Map();
   private industries: Map<string, Industry> = new Map();
   private campaigns: Map<string, Campaign> = new Map();
+  private campaignRoutes: Map<string, Set<string>> = new Map(); // campaignId -> Set of routeIds
+  private campaignIndustries: Map<string, Set<string>> = new Map(); // campaignId -> Set of industryIds
   private bookings: Map<string, Booking> = new Map();
   public sessionStore: session.Store;
 
@@ -417,7 +429,72 @@ export class MemStorage implements IStorage {
   }
 
   async deleteCampaign(id: string): Promise<boolean> {
+    this.campaignRoutes.delete(id);
+    this.campaignIndustries.delete(id);
     return this.campaigns.delete(id);
+  }
+
+  // Campaign Routes & Industries (per-campaign availability)
+  async getCampaignRoutes(campaignId: string): Promise<Route[]> {
+    const routeIds = this.campaignRoutes.get(campaignId) || new Set();
+    return Array.from(routeIds)
+      .map(id => this.routes.get(id))
+      .filter((route): route is Route => route !== undefined);
+  }
+
+  async getCampaignIndustries(campaignId: string): Promise<Industry[]> {
+    const industryIds = this.campaignIndustries.get(campaignId) || new Set();
+    return Array.from(industryIds)
+      .map(id => this.industries.get(id))
+      .filter((industry): industry is Industry => industry !== undefined);
+  }
+
+  async addRouteToCampaign(campaignId: string, routeId: string): Promise<void> {
+    if (!this.campaignRoutes.has(campaignId)) {
+      this.campaignRoutes.set(campaignId, new Set());
+    }
+    this.campaignRoutes.get(campaignId)!.add(routeId);
+  }
+
+  async addIndustryToCampaign(campaignId: string, industryId: string): Promise<void> {
+    if (!this.campaignIndustries.has(campaignId)) {
+      this.campaignIndustries.set(campaignId, new Set());
+    }
+    this.campaignIndustries.get(campaignId)!.add(industryId);
+  }
+
+  async removeRouteFromCampaign(campaignId: string, routeId: string): Promise<void> {
+    this.campaignRoutes.get(campaignId)?.delete(routeId);
+  }
+
+  async removeIndustryFromCampaign(campaignId: string, industryId: string): Promise<void> {
+    this.campaignIndustries.get(campaignId)?.delete(industryId);
+  }
+
+  async setCampaignRoutes(campaignId: string, routeIds: string[]): Promise<void> {
+    this.campaignRoutes.set(campaignId, new Set(routeIds));
+    
+    // Update campaign total slots
+    const campaign = this.campaigns.get(campaignId);
+    if (campaign) {
+      const industries = await this.getCampaignIndustries(campaignId);
+      const totalSlots = routeIds.length * industries.length;
+      campaign.totalSlots = totalSlots;
+      this.campaigns.set(campaignId, campaign);
+    }
+  }
+
+  async setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void> {
+    this.campaignIndustries.set(campaignId, new Set(industryIds));
+    
+    // Update campaign total slots
+    const campaign = this.campaigns.get(campaignId);
+    if (campaign) {
+      const routes = await this.getCampaignRoutes(campaignId);
+      const totalSlots = routes.length * industryIds.length;
+      campaign.totalSlots = totalSlots;
+      this.campaigns.set(campaignId, campaign);
+    }
   }
 
   // Bookings
@@ -452,7 +529,7 @@ export class MemStorage implements IStorage {
       ...insertBooking,
       id,
       createdAt: new Date(),
-      status: insertBooking.status || "confirmed",
+      status: insertBooking.status || "pending",
       licenseNumber: insertBooking.licenseNumber || null,
       contactPhone: insertBooking.contactPhone || null,
       paymentId: insertBooking.paymentId || null,
@@ -527,6 +604,7 @@ export class MemStorage implements IStorage {
     const updatedBooking = {
       ...booking,
       paymentStatus,
+      status: paymentStatus === 'paid' ? 'confirmed' : booking.status,
       stripePaymentIntentId: paymentData.stripePaymentIntentId || booking.stripePaymentIntentId,
       amountPaid: paymentData.amountPaid || booking.amountPaid,
       paidAt: paymentData.paidAt || booking.paidAt,
@@ -639,8 +717,9 @@ export class MemStorage implements IStorage {
   }
 
   async getSlotGrid(campaignId: string) {
-    const routes = Array.from(this.routes.values()).filter(r => r.status === 'active');
-    const industries = Array.from(this.industries.values()).filter(i => i.status === 'active');
+    // Use campaign-specific routes and industries instead of global active filter
+    const routes = await this.getCampaignRoutes(campaignId);
+    const industries = await this.getCampaignIndustries(campaignId);
     const bookings = Array.from(this.bookings.values()).filter(b => b.campaignId === campaignId);
     
     const slots = [];
@@ -941,8 +1020,115 @@ export class DbStorage implements IStorage {
   }
 
   async deleteCampaign(id: string): Promise<boolean> {
+    // Delete campaign-specific routes and industries
+    await db.delete(campaignRoutesTable).where(eq(campaignRoutesTable.campaignId, id));
+    await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, id));
+    
     const result = await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
     return (result as any).changes > 0;
+  }
+
+  // Campaign Routes & Industries (per-campaign availability)
+  async getCampaignRoutes(campaignId: string): Promise<Route[]> {
+    const result = await db
+      .select({ route: routesTable })
+      .from(campaignRoutesTable)
+      .innerJoin(routesTable, eq(campaignRoutesTable.routeId, routesTable.id))
+      .where(eq(campaignRoutesTable.campaignId, campaignId));
+    
+    return result.map(r => r.route);
+  }
+
+  async getCampaignIndustries(campaignId: string): Promise<Industry[]> {
+    const result = await db
+      .select({ industry: industriesTable })
+      .from(campaignIndustriesTable)
+      .innerJoin(industriesTable, eq(campaignIndustriesTable.industryId, industriesTable.id))
+      .where(eq(campaignIndustriesTable.campaignId, campaignId));
+    
+    return result.map(r => r.industry);
+  }
+
+  async addRouteToCampaign(campaignId: string, routeId: string): Promise<void> {
+    const id = randomUUID();
+    await db.insert(campaignRoutesTable).values({
+      id,
+      campaignId,
+      routeId,
+      createdAt: new Date(),
+    });
+  }
+
+  async addIndustryToCampaign(campaignId: string, industryId: string): Promise<void> {
+    const id = randomUUID();
+    await db.insert(campaignIndustriesTable).values({
+      id,
+      campaignId,
+      industryId,
+      createdAt: new Date(),
+    });
+  }
+
+  async removeRouteFromCampaign(campaignId: string, routeId: string): Promise<void> {
+    await db.delete(campaignRoutesTable)
+      .where(and(
+        eq(campaignRoutesTable.campaignId, campaignId),
+        eq(campaignRoutesTable.routeId, routeId)
+      ));
+  }
+
+  async removeIndustryFromCampaign(campaignId: string, industryId: string): Promise<void> {
+    await db.delete(campaignIndustriesTable)
+      .where(and(
+        eq(campaignIndustriesTable.campaignId, campaignId),
+        eq(campaignIndustriesTable.industryId, industryId)
+      ));
+  }
+
+  async setCampaignRoutes(campaignId: string, routeIds: string[]): Promise<void> {
+    // Delete all existing routes for this campaign
+    await db.delete(campaignRoutesTable).where(eq(campaignRoutesTable.campaignId, campaignId));
+    
+    // Insert new routes
+    if (routeIds.length > 0) {
+      const values = routeIds.map(routeId => ({
+        id: randomUUID(),
+        campaignId,
+        routeId,
+        createdAt: new Date(),
+      }));
+      await db.insert(campaignRoutesTable).values(values);
+    }
+    
+    // Update campaign total slots
+    const industries = await this.getCampaignIndustries(campaignId);
+    const totalSlots = routeIds.length * industries.length;
+    await db.update(campaignsTable)
+      .set({ totalSlots })
+      .where(eq(campaignsTable.id, campaignId));
+  }
+
+  async setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void> {
+    // Delete all existing industries for this campaign
+    await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, campaignId));
+    
+    // Insert new industries
+    if (industryIds.length > 0) {
+      const values = industryIds.map(industryId => ({
+        id: randomUUID(),
+        campaignId,
+        industryId,
+        createdAt: new Date(),
+      }));
+      await db.insert(campaignIndustriesTable).values(values);
+    }
+    
+    // Update campaign total slots
+    const routes = await this.getCampaignRoutes(campaignId);
+    const totalSlots = routes.length * industryIds.length;
+    await db.update(campaignsTable)
+      .set({ totalSlots })
+      .where(eq(campaignsTable.id, campaignId));
   }
 
   async getAllBookings(): Promise<Booking[]> {
@@ -1142,9 +1328,11 @@ export class DbStorage implements IStorage {
     const booking = currentBooking[0];
     
     // Update booking with payment info
+    // Set status to "confirmed" when payment is successful
     const result = await db.update(bookingsTable)
       .set({
         paymentStatus,
+        status: paymentStatus === 'paid' ? 'confirmed' : booking.status,
         stripePaymentIntentId: paymentData.stripePaymentIntentId,
         amountPaid: paymentData.amountPaid,
         paidAt: paymentData.paidAt,
@@ -1297,8 +1485,9 @@ export class DbStorage implements IStorage {
       totalRevenue: number;
     };
   }> {
-    const routes = await this.getAllRoutes();
-    const industries = await this.getAllIndustries();
+    // Use campaign-specific routes and industries instead of all routes/industries
+    const routes = await this.getCampaignRoutes(campaignId);
+    const industries = await this.getCampaignIndustries(campaignId);
     const bookings = await this.getBookingsByCampaign(campaignId);
 
     const bookingMap = new Map<string, Booking>();

@@ -94,8 +94,10 @@ export async function calculatePricingQuote(
     }
   }
 
-  // Calculate default tiered price
-  const defaultPrice = DEFAULT_FIRST_SLOT_PRICE + ((quantity - 1) * DEFAULT_ADDITIONAL_SLOT_PRICE);
+  // Calculate default tiered price using campaign-specific pricing if available
+  const firstSlotPrice = campaign.baseSlotPrice !== null ? campaign.baseSlotPrice : DEFAULT_FIRST_SLOT_PRICE;
+  const additionalSlotPrice = campaign.additionalSlotPrice !== null ? campaign.additionalSlotPrice : DEFAULT_ADDITIONAL_SLOT_PRICE;
+  const defaultPrice = firstSlotPrice + ((quantity - 1) * additionalSlotPrice);
 
   // Apply pricing hierarchy: user fixed > loyalty discount > user discount > campaign base > campaign discount > default
   
@@ -191,23 +193,7 @@ export async function calculatePricingQuote(
     };
   }
 
-  // Step 4: Check for campaign base price (overrides default pricing)
-  if (campaign.baseSlotPrice !== null) {
-    const campaignBasePrice = campaign.baseSlotPrice * quantity;
-    const isPriceIncrease = campaignBasePrice > defaultPrice;
-    return {
-      totalPrice: campaignBasePrice,
-      breakdown: {
-        basePrice: campaignBasePrice, // Show actual campaign base price, not default
-        discountAmount: isPriceIncrease ? 0 : (defaultPrice - campaignBasePrice), // Only show discount if price is lower
-        finalPrice: campaignBasePrice,
-      },
-      appliedRules: [],
-      priceSource: 'campaign_base',
-    };
-  }
-
-  // Step 5: Check for campaign-wide discount rules
+  // Step 4: Check for campaign-wide discount rules
   const campaignDiscountRules = availableRules.filter(
     r => r.campaignId === campaignId && !r.userId && (r.ruleType === 'discount_amount' || r.ruleType === 'discount_percent')
   ).sort((a, b) => b.priority - a.priority);

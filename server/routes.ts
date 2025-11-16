@@ -802,13 +802,13 @@ export function registerRoutes(app: Express): Server {
         appliedRules: pricingQuote.appliedRules.length,
       });
 
-      // Create booking with pending payment status and calculated price from pricing service
+      // Create booking with pending status until payment is confirmed
       // Note: Stripe checkout session is created separately via GET /api/bookings/:id/checkout-session
       // This allows admins to set price overrides before payment if needed
       const booking = await storage.createBooking({
         ...validatedData,
         amount: pricingQuote.totalPrice,
-        status: "confirmed",
+        status: "pending",
         paymentStatus: "pending",
       });
 
@@ -1166,13 +1166,39 @@ export function registerRoutes(app: Express): Server {
         break;
 
       case 'checkout.session.expired':
+        const expiredSession = event.data.object;
+        const isExpiredMultiCampaign = expiredSession.metadata?.multiCampaignBooking === 'true';
+        
+        if (isExpiredMultiCampaign) {
+          // Handle multi-campaign booking expiration
+          const expiredBookingIds = expiredSession.metadata?.bookingIds?.split(',') || [];
+          console.log("⏱️  [Stripe Webhook] Checkout session expired for multi-campaign bookings:", expiredBookingIds);
+          
+          // Delete all abandoned bookings
+          for (const bookingId of expiredBookingIds) {
+            await storage.deleteBooking(bookingId);
+            console.log(`🗑️  [Stripe Webhook] Deleted abandoned booking ${bookingId}`);
+          }
+        } else {
+          // Handle single booking expiration
+          const expiredBookingId = expiredSession.metadata?.bookingId;
+          console.log("⏱️  [Stripe Webhook] Checkout session expired for booking:", expiredBookingId);
+          
+          if (expiredBookingId) {
+            // Delete the abandoned booking
+            await storage.deleteBooking(expiredBookingId);
+            console.log(`🗑️  [Stripe Webhook] Deleted abandoned booking ${expiredBookingId}`);
+          }
+        }
+        break;
+
       case 'payment_intent.payment_failed':
         const failedSession = event.data.object;
         const failedBookingId = failedSession.metadata?.bookingId;
-        console.log("❌ [Stripe Webhook] Payment failed/expired for booking:", failedBookingId);
+        console.log("❌ [Stripe Webhook] Payment failed for booking:", failedBookingId);
 
         if (failedBookingId) {
-          // Update booking payment status to failed
+          // Update booking payment status to failed (keep the booking for admin review)
           await storage.updateBookingPaymentStatus(failedBookingId, 'failed', {});
           console.log(`❌ [Stripe Webhook] Payment failed for booking ${failedBookingId}`);
         }
@@ -2263,17 +2289,28 @@ export function registerRoutes(app: Express): Server {
       const campaigns = await storage.getAllCampaigns();
       const allBookings = await storage.getAllBookings();
       
-      // Find current month's campaign (based on mail date)
+      // Find current month's campaign or next upcoming campaign
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
       
-      // Find campaign whose mail date is in the current month
-      const currentCampaign = campaigns.find(c => {
+      // First try to find campaign whose mail date is in the current month
+      let currentCampaign = campaigns.find(c => {
         if (!c.mailDate) return false;
         const mailDate = new Date(c.mailDate);
         return mailDate.getFullYear() === currentYear && mailDate.getMonth() === currentMonth;
       });
+      
+      // If no campaign in current month, find the next upcoming campaign
+      if (!currentCampaign) {
+        const futureCampaigns = campaigns.filter(c => {
+          if (!c.mailDate) return false;
+          const mailDate = new Date(c.mailDate);
+          return mailDate >= now;
+        }).sort((a, b) => new Date(a.mailDate!).getTime() - new Date(b.mailDate!).getTime());
+        
+        currentCampaign = futureCampaigns[0] || null;
+      }
 
       // If we have a current campaign, get its specific stats
       if (currentCampaign) {
