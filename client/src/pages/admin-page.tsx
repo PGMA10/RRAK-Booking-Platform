@@ -302,7 +302,7 @@ export default function AdminPage() {
                         <Grid className="h-5 w-5" />
                         <span className="font-semibold">Slot Grid</span>
                       </div>
-                      <p className="text-sm text-muted-foreground text-left">View all 64 slots at a glance per campaign</p>
+                      <p className="text-sm text-muted-foreground text-left">view all slots at a glance per campaign</p>
                     </Button>
                   </Link>
                   <Link href="/admin/crm">

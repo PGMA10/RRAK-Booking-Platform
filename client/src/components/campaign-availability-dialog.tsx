@@ -59,7 +59,7 @@ export function CampaignAvailabilityDialog({
 
   const updateRoutesMutation = useMutation({
     mutationFn: async (routeIds: string[]) => {
-      return await apiRequest(`/api/campaigns/${campaignId}/routes`, "PUT", { routeIds });
+      return await apiRequest("PUT", `/api/campaigns/${campaignId}/routes`, { routeIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "routes"] });
@@ -80,7 +80,7 @@ export function CampaignAvailabilityDialog({
 
   const updateIndustriesMutation = useMutation({
     mutationFn: async (industryIds: string[]) => {
-      return await apiRequest(`/api/campaigns/${campaignId}/industries`, "PUT", { industryIds });
+      return await apiRequest("PUT", `/api/campaigns/${campaignId}/industries`, { industryIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "industries"] });
