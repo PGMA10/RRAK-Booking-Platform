@@ -28,14 +28,17 @@ export default function AdminSettingsPage() {
 
   const [loyaltyThreshold, setLoyaltyThreshold] = useState<string>("");
   const [loyaltyDiscount, setLoyaltyDiscount] = useState<string>("");
+  const [loyaltyDisplayName, setLoyaltyDisplayName] = useState<string>("");
 
   // Initialize form values when settings load
   useEffect(() => {
     const threshold = settings.find(s => s.key === 'loyalty_slots_threshold');
     const discount = settings.find(s => s.key === 'loyalty_discount_amount');
+    const displayName = settings.find(s => s.key === 'loyalty_discount_display_name');
     
     if (threshold) setLoyaltyThreshold(threshold.value);
     if (discount) setLoyaltyDiscount(discount.value);
+    if (displayName) setLoyaltyDisplayName(displayName.value);
   }, [settings]);
 
   const updateSettingMutation = useMutation({
@@ -65,6 +68,7 @@ export default function AdminSettingsPage() {
   const handleSaveLoyaltySettings = () => {
     const threshold = parseInt(loyaltyThreshold);
     const discount = parseInt(loyaltyDiscount);
+    const displayName = loyaltyDisplayName.trim();
 
     if (isNaN(threshold) || threshold < 1) {
       toast({
@@ -84,7 +88,16 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    // Update both settings
+    if (!displayName) {
+      toast({
+        title: "Invalid display name",
+        description: "Loyalty discount display name cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update all three settings
     updateSettingMutation.mutate({
       key: 'loyalty_slots_threshold',
       value: threshold.toString(),
@@ -96,15 +109,22 @@ export default function AdminSettingsPage() {
       value: discount.toString(),
       description: 'Discount amount in cents (e.g., 15000 for $150)',
     });
+
+    updateSettingMutation.mutate({
+      key: 'loyalty_discount_display_name',
+      value: displayName,
+      description: 'Display name for the loyalty discount shown to customers',
+    });
   };
 
   // Get current values from settings or use defaults
   const currentThreshold = settings.find(s => s.key === 'loyalty_slots_threshold')?.value || '3';
   const currentDiscount = settings.find(s => s.key === 'loyalty_discount_amount')?.value || '15000';
+  const currentDisplayName = settings.find(s => s.key === 'loyalty_discount_display_name')?.value || 'Appreciation Discount';
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation role="admin" />
+      <Navigation />
       <DemoBanner />
       
       <div className="container mx-auto px-4 py-8">
@@ -165,10 +185,25 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="loyalty-display-name">Discount Display Name</Label>
+                <Input
+                  id="loyalty-display-name"
+                  type="text"
+                  value={loyaltyDisplayName || currentDisplayName}
+                  onChange={(e) => setLoyaltyDisplayName(e.target.value)}
+                  placeholder="Appreciation Discount"
+                  data-testid="input-loyalty-display-name"
+                />
+                <p className="text-sm text-muted-foreground">
+                  The name shown to customers for this discount (e.g., "Loyalty Bonus", "Repeat Customer Reward")
+                </p>
+              </div>
+
               <div className="bg-muted p-4 rounded-lg">
                 <h4 className="font-medium mb-2">Current Configuration:</h4>
                 <p className="text-sm text-muted-foreground">
-                  Customers earn <strong>${(parseInt(currentDiscount) / 100).toFixed(2)}</strong> off 
+                  Customers earn <strong>"{currentDisplayName}"</strong> worth <strong>${(parseInt(currentDiscount) / 100).toFixed(2)}</strong> off 
                   after every <strong>{currentThreshold}</strong> regular-price slot{parseInt(currentThreshold) !== 1 ? 's' : ''} booked.
                   Discounts reset annually on January 1st.
                 </p>

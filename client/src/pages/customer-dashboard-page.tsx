@@ -74,6 +74,21 @@ export default function CustomerDashboardPage() {
     enabled: !!user,
   });
 
+  // Fetch loyalty program settings
+  interface LoyaltySettings {
+    threshold: string;
+    discountAmount: string;
+    displayName: string;
+  }
+  const { data: loyaltySettings } = useQuery<LoyaltySettings>({
+    queryKey: ['/api/loyalty-settings'],
+    enabled: !!user,
+  });
+
+  const loyaltyThreshold = parseInt(loyaltySettings?.threshold || '3');
+  const loyaltyDiscountAmount = parseInt(loyaltySettings?.discountAmount || '15000');
+  const loyaltyDisplayName = loyaltySettings?.displayName || 'Appreciation Discount';
+
   // Create lookup maps
   const routeMap = new Map(routes?.map(r => [r.id, r]) || []);
   const industryMap = new Map(industries?.map(i => [i.id, i]) || []);
@@ -404,9 +419,11 @@ export default function CustomerDashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-purple-800">
                 <CheckCircle className="h-5 w-5" />
-                Appreciation Rewards Program
+                {loyaltyDisplayName} Program
               </CardTitle>
-              <CardDescription>Earn $150 off for every 3 slots booked at regular price</CardDescription>
+              <CardDescription>
+                Earn ${(loyaltyDiscountAmount / 100).toFixed(0)} off for every {loyaltyThreshold} slot{loyaltyThreshold !== 1 ? 's' : ''} booked at regular price
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -415,20 +432,22 @@ export default function CustomerDashboardPage() {
                   <p className="text-2xl font-bold text-purple-600">{user.loyaltyDiscountsAvailable || 0}</p>
                   <p className="text-sm text-muted-foreground mt-1">Available Discounts</p>
                   <p className="text-xs text-purple-600 mt-2 font-medium">
-                    {user.loyaltyDiscountsAvailable > 0 ? `$${(user.loyaltyDiscountsAvailable * 150).toFixed(0)} off your next booking!` : 'Keep booking to earn rewards'}
+                    {user.loyaltyDiscountsAvailable > 0 
+                      ? `$${(user.loyaltyDiscountsAvailable * (loyaltyDiscountAmount / 100)).toFixed(0)} off your next booking!` 
+                      : 'Keep booking to earn rewards'}
                   </p>
                 </div>
                 
                 {/* Progress to Next Discount */}
                 <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
                   <p className="text-2xl font-bold text-blue-600">
-                    {(user.loyaltySlotsEarned || 0) % 3} / 3
+                    {(user.loyaltySlotsEarned || 0) % loyaltyThreshold} / {loyaltyThreshold}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">Slots Toward Next Discount</p>
                   <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full transition-all"
-                      style={{ width: `${(((user.loyaltySlotsEarned || 0) % 3) / 3) * 100}%` }}
+                      style={{ width: `${(((user.loyaltySlotsEarned || 0) % loyaltyThreshold) / loyaltyThreshold) * 100}%` }}
                     ></div>
                   </div>
                 </div>
@@ -438,7 +457,7 @@ export default function CustomerDashboardPage() {
                   <p className="text-2xl font-bold text-green-600">{user.loyaltySlotsEarned || 0}</p>
                   <p className="text-sm text-muted-foreground mt-1">Total Slots Booked ({new Date().getFullYear()})</p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
-                    {Math.floor((user.loyaltySlotsEarned || 0) / 3)} discount{Math.floor((user.loyaltySlotsEarned || 0) / 3) !== 1 ? 's' : ''} earned so far
+                    {Math.floor((user.loyaltySlotsEarned || 0) / loyaltyThreshold)} discount{Math.floor((user.loyaltySlotsEarned || 0) / loyaltyThreshold) !== 1 ? 's' : ''} earned so far
                   </p>
                 </div>
               </div>

@@ -27,6 +27,7 @@ export function Navigation() {
       label: "Dashboard" 
     },
     { path: "/calendar", label: "Calendar" },
+    ...(user?.role === "admin" ? [{ path: "/admin/settings", label: "Settings" }] : []),
   ];
 
   return (

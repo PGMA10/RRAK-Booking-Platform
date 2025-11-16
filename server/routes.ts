@@ -2797,6 +2797,27 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Public Loyalty Settings Route (for customer dashboard display)
+  app.get("/api/loyalty-settings", async (req, res) => {
+    try {
+      const loyaltyKeys = ['loyalty_slots_threshold', 'loyalty_discount_amount', 'loyalty_discount_display_name'];
+      const settings = await storage.getAllAdminSettings();
+      const loyaltySettings = settings.filter(s => loyaltyKeys.includes(s.key));
+      
+      // Return as object with defaults for missing keys
+      const response = {
+        threshold: loyaltySettings.find(s => s.key === 'loyalty_slots_threshold')?.value || '3',
+        discountAmount: loyaltySettings.find(s => s.key === 'loyalty_discount_amount')?.value || '15000',
+        displayName: loyaltySettings.find(s => s.key === 'loyalty_discount_display_name')?.value || 'Appreciation Discount',
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching loyalty settings:', error);
+      res.status(500).json({ message: "Failed to fetch loyalty settings" });
+    }
+  });
+
   // Admin Settings Routes
   app.get("/api/admin/settings", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {

@@ -1,5 +1,5 @@
 import { db } from "./db-sqlite";
-import { pricingRules, campaigns, bookings, users, pricingRuleApplications } from "@shared/schema";
+import { pricingRules, campaigns, bookings, users, pricingRuleApplications, adminSettings } from "@shared/schema";
 import { eq, and, or, isNull, sql } from "drizzle-orm";
 
 // Default tiered pricing: First slot $600, additional slots +$500 each
@@ -135,7 +135,21 @@ export async function calculatePricingQuote(
     user.loyaltyDiscountsAvailable > 0;
     
   if (hasValidLoyaltyDiscount) {
-    const LOYALTY_DISCOUNT_AMOUNT = 15000; // $150 in cents
+    // Fetch loyalty discount settings from admin_settings
+    const loyaltyAmountSetting = await db.query.adminSettings.findFirst({
+      where: eq(adminSettings.key, 'loyalty_discount_amount'),
+    });
+    const loyaltyDisplayNameSetting = await db.query.adminSettings.findFirst({
+      where: eq(adminSettings.key, 'loyalty_discount_display_name'),
+    });
+    const loyaltyThresholdSetting = await db.query.adminSettings.findFirst({
+      where: eq(adminSettings.key, 'loyalty_slots_threshold'),
+    });
+
+    const LOYALTY_DISCOUNT_AMOUNT = loyaltyAmountSetting ? parseInt(loyaltyAmountSetting.value) : 15000; // Default $150 in cents
+    const LOYALTY_DISPLAY_NAME = loyaltyDisplayNameSetting?.value || 'Appreciation Discount';
+    const LOYALTY_THRESHOLD = loyaltyThresholdSetting ? parseInt(loyaltyThresholdSetting.value) : 3;
+    
     const discountAmount = LOYALTY_DISCOUNT_AMOUNT;
     const finalPrice = Math.max(0, defaultPrice - discountAmount);
 
@@ -148,8 +162,8 @@ export async function calculatePricingQuote(
       },
       appliedRules: [{
         ruleId: 'loyalty-discount',
-        description: 'Appreciation Discount - Earned by booking 3+ slots at regular price',
-        displayName: 'Appreciation Discount',
+        description: `${LOYALTY_DISPLAY_NAME} - Earned by booking ${LOYALTY_THRESHOLD}+ slots at regular price`,
+        displayName: LOYALTY_DISPLAY_NAME,
         ruleType: 'discount_amount',
         value: LOYALTY_DISCOUNT_AMOUNT,
       }],
