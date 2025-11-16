@@ -35,14 +35,13 @@ async function processLoyaltyTracking(
   slotsBooked: number,
   amountPaid: number
 ): Promise<void> {
-  const LOYALTY_DISCOUNT_AMOUNT = 15000; // $150 in cents
-  const LOYALTY_SLOTS_THRESHOLD = 3; // Earn 1 discount per 3 slots
-  const DEFAULT_FIRST_SLOT_PRICE = 60000; // $600 in cents
-  const DEFAULT_ADDITIONAL_SLOT_PRICE = 50000; // $500 in cents
-  
   // Get user details
   const user = await storage.getUser(userId);
   if (!user) return;
+  
+  // Get booking details to access pricing metadata
+  const booking = await storage.getBookingById(bookingId);
+  if (!booking) return;
   
   const currentYear = new Date().getFullYear();
   
@@ -63,23 +62,31 @@ async function processLoyaltyTracking(
     }
   }
   
-  // Check if a loyalty discount was applied to this booking
-  const defaultPrice = DEFAULT_FIRST_SLOT_PRICE + ((slotsBooked - 1) * DEFAULT_ADDITIONAL_SLOT_PRICE);
-  const wasLoyaltyDiscountApplied = (amountPaid === defaultPrice - LOYALTY_DISCOUNT_AMOUNT);
+  // Check if a loyalty discount was applied to this booking (from stored metadata)
+  const wasLoyaltyDiscountApplied = booking.loyaltyDiscountApplied === true;
   
   if (wasLoyaltyDiscountApplied && currentUserData.loyaltyDiscountsAvailable > 0) {
     // Deduct the used loyalty discount
     await storage.updateUserLoyalty(userId, {
       loyaltyDiscountsAvailable: currentUserData.loyaltyDiscountsAvailable - 1,
     });
-    console.log(`🎟️ [Loyalty] Used loyalty discount for user ${userId}. Remaining: ${currentUserData.loyaltyDiscountsAvailable - 1}`);
+    console.log(`🎟️ [Loyalty] Used loyalty discount for booking ${bookingId}. Remaining: ${currentUserData.loyaltyDiscountsAvailable - 1}`);
   }
   
-  // Check if this booking was paid at regular price (not discounted)
-  // Regular price means it matches the default tiered pricing
-  const wasPaidAtRegularPrice = (amountPaid === defaultPrice);
+  // Check if this booking counts toward earning loyalty rewards (from stored metadata)
+  const countsTowardLoyalty = booking.countsTowardLoyalty === true;
   
-  if (wasPaidAtRegularPrice) {
+  if (countsTowardLoyalty) {
+    // Fetch loyalty threshold from admin settings
+    const { db } = await import("./db-sqlite");
+    const { adminSettings } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    
+    const loyaltyThresholdSetting = await db.query.adminSettings.findFirst({
+      where: eq(adminSettings.key, 'loyalty_slots_threshold'),
+    });
+    const LOYALTY_SLOTS_THRESHOLD = loyaltyThresholdSetting ? parseInt(loyaltyThresholdSetting.value) : 3;
+    
     // Add slots to loyalty counter (use currentUserData which has fresh values after potential reset)
     const newSlotsEarned = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) + slotsBooked;
     
@@ -94,11 +101,13 @@ async function processLoyaltyTracking(
       loyaltyDiscountsAvailable: newDiscountsAvailable,
     });
     
-    console.log(`⭐ [Loyalty] User ${userId} earned ${slotsBooked} slots. Total: ${newSlotsEarned}/3. Discounts available: ${newDiscountsAvailable}`);
+    console.log(`⭐ [Loyalty] User ${userId} earned ${slotsBooked} slots. Total: ${newSlotsEarned}/${LOYALTY_SLOTS_THRESHOLD}. Discounts available: ${newDiscountsAvailable}`);
     
     if (newDiscountsEarned > 0) {
       console.log(`🎉 [Loyalty] User ${userId} earned ${newDiscountsEarned} new discount(s)!`);
     }
+  } else {
+    console.log(`ℹ️ [Loyalty] Booking ${bookingId} does not count toward loyalty (user-specific discount applied)`);
   }
 }
 
@@ -932,12 +941,24 @@ export function registerRoutes(app: Express): Server {
         appliedRules: pricingQuote.appliedRules.length,
       });
 
+      // Determine if loyalty discount was applied
+      const loyaltyDiscountApplied = pricingQuote.appliedRules.some(rule => rule.ruleId === 'loyalty-discount');
+      
+      // Bookings count toward loyalty if paid at regular price (no user-specific discounts)
+      // Campaign-wide discounts still count as "regular price"
+      const countsTowardLoyalty = !loyaltyDiscountApplied && 
+                                   pricingQuote.priceSource !== 'user_fixed' && 
+                                   pricingQuote.priceSource !== 'user_discount';
+
       // Create booking with pending status until payment is confirmed
       // Note: Stripe checkout session is created separately via GET /api/bookings/:id/checkout-session
       // This allows admins to set price overrides before payment if needed
       const booking = await storage.createBooking({
         ...validatedData,
         amount: pricingQuote.totalPrice,
+        basePriceBeforeDiscounts: pricingQuote.breakdown.basePrice,
+        loyaltyDiscountApplied,
+        countsTowardLoyalty,
         status: "pending",
         paymentStatus: "pending",
       });
@@ -1127,11 +1148,16 @@ export function registerRoutes(app: Express): Server {
         // Calculate individual slot price (will be $600 for first, $450 for subsequent if 3 campaigns)
         const isFirstSlot = bookingIds.length === 0;
         const slotPrice = (selections.length === 3 && !isFirstSlot) ? 45000 : 60000; // $450 or $600 in cents
+        const basePrice = 60000; // Regular price without bulk discount is always $600
 
-        // Create booking
+        // Create booking with pricing metadata
+        // Multi-campaign bookings always count toward loyalty (bulk discount doesn't prevent it)
         const booking = await storage.createBooking({
           ...validatedData,
           amount: slotPrice,
+          basePriceBeforeDiscounts: basePrice,
+          loyaltyDiscountApplied: false, // No loyalty discount in multi-campaign bookings
+          countsTowardLoyalty: true, // Bulk discount doesn't prevent loyalty rewards
           status: "confirmed",
           paymentStatus: "pending",
         });
@@ -1285,7 +1311,7 @@ export function registerRoutes(app: Express): Server {
             console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
             
             // Process loyalty program tracking
-            const booking = await storage.getBooking(bookingId);
+            const booking = await storage.getBookingById(bookingId);
             if (booking) {
               await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
             }
@@ -1486,14 +1512,19 @@ export function registerRoutes(app: Express): Server {
       // Mock payment processing (legacy endpoint, kept for backwards compatibility)
       const paymentId = `mock_payment_${Date.now()}`;
       
+      // For legacy endpoint, assume regular price and counts toward loyalty
+      const bookingAmount = validatedData.amount || 60000;
+      
       const booking = await storage.createBooking({
         ...validatedData,
         paymentId,
+        basePriceBeforeDiscounts: bookingAmount, // Legacy: no discount tracking
+        loyaltyDiscountApplied: false,
+        countsTowardLoyalty: true, // Legacy bookings count toward loyalty
         status: "confirmed",
       });
 
       // Update campaign revenue after successful booking
-      const bookingAmount = validatedData.amount || 60000; // Default $600 in cents
       await storage.updateCampaign(validatedData.campaignId, {
         revenue: campaign.revenue + bookingAmount
       });
@@ -2334,12 +2365,16 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Create admin booking with mock user ID if not provided
+      const adminBookingAmount = validatedData.amount || 60000;
       const bookingData = {
         ...validatedData,
         userId: validatedData.userId || req.user.id,
         paymentId: `admin_booking_${Date.now()}`,
         status: "confirmed" as const,
-        amount: validatedData.amount || 60000,
+        amount: adminBookingAmount,
+        basePriceBeforeDiscounts: adminBookingAmount, // Admin bookings: no discount tracking
+        loyaltyDiscountApplied: false,
+        countsTowardLoyalty: true, // Admin bookings count toward loyalty for the user
       };
 
       const booking = await storage.createBooking(bookingData);
