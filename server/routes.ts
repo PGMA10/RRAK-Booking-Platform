@@ -409,7 +409,24 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/campaigns", async (req, res) => {
     try {
       const campaigns = await storage.getAllCampaigns();
-      res.json(campaigns);
+      
+      // Add available routes and industries for each campaign
+      const campaignsWithAvailability = await Promise.all(
+        campaigns.map(async (campaign) => {
+          const [availableRoutes, availableIndustries] = await Promise.all([
+            storage.getCampaignRoutes(campaign.id),
+            storage.getCampaignIndustries(campaign.id),
+          ]);
+          
+          return {
+            ...campaign,
+            availableRouteIds: availableRoutes.map(r => r.id),
+            availableIndustryIds: availableIndustries.map(i => i.id),
+          };
+        })
+      );
+      
+      res.json(campaignsWithAvailability);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch campaigns" });
     }

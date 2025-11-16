@@ -104,8 +104,26 @@ export default function CustomerBookingPage() {
     campaign.status === "booking_open" || campaign.status === "planning"
   );
 
-  // Filter routes that are active
-  const activeRoutes = routes.filter(route => route.status === "active");
+  // Filter routes based on campaign selection
+  const activeRoutes = routes.filter(route => {
+    if (!selectedCampaign) return false;
+    
+    // Check if route is active and available for the selected campaign
+    const isActive = route.status === "active";
+    const isAvailableForCampaign = (selectedCampaign as any).availableRouteIds?.includes(route.id);
+    
+    return isActive && isAvailableForCampaign;
+  });
+
+  // Filter industries based on campaign selection
+  const activeIndustries = industries.filter(industry => {
+    if (!selectedCampaign) return false;
+    
+    // Check if industry is available for the selected campaign
+    const isAvailableForCampaign = (selectedCampaign as any).availableIndustryIds?.includes(industry.id);
+    
+    return isAvailableForCampaign;
+  });
 
   // Check slot availability when all selections are made
   useEffect(() => {
@@ -157,6 +175,27 @@ export default function CustomerBookingPage() {
     const quantity = form.getValues("quantity");
     setSelectedQuantity(parseInt(quantity) || 1);
   }, [form.watch("quantity")]);
+
+  // Reset route and industry when campaign changes to prevent stale selections
+  useEffect(() => {
+    const currentRouteId = form.getValues("routeId");
+    const currentIndustryId = form.getValues("industryId");
+    
+    // Check if current selections are valid for the new campaign
+    const routeStillValid = activeRoutes.some(r => r.id === currentRouteId);
+    const industryStillValid = activeIndustries.some(i => i.id === currentIndustryId);
+    
+    // Clear invalid selections
+    if (currentRouteId && !routeStillValid) {
+      form.setValue("routeId", "");
+      setSelectedRoute(null);
+    }
+    if (currentIndustryId && !industryStillValid) {
+      form.setValue("industryId", "");
+      form.setValue("industryDescription", "");
+      setSelectedIndustry(null);
+    }
+  }, [selectedCampaign, activeRoutes, activeIndustries]);
 
   // Create booking and checkout session (2-step process to allow admin price override)
   const checkoutMutation = useMutation({
@@ -497,7 +536,7 @@ export default function CustomerBookingPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {industries.map((industry) => (
+                            {activeIndustries.map((industry) => (
                               <SelectItem 
                                 key={industry.id} 
                                 value={industry.id}

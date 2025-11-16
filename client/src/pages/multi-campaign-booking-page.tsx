@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +49,58 @@ export default function MultiCampaignBookingPage() {
     c.status === "booking_open" || c.status === "planning"
   );
 
-  const activeRoutes = routes.filter(r => r.status === "active");
+  // Helper function to get available routes for a specific campaign
+  const getAvailableRoutesForCampaign = (campaignId: string) => {
+    if (!campaignId) return [];
+    
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) return [];
+    
+    const availableRouteIds = (campaign as any).availableRouteIds || [];
+    return routes.filter(route => 
+      route.status === "active" && availableRouteIds.includes(route.id)
+    );
+  };
+
+  // Helper function to get available industries for multi-campaign booking (shared across all selections)
+  const getAvailableIndustries = () => {
+    // For multi-campaign booking, we need industries that are available in ALL selected campaigns (intersection)
+    // since the shared industry is applied to every campaign in the booking
+    const selectedCampaignIds = selections.map(s => s.campaignId).filter(Boolean);
+    if (selectedCampaignIds.length === 0) return [];
+    
+    // Get industry IDs for each selected campaign
+    const campaignIndustrySets = selectedCampaignIds.map(campaignId => {
+      const campaign = campaigns.find(c => c.id === campaignId);
+      const industryIds = (campaign as any).availableIndustryIds || [];
+      return new Set<string>(industryIds);
+    });
+    
+    // Find intersection: industries available in ALL campaigns
+    const firstSet = campaignIndustrySets[0];
+    if (!firstSet) return [];
+    
+    const intersection = new Set<string>();
+    firstSet.forEach(industryId => {
+      // Check if this industry exists in ALL campaign sets
+      const existsInAll = campaignIndustrySets.every(set => set.has(industryId));
+      if (existsInAll) {
+        intersection.add(industryId);
+      }
+    });
+    
+    return industries.filter(industry => intersection.has(industry.id));
+  };
+
+  const activeIndustries = getAvailableIndustries();
+
+  // Clear shared industry if it's no longer valid for the selected campaigns
+  useEffect(() => {
+    if (sharedIndustryId && !activeIndustries.some(i => i.id === sharedIndustryId)) {
+      setSharedIndustryId("");
+      setSharedIndustryDescription("");
+    }
+  }, [activeIndustries, sharedIndustryId]);
 
   const addCampaignSelection = () => {
     if (selections.length < 3) {
@@ -65,7 +116,14 @@ export default function MultiCampaignBookingPage() {
 
   const updateSelection = (index: number, field: keyof CampaignSelection, value: string) => {
     const newSelections = [...selections];
-    newSelections[index] = { ...newSelections[index], [field]: value };
+    
+    // If changing campaign, clear the route selection to prevent stale selections
+    if (field === 'campaignId') {
+      newSelections[index] = { campaignId: value, routeId: "" };
+    } else {
+      newSelections[index] = { ...newSelections[index], [field]: value };
+    }
+    
     setSelections(newSelections);
   };
 
@@ -105,8 +163,17 @@ export default function MultiCampaignBookingPage() {
       return;
     }
     
-    const selectedIndustry = industries.find(ind => ind.id === sharedIndustryId);
-    if (selectedIndustry && selectedIndustry.name.toLowerCase() === "other" && !sharedIndustryDescription?.trim()) {
+    // Ensure selected industry is available for the selected campaigns
+    const selectedIndustry = activeIndustries.find(ind => ind.id === sharedIndustryId);
+    if (!selectedIndustry) {
+      toast({
+        variant: "destructive",
+        description: "Selected industry is not available for the chosen campaigns",
+      });
+      return;
+    }
+    
+    if (selectedIndustry.name.toLowerCase() === "other" && !sharedIndustryDescription?.trim()) {
       toast({
         variant: "destructive",
         description: "Please describe your business type",
@@ -211,7 +278,7 @@ export default function MultiCampaignBookingPage() {
                   <SelectValue placeholder="Choose your industry..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {industries.map(industry => (
+                  {activeIndustries.map(industry => (
                     <SelectItem key={industry.id} value={industry.id}>
                       <div className="flex items-center gap-2">
                         <Briefcase className="h-4 w-4" />
@@ -241,7 +308,8 @@ export default function MultiCampaignBookingPage() {
         <div className="space-y-6">
           {selections.map((selection, index) => {
             const selectedCampaign = availableCampaigns.find(c => c.id === selection.campaignId);
-            const selectedRoute = activeRoutes.find(r => r.id === selection.routeId);
+            const campaignRoutes = getAvailableRoutesForCampaign(selection.campaignId);
+            const selectedRoute = campaignRoutes.find(r => r.id === selection.routeId);
 
             return (
               <Card key={index} className="border-2">
@@ -307,7 +375,7 @@ export default function MultiCampaignBookingPage() {
                         <SelectValue placeholder="Choose a route..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeRoutes.map(route => (
+                        {campaignRoutes.map(route => (
                           <SelectItem key={route.id} value={route.id}>
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4" />
