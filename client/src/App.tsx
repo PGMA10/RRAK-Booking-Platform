@@ -22,6 +22,7 @@ import CRMCustomerDetailPage from "@/pages/crm-customer-detail-page";
 import CustomerDashboardPage from "@/pages/customer-dashboard-page";
 import CustomerRegistrationPage from "@/pages/customer-registration-page";
 import CustomerBookingPage from "@/pages/customer-booking-page";
+import MultiCampaignBookingPage from "@/pages/multi-campaign-booking-page";
 import CustomerPaymentPage from "@/pages/customer-payment-page";
 import CustomerConfirmationPage from "@/pages/customer-confirmation-page";
 import NotFound from "@/pages/not-found";
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/customer/register" component={CustomerRegistrationPage} />
       <ProtectedRoute path="/customer/dashboard" component={CustomerDashboardPage} />
       <ProtectedRoute path="/customer/booking" component={CustomerBookingPage} />
+      <ProtectedRoute path="/customer/booking/multi" component={MultiCampaignBookingPage} />
       <ProtectedRoute path="/customer/payment" component={CustomerPaymentPage} />
       <ProtectedRoute path="/customer/confirmation" component={CustomerConfirmationPage} />
       <Route path="/auth" component={AuthPage} />

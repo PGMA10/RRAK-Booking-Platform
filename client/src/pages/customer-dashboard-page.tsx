@@ -31,7 +31,8 @@ import {
   AlertCircle,
   FileText,
   X,
-  Trash2
+  Trash2,
+  Tag
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
 import { useState } from "react";
@@ -315,6 +316,27 @@ export default function CustomerDashboardPage() {
                 <div className="mt-4">
                   <Button variant="ghost" size="sm" className="w-full" data-testid="button-book-campaign">
                     Book Now <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/customer/booking/multi">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-700">Bulk Discount</p>
+                    <p className="text-lg font-semibold text-purple-900 mt-1">Book 3 Campaigns</p>
+                  </div>
+                  <div className="p-3 bg-purple-600/10 rounded-lg">
+                    <Tag className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button variant="ghost" size="sm" className="w-full text-purple-700 hover:text-purple-900 hover:bg-purple-100" data-testid="button-book-multi-campaign">
+                    Save $300 <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
               </CardContent>

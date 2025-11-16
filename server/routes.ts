@@ -937,6 +937,139 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Multi-campaign bulk booking checkout endpoint
+  app.post("/api/multi-campaign-checkout", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { selections } = req.body;
+      
+      if (!selections || !Array.isArray(selections) || selections.length === 0) {
+        return res.status(400).json({ message: "At least one campaign selection is required" });
+      }
+
+      if (selections.length > 3) {
+        return res.status(400).json({ message: "Maximum 3 campaigns allowed per bulk booking" });
+      }
+
+      // Validate all selections and create bookings
+      const bookingIds: string[] = [];
+      const lineItems = [];
+
+      for (const selection of selections) {
+        // Validate selection
+        const validatedData = insertBookingSchema.parse({
+          ...selection,
+          userId: req.user.id,
+          quantity: 1, // Multi-campaign bookings are always 1 slot per campaign
+        });
+
+        // Check campaign exists and is open for booking
+        const campaign = await storage.getCampaign(validatedData.campaignId);
+        if (!campaign) {
+          return res.status(400).json({ message: `Campaign not found: ${validatedData.campaignId}` });
+        }
+
+        if (campaign.status !== "booking_open") {
+          return res.status(400).json({ 
+            message: `Campaign "${campaign.name}" is not open for bookings` 
+          });
+        }
+
+        // Check slot availability (except for "Other" industry)
+        const industry = await storage.getIndustry(validatedData.industryId);
+        if (!industry || industry.name !== "Other") {
+          const existingBooking = await storage.getBooking(
+            validatedData.campaignId,
+            validatedData.routeId,
+            validatedData.industryId
+          );
+
+          if (existingBooking) {
+            return res.status(400).json({ 
+              message: `Slot already booked for campaign "${campaign.name}"` 
+            });
+          }
+        }
+
+        // Calculate individual slot price (will be $600 for first, $450 for subsequent if 3 campaigns)
+        const isFirstSlot = bookingIds.length === 0;
+        const slotPrice = (selections.length === 3 && !isFirstSlot) ? 45000 : 60000; // $450 or $600 in cents
+
+        // Create booking
+        const booking = await storage.createBooking({
+          ...validatedData,
+          amount: slotPrice,
+          status: "confirmed",
+          paymentStatus: "pending",
+        });
+
+        bookingIds.push(booking.id);
+
+        // Prepare Stripe line item
+        const route = await storage.getRoute(validatedData.routeId);
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Direct Mail Campaign - ${campaign.name}`,
+              description: `Route: ${route?.zipCode} - ${route?.name} | Industry: ${industry?.name}`,
+            },
+            unit_amount: slotPrice,
+          },
+          quantity: 1,
+        });
+      }
+
+      // Calculate total and apply bulk discount if 3 campaigns
+      const subtotal = lineItems.reduce((sum, item) => sum + item.price_data.unit_amount, 0);
+      const bulkDiscount = selections.length === 3 ? 30000 : 0; // $300 in cents
+      const finalTotal = subtotal - bulkDiscount;
+
+      // Note: Stripe doesn't support negative line items directly
+      // For 3 campaigns bulk discount, we already priced them as $600, $450, $450 = $1500 total
+      // The discount is effectively already applied in the individual slot prices
+      // No need to add a separate discount line item since $600 + $450 + $450 = $1500 (not $1800)
+
+      // Construct base URL
+      const baseUrl = req.headers.origin?.startsWith('http') 
+        ? req.headers.origin 
+        : `https://${req.headers.host}`;
+
+      // Create Stripe Checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: lineItems,
+        mode: 'payment',
+        success_url: `${baseUrl}/customer/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/customer/booking/multi`,
+        customer_email: req.user.email,
+        metadata: {
+          bookingIds: bookingIds.join(','),
+          userId: req.user.id,
+          campaignCount: selections.length.toString(),
+          bulkDiscount: bulkDiscount > 0 ? 'true' : 'false',
+          multiCampaignBooking: 'true',
+        },
+      });
+
+      // Update all bookings with Stripe session ID
+      for (const bookingId of bookingIds) {
+        await storage.updateBooking(bookingId, {
+          stripeCheckoutSessionId: session.id,
+        });
+      }
+
+      console.log(`✅ [Multi-Campaign Checkout] Created session ${session.id} for ${bookingIds.length} bookings, total: $${(finalTotal / 100).toFixed(2)}`);
+      res.json({ sessionUrl: session.url, bookingIds });
+    } catch (error) {
+      console.error("❌ [Multi-Campaign Checkout] Error:", error);
+      res.status(500).json({ message: "Failed to create multi-campaign checkout session" });
+    }
+  });
+
   // Stripe webhook endpoint for payment events
   app.post("/api/stripe-webhook", async (req, res) => {
     console.log("🔔 [Stripe Webhook] Received webhook event");
@@ -963,28 +1096,72 @@ export function registerRoutes(app: Express): Server {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
-        const bookingId = session.metadata?.bookingId;
-        console.log("✅ [Stripe Webhook] Checkout completed for booking:", bookingId);
-        console.log("💳 [Stripe Webhook] Session ID:", session.id);
-        console.log("💰 [Stripe Webhook] Amount:", session.amount_total);
+        const isMultiCampaign = session.metadata?.multiCampaignBooking === 'true';
+        
+        if (isMultiCampaign) {
+          // Handle multi-campaign booking
+          const bookingIds = session.metadata?.bookingIds?.split(',') || [];
+          console.log("✅ [Stripe Webhook] Multi-campaign checkout completed for bookings:", bookingIds);
+          console.log("💳 [Stripe Webhook] Session ID:", session.id);
+          console.log("💰 [Stripe Webhook] Total Amount:", session.amount_total);
 
-        if (bookingId) {
-          // Update booking payment status to paid
-          await storage.updateBookingPaymentStatus(bookingId, 'paid', {
-            stripePaymentIntentId: session.payment_intent as string,
-            amountPaid: session.amount_total,
-            paidAt: new Date(),
-          });
-          
-          console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
-          
-          // Process loyalty program tracking
-          const booking = await storage.getBooking(bookingId);
-          if (booking) {
-            await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
+          if (bookingIds.length > 0) {
+            let totalSlotsBooked = 0;
+            let userId: string | null = null;
+
+            // Update all bookings
+            for (const bookingId of bookingIds) {
+              const booking = await storage.getBookingById(bookingId);
+              if (booking) {
+                await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+                  stripePaymentIntentId: session.payment_intent as string,
+                  amountPaid: booking.amount, // Each booking has its own amount
+                  paidAt: new Date(),
+                });
+                
+                totalSlotsBooked += (booking.quantity || 1);
+                userId = booking.userId;
+                
+                console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}, amount: $${(booking.amount / 100).toFixed(2)}`);
+              }
+            }
+
+            // Process loyalty tracking for all slots combined
+            // For multi-campaign bookings, treat as regular price since each slot is $600 or $450 (not discounted via user rules)
+            if (userId && totalSlotsBooked > 0) {
+              // The total amount paid is split across bookings
+              // For loyalty tracking, we need to determine if these slots were paid at regular price
+              // In a 3-campaign bulk booking: $600 + $450 + $450 - $300 discount = $1200 total, but slots are $600, $450, $450 individually
+              // Since bulk discount is applied at checkout level, individual bookings are still at regular price
+              // So we should track loyalty for each slot
+              await processLoyaltyTracking(userId, bookingIds[0], totalSlotsBooked, session.amount_total);
+            }
           }
         } else {
-          console.log("❌ [Stripe Webhook] No booking ID in metadata");
+          // Handle single booking
+          const bookingId = session.metadata?.bookingId;
+          console.log("✅ [Stripe Webhook] Checkout completed for booking:", bookingId);
+          console.log("💳 [Stripe Webhook] Session ID:", session.id);
+          console.log("💰 [Stripe Webhook] Amount:", session.amount_total);
+
+          if (bookingId) {
+            // Update booking payment status to paid
+            await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+              stripePaymentIntentId: session.payment_intent as string,
+              amountPaid: session.amount_total,
+              paidAt: new Date(),
+            });
+            
+            console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
+            
+            // Process loyalty program tracking
+            const booking = await storage.getBooking(bookingId);
+            if (booking) {
+              await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
+            }
+          } else {
+            console.log("❌ [Stripe Webhook] No booking ID in metadata");
+          }
         }
         break;
 
@@ -1031,36 +1208,81 @@ export function registerRoutes(app: Express): Server {
       console.log("📦 [Stripe Verify] Session status:", session.payment_status);
       console.log("💳 [Stripe Verify] Session metadata:", session.metadata);
 
-      const bookingId = session.metadata?.bookingId;
+      const isMultiCampaign = session.metadata?.multiCampaignBooking === 'true';
       
-      if (!bookingId) {
-        return res.status(400).json({ message: "No booking ID in session metadata" });
-      }
-
-      // Verify user owns this booking
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking || booking.userId !== req.user.id) {
-        return res.status(403).json({ message: "Not authorized to access this booking" });
-      }
-
-      // If payment was successful and booking is still pending, update it
-      if (session.payment_status === 'paid' && booking.paymentStatus === 'pending') {
-        console.log("✅ [Stripe Verify] Payment confirmed, updating booking:", bookingId);
+      if (isMultiCampaign) {
+        // Handle multi-campaign booking verification
+        const bookingIds = session.metadata?.bookingIds?.split(',') || [];
         
-        await storage.updateBookingPaymentStatus(bookingId, 'paid', {
-          stripePaymentIntentId: session.payment_intent as string,
-          amountPaid: session.amount_total,
-          paidAt: new Date(),
+        if (bookingIds.length === 0) {
+          return res.status(400).json({ message: "No booking IDs in session metadata" });
+        }
+
+        // Verify user owns these bookings
+        const bookings = await Promise.all(bookingIds.map(id => storage.getBookingById(id)));
+        const unauthorizedBooking = bookings.find(b => !b || b.userId !== req.user.id);
+        
+        if (unauthorizedBooking) {
+          return res.status(403).json({ message: "Not authorized to access these bookings" });
+        }
+
+        // Update all bookings if payment was successful
+        let updated = false;
+        if (session.payment_status === 'paid') {
+          for (const bookingId of bookingIds) {
+            const booking = await storage.getBookingById(bookingId);
+            if (booking && booking.paymentStatus === 'pending') {
+              await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+                stripePaymentIntentId: session.payment_intent as string,
+                amountPaid: booking.amount,
+                paidAt: new Date(),
+              });
+              updated = true;
+              console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+            }
+          }
+        }
+
+        res.json({ 
+          paymentStatus: session.payment_status,
+          bookingIds: bookingIds,
+          multiCampaign: true,
+          updated
         });
+      } else {
+        // Handle single booking verification
+        const bookingId = session.metadata?.bookingId;
+        
+        if (!bookingId) {
+          return res.status(400).json({ message: "No booking ID in session metadata" });
+        }
 
-        console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+        // Verify user owns this booking
+        const booking = await storage.getBookingById(bookingId);
+        if (!booking || booking.userId !== req.user.id) {
+          return res.status(403).json({ message: "Not authorized to access this booking" });
+        }
+
+        // If payment was successful and booking is still pending, update it
+        if (session.payment_status === 'paid' && booking.paymentStatus === 'pending') {
+          console.log("✅ [Stripe Verify] Payment confirmed, updating booking:", bookingId);
+          
+          await storage.updateBookingPaymentStatus(bookingId, 'paid', {
+            stripePaymentIntentId: session.payment_intent as string,
+            amountPaid: session.amount_total,
+            paidAt: new Date(),
+          });
+
+          console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+        }
+
+        res.json({ 
+          paymentStatus: session.payment_status,
+          bookingId: bookingId,
+          multiCampaign: false,
+          updated: session.payment_status === 'paid' && booking.paymentStatus === 'pending'
+        });
       }
-
-      res.json({ 
-        paymentStatus: session.payment_status,
-        bookingId: bookingId,
-        updated: session.payment_status === 'paid' && booking.paymentStatus === 'pending'
-      });
     } catch (error) {
       console.error("❌ [Stripe Verify] Error verifying session:", error);
       res.status(500).json({ message: "Failed to verify payment session" });
