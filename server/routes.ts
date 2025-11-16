@@ -1421,6 +1421,9 @@ export function registerRoutes(app: Express): Server {
               });
               updated = true;
               console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+              
+              // Process loyalty tracking for this booking
+              await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
             }
           }
         }
@@ -1456,6 +1459,9 @@ export function registerRoutes(app: Express): Server {
           });
 
           console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
+          
+          // Process loyalty tracking
+          await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
         }
 
         res.json({ 
