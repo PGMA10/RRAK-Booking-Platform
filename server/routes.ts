@@ -32,7 +32,7 @@ function parseDateAtNoonAKST(dateString: string): Date {
 async function processLoyaltyTracking(
   userId: string,
   bookingId: string,
-  slotsBooked: number,
+  _slotsBooked: number, // Not used - we track transactions, not slots
   amountPaid: number
 ): Promise<void> {
   // Get user details
@@ -85,23 +85,25 @@ async function processLoyaltyTracking(
     const loyaltyThresholdSetting = await db.query.adminSettings.findFirst({
       where: eq(adminSettings.key, 'loyalty_slots_threshold'),
     });
-    const LOYALTY_SLOTS_THRESHOLD = loyaltyThresholdSetting ? parseInt(loyaltyThresholdSetting.value) : 3;
+    const LOYALTY_THRESHOLD = loyaltyThresholdSetting ? parseInt(loyaltyThresholdSetting.value) : 3;
     
-    // Add slots to loyalty counter (use currentUserData which has fresh values after potential reset)
-    const newSlotsEarned = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) + slotsBooked;
+    // NEW LOGIC: Track purchases (transactions), not slots
+    // Each qualifying purchase counts as 1, regardless of how many slots were bought
+    const purchaseCount = 1;
+    const newPurchasesEarned = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) + purchaseCount;
     
     // Calculate how many new discounts were earned
-    const newDiscountsEarned = Math.floor(newSlotsEarned / LOYALTY_SLOTS_THRESHOLD) - 
-                                Math.floor((currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) / LOYALTY_SLOTS_THRESHOLD);
+    const newDiscountsEarned = Math.floor(newPurchasesEarned / LOYALTY_THRESHOLD) - 
+                                Math.floor((currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltySlotsEarned : 0) / LOYALTY_THRESHOLD);
     
     const newDiscountsAvailable = (currentUserData.loyaltyYearReset === currentYear ? currentUserData.loyaltyDiscountsAvailable : 0) + newDiscountsEarned;
     
     await storage.updateUserLoyalty(userId, {
-      loyaltySlotsEarned: newSlotsEarned,
+      loyaltySlotsEarned: newPurchasesEarned, // Note: field name is legacy, but now tracks purchases
       loyaltyDiscountsAvailable: newDiscountsAvailable,
     });
     
-    console.log(`⭐ [Loyalty] User ${userId} earned ${slotsBooked} slots. Total: ${newSlotsEarned}/${LOYALTY_SLOTS_THRESHOLD}. Discounts available: ${newDiscountsAvailable}`);
+    console.log(`⭐ [Loyalty] User ${userId} earned 1 purchase. Total: ${newPurchasesEarned}/${LOYALTY_THRESHOLD}. Discounts available: ${newDiscountsAvailable}`);
     
     if (newDiscountsEarned > 0) {
       console.log(`🎉 [Loyalty] User ${userId} earned ${newDiscountsEarned} new discount(s)!`);
@@ -1265,7 +1267,7 @@ export function registerRoutes(app: Express): Server {
             let totalSlotsBooked = 0;
             let userId: string | null = null;
 
-            // Update all bookings
+            // Update all bookings and process loyalty tracking per booking
             for (const bookingId of bookingIds) {
               const booking = await storage.getBookingById(bookingId);
               if (booking) {
@@ -1279,18 +1281,10 @@ export function registerRoutes(app: Express): Server {
                 userId = booking.userId;
                 
                 console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}, amount: $${(booking.amount / 100).toFixed(2)}`);
+                
+                // Process loyalty tracking for this booking (counts as 1 purchase regardless of slots)
+                await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, booking.amount);
               }
-            }
-
-            // Process loyalty tracking for all slots combined
-            // For multi-campaign bookings, treat as regular price since each slot is $600 or $450 (not discounted via user rules)
-            if (userId && totalSlotsBooked > 0) {
-              // The total amount paid is split across bookings
-              // For loyalty tracking, we need to determine if these slots were paid at regular price
-              // In a 3-campaign bulk booking: $600 + $450 + $450 - $300 discount = $1200 total, but slots are $600, $450, $450 individually
-              // Since bulk discount is applied at checkout level, individual bookings are still at regular price
-              // So we should track loyalty for each slot
-              await processLoyaltyTracking(userId, bookingIds[0], totalSlotsBooked, session.amount_total);
             }
           }
         } else {

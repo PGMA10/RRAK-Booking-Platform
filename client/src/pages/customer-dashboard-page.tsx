@@ -422,7 +422,7 @@ export default function CustomerDashboardPage() {
                 {loyaltyDisplayName} Program
               </CardTitle>
               <CardDescription>
-                Earn ${(loyaltyDiscountAmount / 100).toFixed(0)} off for every {loyaltyThreshold} slot{loyaltyThreshold !== 1 ? 's' : ''} booked at regular price
+                Earn ${(loyaltyDiscountAmount / 100).toFixed(0)} off for every {loyaltyThreshold} purchase{loyaltyThreshold !== 1 ? 's' : ''} at regular price
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -443,7 +443,7 @@ export default function CustomerDashboardPage() {
                   <p className="text-2xl font-bold text-blue-600">
                     {(user.loyaltySlotsEarned || 0) % loyaltyThreshold} / {loyaltyThreshold}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1">Slots Toward Next Discount</p>
+                  <p className="text-sm text-muted-foreground mt-1">Purchases Toward Next Discount</p>
                   <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full transition-all"
@@ -452,10 +452,10 @@ export default function CustomerDashboardPage() {
                   </div>
                 </div>
                 
-                {/* Total Slots Earned This Year */}
+                {/* Total Purchases This Year */}
                 <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
                   <p className="text-2xl font-bold text-green-600">{user.loyaltySlotsEarned || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Total Slots Booked ({new Date().getFullYear()})</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total Purchases ({new Date().getFullYear()})</p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     {Math.floor((user.loyaltySlotsEarned || 0) / loyaltyThreshold)} discount{Math.floor((user.loyaltySlotsEarned || 0) / loyaltyThreshold) !== 1 ? 's' : ''} earned so far
                   </p>
@@ -464,7 +464,7 @@ export default function CustomerDashboardPage() {
               
               <div className="mt-4 p-3 bg-purple-100 rounded-lg">
                 <p className="text-sm text-purple-800">
-                  💡 <strong>How it works:</strong> Book slots at the regular price ($600/slot), and for every 3 slots you book, you'll automatically earn a $150 discount on your next booking. Discounts stack and carry over until used!
+                  💡 <strong>How it works:</strong> Make a purchase at the regular price, and for every {loyaltyThreshold} purchase{loyaltyThreshold !== 1 ? 's' : ''} you complete, you'll automatically earn a ${(loyaltyDiscountAmount / 100).toFixed(0)} discount on your next booking. Whether you buy 1 slot or 4 in a transaction, each purchase counts as 1. Discounts stack and carry over until used!
                 </p>
               </div>
             </CardContent>
