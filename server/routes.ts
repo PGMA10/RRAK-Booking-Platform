@@ -955,7 +955,7 @@ export function registerRoutes(app: Express): Server {
       // Create booking with pending status until payment is confirmed
       // Note: Stripe checkout session is created separately via GET /api/bookings/:id/checkout-session
       // This allows admins to set price overrides before payment if needed
-      const booking = await storage.createBooking({
+      const bookingData = {
         ...validatedData,
         amount: pricingQuote.totalPrice,
         basePriceBeforeDiscounts: pricingQuote.breakdown.basePrice,
@@ -966,7 +966,18 @@ export function registerRoutes(app: Express): Server {
         contractAccepted: true, // Contract must be accepted via frontend checkbox
         contractAcceptedAt: new Date(),
         contractVersion: "v2025",
+      };
+      
+      console.log("🔍 [Debug] Creating booking with data:", {
+        userId: bookingData.userId,
+        campaignId: bookingData.campaignId,
+        routeId: bookingData.routeId,
+        industryId: bookingData.industryId,
+        contractAccepted: bookingData.contractAccepted,
+        contractVersion: bookingData.contractVersion,
       });
+      
+      const booking = await storage.createBooking(bookingData);
 
       // Record any pricing rules that were applied
       for (const rule of pricingQuote.appliedRules) {
