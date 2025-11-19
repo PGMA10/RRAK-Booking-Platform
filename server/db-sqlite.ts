@@ -373,6 +373,23 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add contract acceptance columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN contract_accepted INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN contract_accepted_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN contract_version TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add base_slot_price to campaigns table if it doesn't exist
   try {
     sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);
