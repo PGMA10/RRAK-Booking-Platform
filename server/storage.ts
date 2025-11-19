@@ -1262,6 +1262,9 @@ export class DbStorage implements IStorage {
       createdAt: (booking as any).createdAt || now,
       quantity,
     };
+    
+    console.log("🔍 [Storage Debug] Full booking data before insert:", JSON.stringify(bookingWithId, null, 2));
+    
     const result = await db.insert(bookingsTable).values(bookingWithId).returning();
     const createdBooking = result[0];
     
