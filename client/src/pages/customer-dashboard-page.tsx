@@ -512,7 +512,12 @@ export default function CustomerDashboardPage() {
             ) : bookings && bookings.length > 0 ? (
               <div className="space-y-4">
                 {bookings.filter(booking => {
+                  // Cancelled bookings should only appear in "All History", never in "Current & Upcoming"
+                  if (booking.status === 'cancelled' && !showAllHistory) return false;
+                  
                   if (showAllHistory) return true;
+                  
+                  // Current & Upcoming: show future bookings that are paid or pending payment
                   const campaign = campaignMap.get(booking.campaignId);
                   const printDeadline = campaign?.printDeadline ? new Date(campaign.printDeadline) : null;
                   const now = new Date();

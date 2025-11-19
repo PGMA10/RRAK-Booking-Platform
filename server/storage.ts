@@ -608,6 +608,7 @@ export class MemStorage implements IStorage {
       stripePaymentIntentId: paymentData.stripePaymentIntentId || booking.stripePaymentIntentId,
       amountPaid: paymentData.amountPaid || booking.amountPaid,
       paidAt: paymentData.paidAt || booking.paidAt,
+      pendingSince: paymentStatus === 'paid' ? null : booking.pendingSince, // Clear pending timer when paid
     };
     this.bookings.set(id, updatedBooking);
     
@@ -636,6 +637,12 @@ export class MemStorage implements IStorage {
     const booking = this.bookings.get(id);
     if (!booking) return undefined;
     
+    // Idempotent: if already cancelled, return existing booking without overwriting data
+    if (booking.status === 'cancelled') {
+      console.log(`⚠️  Booking ${id} is already cancelled, skipping duplicate cancellation`);
+      return booking;
+    }
+    
     const quantity = booking.quantity || 1;
     
     const updatedBooking = {
@@ -644,6 +651,11 @@ export class MemStorage implements IStorage {
       cancellationDate: new Date(),
       refundAmount: refundData.refundAmount,
       refundStatus: refundData.refundStatus,
+      // Clear file path columns to prevent orphaned references after deletion
+      artworkFilePath: null,
+      logoFilePath: null,
+      optionalImagePath: null,
+      designFilePath: null,
     };
     this.bookings.set(id, updatedBooking);
     
@@ -1196,7 +1208,12 @@ export class DbStorage implements IStorage {
       .leftJoin(routesTable, eq(bookingsTable.routeId, routesTable.id))
       .leftJoin(industriesTable, eq(bookingsTable.industryId, industriesTable.id))
       .leftJoin(campaignsTable, eq(bookingsTable.campaignId, campaignsTable.id))
-      .where(eq(bookingsTable.campaignId, campaignId));
+      .where(
+        and(
+          eq(bookingsTable.campaignId, campaignId),
+          ne(bookingsTable.status, 'cancelled') // Exclude cancelled bookings from grid
+        )
+      );
     
     return results.map(r => ({
       ...this.convertBookingTimestamps(r.booking),
@@ -1212,12 +1229,14 @@ export class DbStorage implements IStorage {
   }
 
   async getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined> {
+    // Only return bookings that actually reserve the slot (paid/approved, not pending or cancelled)
     const result = await db.select().from(bookingsTable).where(
       and(
         eq(bookingsTable.campaignId, campaignId),
         eq(bookingsTable.routeId, routeId),
         eq(bookingsTable.industryId, industryId),
-        ne(bookingsTable.status, 'cancelled')
+        ne(bookingsTable.status, 'cancelled'),
+        eq(bookingsTable.paymentStatus, 'paid') // Only count paid bookings as occupying slots
       )
     ).limit(1);
     return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
@@ -1331,7 +1350,7 @@ export class DbStorage implements IStorage {
     const booking = currentBooking[0];
     
     // Update booking with payment info
-    // Set status to "confirmed" when payment is successful
+    // Set status to "confirmed" when payment is successful and clear pending timer
     const result = await db.update(bookingsTable)
       .set({
         paymentStatus,
@@ -1339,6 +1358,7 @@ export class DbStorage implements IStorage {
         stripePaymentIntentId: paymentData.stripePaymentIntentId,
         amountPaid: paymentData.amountPaid,
         paidAt: paymentData.paidAt,
+        pendingSince: paymentStatus === 'paid' ? null : booking.pendingSince, // Clear pending timer when paid
       })
       .where(eq(bookingsTable.id, id))
       .returning();
@@ -1367,15 +1387,27 @@ export class DbStorage implements IStorage {
     if (!currentBooking || currentBooking.length === 0) return undefined;
     
     const booking = currentBooking[0];
+    
+    // Idempotent: if already cancelled, return existing booking without overwriting data
+    if (booking.status === 'cancelled') {
+      console.log(`⚠️  Booking ${id} is already cancelled, skipping duplicate cancellation`);
+      return this.convertBookingTimestamps(booking);
+    }
+    
     const quantity = booking.quantity || 1;
     
-    // Update booking with cancellation info
+    // Update booking with cancellation info and clear file path references
     const result = await db.update(bookingsTable)
       .set({
         status: 'cancelled',
         cancellationDate: new Date(),
         refundAmount: refundData.refundAmount,
         refundStatus: refundData.refundStatus,
+        // Clear file path columns to prevent orphaned references after deletion
+        artworkFilePath: null,
+        logoFilePath: null,
+        optionalImagePath: null,
+        designFilePath: null,
       })
       .where(eq(bookingsTable.id, id))
       .returning();

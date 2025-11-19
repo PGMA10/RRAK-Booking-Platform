@@ -86,6 +86,7 @@ export const bookings = sqliteTable("bookings", {
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   amountPaid: integer("amount_paid"), // in cents, actual amount paid
   paidAt: integer("paid_at", { mode: 'timestamp_ms' }),
+  pendingSince: integer("pending_since", { mode: 'timestamp_ms' }), // Tracks when booking entered "pending" status (set on creation and reset on payment retry)
   paymentId: text("payment_id"), // legacy mock payment reference
   basePriceBeforeDiscounts: integer("base_price_before_discounts"), // in cents, price before any discounts applied
   loyaltyDiscountApplied: integer("loyalty_discount_applied", { mode: 'boolean' }).default(false), // true if loyalty discount was used for this booking

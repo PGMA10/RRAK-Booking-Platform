@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabase } from "./db-sqlite";
 import { seedSQLite } from "./seed-sqlite";
+import { storage } from "./storage";
+import { startBookingExpirationService } from "./booking-expiration";
 
 const app = express();
 app.use(express.json());
@@ -42,6 +44,9 @@ app.use((req, res, next) => {
   // Initialize SQLite database
   initializeDatabase();
   await seedSQLite();
+  
+  // Start booking expiration service (auto-cancel unpaid bookings after 15 minutes)
+  startBookingExpirationService(storage);
   
   const server = await registerRoutes(app);
 

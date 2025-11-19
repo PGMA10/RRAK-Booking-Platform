@@ -179,6 +179,11 @@ export function initializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN pending_since INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
   
   // Add artwork columns to existing bookings table if they don't exist
   try {

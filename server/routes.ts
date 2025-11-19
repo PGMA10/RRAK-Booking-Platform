@@ -963,6 +963,7 @@ export function registerRoutes(app: Express): Server {
         countsTowardLoyalty,
         status: "pending",
         paymentStatus: "pending",
+        pendingSince: new Date(), // Track when booking entered pending status for expiration
         contractAccepted: true, // Contract must be accepted via frontend checkbox
         contractAcceptedAt: new Date(),
         contractVersion: "v2025",
@@ -1091,10 +1092,17 @@ export function registerRoutes(app: Express): Server {
         },
       });
 
-      // Update booking with Stripe session ID
+      // Update booking with Stripe session ID, refresh contract acceptance, and reset pending timer
+      // This ensures contract acceptance is current and gives user fresh 15 minutes for payment
       await storage.updateBooking(booking.id, {
         stripeCheckoutSessionId: session.id,
+        contractAccepted: true,
+        contractAcceptedAt: new Date(),
+        contractVersion: "v2025",
+        pendingSince: new Date(), // Reset 15-minute expiration timer when retrying payment
       });
+      
+      console.log(`📋 [Contract] Refreshed contract acceptance and reset payment timer for booking ${bookingId}`);
 
       console.log(`✅ [Checkout] Created session ${session.id} for booking ${bookingId}, amount: $${(finalAmount / 100).toFixed(2)}`);
       res.json({ sessionUrl: session.url });
@@ -1642,6 +1650,15 @@ export function registerRoutes(app: Express): Server {
         refundStatus = 'no_refund';
       }
 
+      // Capture file paths BEFORE cancellation (since cancelBooking clears them)
+      const originalStatus = booking.status;
+      const filesToDelete = [
+        booking.artworkFilePath,
+        booking.logoFilePath,
+        booking.optionalImagePath,
+        booking.designFilePath,
+      ].filter((filePath): filePath is string => !!filePath);
+
       // Cancel the booking in storage
       const cancelledBooking = await storage.cancelBooking(bookingId, {
         refundAmount,
@@ -1652,10 +1669,28 @@ export function registerRoutes(app: Express): Server {
         return res.status(500).json({ message: "Failed to cancel booking" });
       }
 
-      // Create admin notification for cancelled booking
-      await storage.createNotification('booking_cancelled', bookingId);
+      // Determine if this was a fresh cancellation by checking if original status was NOT cancelled
+      const wasFreshCancellation = originalStatus !== 'cancelled';
 
-      console.log(`✅ [Cancellation] Booking ${bookingId} cancelled successfully`);
+      // Create admin notification for cancelled booking (only if fresh cancellation)
+      if (wasFreshCancellation) {
+        await storage.createNotification('booking_cancelled', bookingId);
+        
+        // Clean up associated files only for fresh cancellations
+        for (const filePath of filesToDelete) {
+          try {
+            const fullPath = path.join(process.cwd(), filePath);
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath);
+              console.log(`🗑️  [Cleanup] Deleted file: ${filePath}`);
+            }
+          } catch (fileError) {
+            console.error(`⚠️  [Cleanup] Failed to delete file ${filePath}:`, fileError);
+          }
+        }
+      }
+
+      console.log(`✅ [Cancellation] Booking ${bookingId} ${wasFreshCancellation ? 'cancelled successfully' : 'was already cancelled'}`);
 
       res.json({
         message: "Booking cancelled successfully",
