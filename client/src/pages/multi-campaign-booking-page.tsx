@@ -6,7 +6,8 @@ import { Link, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, MapPin, Briefcase, Trash2, Plus, CreditCard, Tag, CheckCircle, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Calendar, MapPin, Briefcase, Trash2, Plus, CreditCard, Tag, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,6 +33,7 @@ export default function MultiCampaignBookingPage() {
   const [selections, setSelections] = useState<CampaignSelection[]>([
     { campaignId: "", routeId: "" }
   ]);
+  const [contractAccepted, setContractAccepted] = useState(false);
 
   const { data: campaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -154,6 +156,16 @@ export default function MultiCampaignBookingPage() {
   });
 
   const handleProceedToPayment = () => {
+    // Validation for contract acceptance
+    if (!contractAccepted) {
+      toast({
+        variant: "destructive",
+        title: "Contract Required",
+        description: "You must agree to the Marketing Contract to continue.",
+      });
+      return;
+    }
+
     // Validation for shared industry
     if (!sharedIndustryId) {
       toast({
@@ -441,9 +453,42 @@ export default function MultiCampaignBookingPage() {
                 </div>
               )}
 
+              {/* Terms & Conditions Acceptance */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="contractAcceptanceMulti"
+                    checked={contractAccepted}
+                    onCheckedChange={(checked) => setContractAccepted(checked as boolean)}
+                    data-testid="checkbox-contract-acceptance"
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor="contractAcceptanceMulti"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      I have read and agree to the Marketing Contract
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <a
+                        href="/contract"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1"
+                        data-testid="link-view-contract"
+                      >
+                        View Contract
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <Button
                 onClick={handleProceedToPayment}
-                disabled={!isFormValid || checkoutMutation.isPending}
+                disabled={!contractAccepted || !isFormValid || checkoutMutation.isPending}
                 className="w-full mt-4"
                 size="lg"
                 data-testid="button-proceed-payment"

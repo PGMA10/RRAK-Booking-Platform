@@ -118,6 +118,9 @@ export const bookings = sqliteTable("bookings", {
   cancellationDate: integer("cancellation_date", { mode: 'timestamp_ms' }),
   refundAmount: integer("refund_amount"), // in cents
   refundStatus: text("refund_status"), // 'pending', 'processed', 'no_refund', 'failed'
+  contractAccepted: integer("contract_accepted", { mode: 'boolean' }).notNull().default(false),
+  contractAcceptedAt: integer("contract_accepted_at", { mode: 'timestamp_ms' }),
+  contractVersion: text("contract_version"), // e.g., "v2025"
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 

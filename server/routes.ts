@@ -963,6 +963,9 @@ export function registerRoutes(app: Express): Server {
         countsTowardLoyalty,
         status: "pending",
         paymentStatus: "pending",
+        contractAccepted: true, // Contract must be accepted via frontend checkbox
+        contractAcceptedAt: new Date(),
+        contractVersion: "v2025",
       });
 
       // Record any pricing rules that were applied
@@ -1162,6 +1165,9 @@ export function registerRoutes(app: Express): Server {
           countsTowardLoyalty: true, // Bulk discount doesn't prevent loyalty rewards
           status: "confirmed",
           paymentStatus: "pending",
+          contractAccepted: true, // Contract must be accepted via frontend checkbox
+          contractAcceptedAt: new Date(),
+          contractVersion: "v2025",
         });
 
         bookingIds.push(booking.id);
@@ -1522,6 +1528,9 @@ export function registerRoutes(app: Express): Server {
         loyaltyDiscountApplied: false,
         countsTowardLoyalty: true, // Legacy bookings count toward loyalty
         status: "confirmed",
+        contractAccepted: true, // Contract must be accepted via frontend checkbox
+        contractAcceptedAt: new Date(),
+        contractVersion: "v2025",
       });
 
       // Update campaign revenue after successful booking

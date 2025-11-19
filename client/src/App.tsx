@@ -26,6 +26,7 @@ import CustomerBookingPage from "@/pages/customer-booking-page";
 import MultiCampaignBookingPage from "@/pages/multi-campaign-booking-page";
 import CustomerPaymentPage from "@/pages/customer-payment-page";
 import CustomerConfirmationPage from "@/pages/customer-confirmation-page";
+import MarketingContractPage from "@/pages/marketing-contract-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -51,6 +52,7 @@ function Router() {
       <ProtectedRoute path="/customer/booking/multi" component={MultiCampaignBookingPage} />
       <ProtectedRoute path="/customer/payment" component={CustomerPaymentPage} />
       <ProtectedRoute path="/customer/confirmation" component={CustomerConfirmationPage} />
+      <Route path="/contract" component={MarketingContractPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

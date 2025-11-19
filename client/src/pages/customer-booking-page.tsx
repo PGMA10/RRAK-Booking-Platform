@@ -9,7 +9,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -65,6 +66,7 @@ export default function CustomerBookingPage() {
   const [slotAvailable, setSlotAvailable] = useState<boolean | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const [contractAccepted, setContractAccepted] = useState(false);
 
   // Form handling
   const form = useForm<CustomerBookingData>({
@@ -237,6 +239,15 @@ export default function CustomerBookingPage() {
 
   // Handle proceed to payment
   const handleProceedToPayment = (data: CustomerBookingData) => {
+    if (!contractAccepted) {
+      toast({
+        variant: "destructive",
+        title: "Contract Required",
+        description: "You must agree to the Marketing Contract to continue.",
+      });
+      return;
+    }
+
     if (slotAvailable === false) {
       toast({
         variant: "destructive",
@@ -760,6 +771,41 @@ export default function CustomerBookingPage() {
                 </Card>
               )}
 
+              {/* Terms & Conditions Acceptance */}
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-6">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="contractAcceptance"
+                      checked={contractAccepted}
+                      onCheckedChange={(checked) => setContractAccepted(checked as boolean)}
+                      data-testid="checkbox-contract-acceptance"
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="contractAcceptance"
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        I have read and agree to the Marketing Contract
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <a
+                          href="/contract"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1"
+                          data-testid="link-view-contract"
+                        >
+                          View Contract
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Proceed to Payment */}
               <div className="flex justify-end space-x-4">
                 <Link href="/customer/dashboard">
@@ -769,7 +815,7 @@ export default function CustomerBookingPage() {
                 </Link>
                 <Button 
                   type="submit"
-                  disabled={!slotAvailable || checkingAvailability || isLoadingPrice}
+                  disabled={!contractAccepted || !slotAvailable || checkingAvailability || isLoadingPrice}
                   data-testid="button-proceed-payment"
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
