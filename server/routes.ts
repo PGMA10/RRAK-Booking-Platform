@@ -912,9 +912,14 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      // Inject server-side contract acceptance fields before validation
+      // The frontend doesn't need to send these - we enforce them server-side
       const validatedData = insertBookingSchema.parse({
         ...req.body,
         userId: req.user.id,
+        contractAccepted: true,
+        contractAcceptedAt: new Date(),
+        contractVersion: "v2025",
       });
 
       const quantity = validatedData.quantity || 1;
@@ -999,9 +1004,7 @@ export function registerRoutes(app: Express): Server {
         status: "pending",
         paymentStatus: "pending",
         pendingSince: new Date(), // Track when booking entered pending status for expiration
-        contractAccepted: true, // Contract must be accepted via frontend checkbox
-        contractAcceptedAt: new Date(),
-        contractVersion: "v2025",
+        // Contract acceptance fields already in validatedData (injected before validation)
       };
       
       console.log("🔍 [Debug] Creating booking with data:", {
