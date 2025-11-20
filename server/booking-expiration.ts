@@ -79,6 +79,28 @@ export function startBookingExpirationService(storage: IStorage) {
               continue;
             }
             
+            // Additional safety: Verify file paths were cleared by cancelBooking
+            // If paths are not null, it means new files were uploaded (race condition), don't delete
+            if (finalBooking.artworkFilePath || finalBooking.logoFilePath || finalBooking.optionalImagePath) {
+              console.log(`  ⏭️  Skipping file cleanup for booking ${booking.id} - new files detected after cancellation`);
+              continue;
+            }
+            
+            // Release loyalty discount if one was reserved for this booking
+            if (latestBooking.loyaltyDiscountApplied) {
+              try {
+                const user = await storage.getUser(latestBooking.userId);
+                if (user) {
+                  await storage.updateUserLoyalty(latestBooking.userId, {
+                    loyaltyDiscountsAvailable: user.loyaltyDiscountsAvailable + 1,
+                  });
+                  console.log(`  🎟️  Released reserved loyalty discount. User ${latestBooking.userId} now has ${user.loyaltyDiscountsAvailable + 1} available`);
+                }
+              } catch (err) {
+                console.error(`  ❌ Failed to release loyalty discount:`, err);
+              }
+            }
+            
             // Collect file paths from latestBooking (before they were cleared by cancelBooking)
             const filesToDelete = [
               latestBooking.artworkFilePath,

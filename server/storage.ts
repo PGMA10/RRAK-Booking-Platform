@@ -234,30 +234,39 @@ export class MemStorage implements IStorage {
         id: randomUUID(),
         name: "December 2024 Holiday Campaign",
         mailDate: new Date("2024-12-15"),
+        printDeadline: new Date("2024-12-08"),
         status: "booking_open",
         totalSlots: 64,
         bookedSlots: 12,
         revenue: 720000, // 12 slots * $600 in cents
+        baseSlotPrice: null,
+        additionalSlotPrice: null,
         createdAt: new Date(),
       },
       {
         id: randomUUID(),
         name: "January 2025 New Year Campaign",
         mailDate: new Date("2025-01-20"),
+        printDeadline: new Date("2025-01-13"),
         status: "planning",
         totalSlots: 64,
         bookedSlots: 0,
         revenue: 0,
+        baseSlotPrice: null,
+        additionalSlotPrice: null,
         createdAt: new Date(),
       },
       {
         id: randomUUID(),
         name: "October 2024 Fall Campaign",
         mailDate: new Date("2024-10-15"),
+        printDeadline: new Date("2024-10-08"),
         status: "completed",
         totalSlots: 64,
         bookedSlots: 64,
         revenue: 3840000, // 64 slots * $600 in cents
+        baseSlotPrice: null,
+        additionalSlotPrice: null,
         createdAt: new Date(),
       },
     ];
@@ -273,9 +282,16 @@ export class MemStorage implements IStorage {
       username: "admin",
       password: "ba871dfcf85682e9ddc05e969ee0ad43337ad1ec359a57a80b94bb13fc8f59853e018794036e1e9dbcd796b75f1db492c4c6fdcc84c6b333c6ef00ca80b6952d.1f78feb5b13e4ca906bc3ea6ef286c12", // Properly hashed "admin123" password
       email: "admin@routereach.com",
+      name: null,
       businessName: "Route Reach AK",
       phone: "(907) 555-0100",
       role: "admin",
+      marketingOptIn: false,
+      referredByUserId: null,
+      referralCode: null,
+      loyaltySlotsEarned: 0,
+      loyaltyDiscountsAvailable: 0,
+      loyaltyYearReset: new Date().getFullYear(),
       createdAt: new Date(),
     };
     this.users.set(adminId, admin);
@@ -287,9 +303,16 @@ export class MemStorage implements IStorage {
       username: "testcustomer",
       password: "c7d9405106394717c712a878c6eab463c796894cd0af694c58529ad81b690adf32c4c3d54a62811532811d964c6e325234cc8abfcbc06cec0591aa600d2653c9.2dab11e33b68071db53ebd0fcb3a4262", // Hashed "customer123" password
       email: "testcustomer@example.com",
+      name: null,
       businessName: "Test Business LLC",
       phone: "(907) 555-0123",
       role: "customer",
+      marketingOptIn: false,
+      referredByUserId: null,
+      referralCode: null,
+      loyaltySlotsEarned: 0,
+      loyaltyDiscountsAvailable: 0,
+      loyaltyYearReset: new Date().getFullYear(),
       createdAt: new Date(),
     };
     this.users.set(customerId, customer);
@@ -319,8 +342,15 @@ export class MemStorage implements IStorage {
       id,
       role: "customer",
       createdAt: new Date(),
+      name: insertUser.name ?? null,
       businessName: insertUser.businessName || null,
       phone: insertUser.phone || null,
+      marketingOptIn: false,
+      referredByUserId: null,
+      referralCode: null,
+      loyaltySlotsEarned: 0,
+      loyaltyDiscountsAvailable: 0,
+      loyaltyYearReset: new Date().getFullYear(),
     };
     this.users.set(id, user);
     return user;
@@ -414,6 +444,8 @@ export class MemStorage implements IStorage {
       totalSlots: insertCampaign.totalSlots || 64,
       bookedSlots: insertCampaign.bookedSlots || 0,
       revenue: insertCampaign.revenue || 0,
+      baseSlotPrice: insertCampaign.baseSlotPrice ?? null,
+      additionalSlotPrice: insertCampaign.additionalSlotPrice ?? null,
     };
     this.campaigns.set(id, campaign);
     return campaign;
@@ -530,7 +562,7 @@ export class MemStorage implements IStorage {
       id,
       createdAt: new Date(),
       status: insertBooking.status || "pending",
-      licenseNumber: insertBooking.licenseNumber || null,
+      industryDescription: insertBooking.industryDescription ?? null,
       contactPhone: insertBooking.contactPhone || null,
       paymentId: insertBooking.paymentId || null,
       amount: insertBooking.amount || 60000,

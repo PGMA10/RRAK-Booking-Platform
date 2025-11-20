@@ -15,7 +15,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-09-30.clover" as any,
 });
 
 // Helper function to parse date strings at noon AKST to avoid timezone boundary issues
@@ -26,6 +26,23 @@ function parseDateAtNoonAKST(dateString: string): Date {
   // Create a new date at noon AKST (which is 21:00 UTC, or 9 PM UTC)
   // AKST is UTC-9, so we add 9 hours to noon to get the UTC equivalent
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 21, 0, 0, 0));
+}
+
+// Helper function to release (refund) a reserved loyalty discount
+// Called when a booking with loyaltyDiscountApplied is cancelled or expires
+async function releaseLoyaltyDiscount(userId: string, bookingId: string): Promise<void> {
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) return;
+    
+    await storage.updateUserLoyalty(userId, {
+      loyaltyDiscountsAvailable: user.loyaltyDiscountsAvailable + 1,
+    });
+    
+    console.log(`🎟️ [Loyalty] Released reserved loyalty discount for booking ${bookingId}. User ${userId} now has ${user.loyaltyDiscountsAvailable + 1} available`);
+  } catch (error) {
+    console.error(`❌ [Loyalty] Failed to release discount for booking ${bookingId}:`, error);
+  }
 }
 
 // Process loyalty program tracking after a booking is paid
@@ -65,12 +82,11 @@ async function processLoyaltyTracking(
   // Check if a loyalty discount was applied to this booking (from stored metadata)
   const wasLoyaltyDiscountApplied = booking.loyaltyDiscountApplied === true;
   
-  if (wasLoyaltyDiscountApplied && currentUserData.loyaltyDiscountsAvailable > 0) {
-    // Deduct the used loyalty discount
-    await storage.updateUserLoyalty(userId, {
-      loyaltyDiscountsAvailable: currentUserData.loyaltyDiscountsAvailable - 1,
-    });
-    console.log(`🎟️ [Loyalty] Used loyalty discount for booking ${bookingId}. Remaining: ${currentUserData.loyaltyDiscountsAvailable - 1}`);
+  // NOTE: Loyalty discount is now reserved (deducted) at booking creation time,
+  // not here at payment time. This ensures atomic reservation and prevents race conditions.
+  // The deduction already happened, so we just log it for tracking purposes.
+  if (wasLoyaltyDiscountApplied) {
+    console.log(`🎟️ [Loyalty] Loyalty discount was already reserved for booking ${bookingId} at creation time`);
   }
   
   // Check if this booking counts toward earning loyalty rewards (from stored metadata)
@@ -267,8 +283,8 @@ export function registerRoutes(app: Express): Server {
       const route = await storage.createRoute(routeData);
       res.status(201).json(route);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid route data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid route data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to create route" });
     }
@@ -300,8 +316,8 @@ export function registerRoutes(app: Express): Server {
       }
       res.json(updatedRoute);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid route data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid route data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to update route" });
     }
@@ -356,8 +372,8 @@ export function registerRoutes(app: Express): Server {
       const industry = await storage.createIndustry(industryData);
       res.status(201).json(industry);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid industry data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid industry data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to create industry" });
     }
@@ -380,7 +396,7 @@ export function registerRoutes(app: Express): Server {
       if (industryData.name) {
         const allIndustries = await storage.getAllIndustries();
         const existingIndustry = allIndustries.find(i => 
-          i.name.toLowerCase() === industryData.name.toLowerCase() && i.id !== req.params.id
+          i.name.toLowerCase() === industryData.name?.toLowerCase() && i.id !== req.params.id
         );
         if (existingIndustry) {
           return res.status(400).json({ message: "Industry name already exists" });
@@ -393,8 +409,8 @@ export function registerRoutes(app: Express): Server {
       }
       res.json(updatedIndustry);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid industry data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid industry data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to update industry" });
     }
@@ -523,8 +539,8 @@ export function registerRoutes(app: Express): Server {
       res.status(201).json(campaign);
     } catch (error) {
       console.error("❌ Campaign creation error:", error);
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid campaign data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid campaign data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to create campaign", error: error instanceof Error ? error.message : String(error) });
     }
@@ -577,7 +593,7 @@ export function registerRoutes(app: Express): Server {
       }
       
       if (campaignData.status && campaignData.status !== existingCampaign.status) {
-        const validTransitions = {
+        const validTransitions: Record<string, string[]> = {
           "planning": ["booking_open"],
           "booking_open": ["booking_closed"],
           "booking_closed": ["printed"],
@@ -625,8 +641,8 @@ export function registerRoutes(app: Express): Server {
       }
       res.json(updatedCampaign);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid campaign data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid campaign data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to update campaign" });
     }
@@ -945,6 +961,25 @@ export function registerRoutes(app: Express): Server {
 
       // Determine if loyalty discount was applied
       const loyaltyDiscountApplied = pricingQuote.appliedRules.some(rule => rule.ruleId === 'loyalty-discount');
+      
+      // ATOMIC RESERVATION: If loyalty discount is being used, reserve it immediately
+      // This prevents race conditions where multiple bookings see the same discount
+      if (loyaltyDiscountApplied) {
+        const currentUser = await storage.getUser(req.user.id);
+        if (!currentUser || currentUser.loyaltyDiscountsAvailable <= 0) {
+          // Discount no longer available (race condition), reject booking
+          return res.status(400).json({ 
+            message: "Loyalty discount is no longer available. Please refresh and try again at the current price." 
+          });
+        }
+        
+        // Reserve the discount immediately by decrementing available count
+        await storage.updateUserLoyalty(req.user.id, {
+          loyaltyDiscountsAvailable: currentUser.loyaltyDiscountsAvailable - 1,
+        });
+        
+        console.log(`🎟️ [Loyalty] Reserved loyalty discount for user ${req.user.id}. Remaining: ${currentUser.loyaltyDiscountsAvailable - 1}`);
+      }
       
       // Bookings count toward loyalty if paid at regular price (no user-specific discounts)
       // Campaign-wide discounts still count as "regular price"
@@ -1302,6 +1337,12 @@ export function registerRoutes(app: Express): Server {
                   paidAt: new Date(),
                 });
                 
+                // Refresh contract acceptance timestamp for legal compliance
+                await storage.updateBooking(bookingId, {
+                  contractAcceptedAt: new Date(),
+                  pendingSince: null, // Clear pending status since payment is complete
+                });
+                
                 totalSlotsBooked += (booking.quantity || 1);
                 userId = booking.userId;
                 
@@ -1320,11 +1361,17 @@ export function registerRoutes(app: Express): Server {
           console.log("💰 [Stripe Webhook] Amount:", session.amount_total);
 
           if (bookingId) {
-            // Update booking payment status to paid
+            // Update booking payment status to paid and refresh contract acceptance
             await storage.updateBookingPaymentStatus(bookingId, 'paid', {
               stripePaymentIntentId: session.payment_intent as string,
               amountPaid: session.amount_total,
               paidAt: new Date(),
+            });
+            
+            // Refresh contract acceptance timestamp for legal compliance
+            await storage.updateBooking(bookingId, {
+              contractAcceptedAt: new Date(),
+              pendingSince: null, // Clear pending status since payment is complete
             });
             
             console.log(`✅ [Stripe Webhook] Payment successful for booking ${bookingId}`);
@@ -1442,7 +1489,7 @@ export function registerRoutes(app: Express): Server {
               console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
               
               // Process loyalty tracking for this booking
-              await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
+              await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total ?? 0);
             }
           }
         }
@@ -1473,14 +1520,14 @@ export function registerRoutes(app: Express): Server {
           
           await storage.updateBookingPaymentStatus(bookingId, 'paid', {
             stripePaymentIntentId: session.payment_intent as string,
-            amountPaid: session.amount_total,
+            amountPaid: session.amount_total ?? 0,
             paidAt: new Date(),
           });
 
           console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
           
           // Process loyalty tracking
-          await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total);
+          await processLoyaltyTracking(booking.userId, booking.id, booking.quantity || 1, session.amount_total ?? 0);
         }
 
         res.json({ 
@@ -1696,6 +1743,11 @@ export function registerRoutes(app: Express): Server {
 
       // Create admin notification for fresh cancellation
       await storage.createNotification('booking_cancelled', bookingId);
+      
+      // Release loyalty discount if one was reserved for this booking
+      if (booking.loyaltyDiscountApplied) {
+        await releaseLoyaltyDiscount(booking.userId, bookingId);
+      }
       
       // Collect file paths from the original booking (before paths were cleared)
       const filesToDelete = [
@@ -2464,8 +2516,8 @@ export function registerRoutes(app: Express): Server {
       const booking = await storage.createBooking(bookingData);
       res.status(201).json(booking);
     } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Invalid booking data", errors: error.errors });
+      if ((error as Error).name === "ZodError") {
+        return res.status(400).json({ message: "Invalid booking data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to create slot booking" });
     }
@@ -2624,8 +2676,8 @@ export function registerRoutes(app: Express): Server {
 
       // Add recent bookings (paid ones)
       const recentBookings = allBookings
-        .filter(b => b.paymentStatus === 'paid')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .filter(b => b.paymentStatus === 'paid' && b.createdAt)
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
         .slice(0, 5);
 
       for (const booking of recentBookings) {
@@ -2639,7 +2691,7 @@ export function registerRoutes(app: Express): Server {
           id: `payment-${booking.id}`,
           type: 'payment',
           message: `Payment received: $${(booking.amountPaid || booking.amount) / 100} from ${user?.businessName || user?.username || 'Unknown'}`,
-          timestamp: new Date(booking.paymentDate || booking.createdAt).toISOString(),
+          timestamp: new Date(booking.paidAt || booking.createdAt!).toISOString(),
           icon: 'dollar-sign'
         });
 
@@ -2648,15 +2700,15 @@ export function registerRoutes(app: Express): Server {
           id: `booking-${booking.id}`,
           type: 'booking',
           message: `New booking: ${industry?.name || 'Unknown Industry'} on Route ${route?.zipCode || 'Unknown'}`,
-          timestamp: new Date(booking.createdAt).toISOString(),
+          timestamp: new Date(booking.createdAt!).toISOString(),
           icon: 'calendar-check'
         });
       }
 
       // Add recent registrations (last 5 customer registrations)
       const recentCustomers = allUsers
-        .filter(u => u.role === 'customer')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .filter(u => u.role === 'customer' && u.createdAt)
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
         .slice(0, 3);
 
       for (const customer of recentCustomers) {
@@ -2664,7 +2716,7 @@ export function registerRoutes(app: Express): Server {
           id: `registration-${customer.id}`,
           type: 'registration',
           message: `${customer.businessName || customer.username} registered`,
-          timestamp: new Date(customer.createdAt).toISOString(),
+          timestamp: new Date(customer.createdAt!).toISOString(),
           icon: 'user-plus'
         });
       }
