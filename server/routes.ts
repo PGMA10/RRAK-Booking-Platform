@@ -1650,47 +1650,76 @@ export function registerRoutes(app: Express): Server {
         refundStatus = 'no_refund';
       }
 
-      // Capture file paths BEFORE cancellation (since cancelBooking clears them)
-      const originalStatus = booking.status;
-      const filesToDelete = [
-        booking.artworkFilePath,
-        booking.logoFilePath,
-        booking.optionalImagePath,
-        booking.designFilePath,
-      ].filter((filePath): filePath is string => !!filePath);
-
       // Cancel the booking in storage
-      const cancelledBooking = await storage.cancelBooking(bookingId, {
+      const cancelResult = await storage.cancelBooking(bookingId, {
         refundAmount,
         refundStatus,
       });
 
-      if (!cancelledBooking) {
+      if (!cancelResult) {
         return res.status(500).json({ message: "Failed to cancel booking" });
       }
 
-      // Determine if this was a fresh cancellation by checking if original status was NOT cancelled
-      const wasFreshCancellation = originalStatus !== 'cancelled';
+      const { booking: cancelledBooking, cancelledNow } = cancelResult;
 
-      // Create admin notification for cancelled booking (only if fresh cancellation)
-      if (wasFreshCancellation) {
-        await storage.createNotification('booking_cancelled', bookingId);
-        
-        // Clean up associated files only for fresh cancellations
-        for (const filePath of filesToDelete) {
-          try {
-            const fullPath = path.join(process.cwd(), filePath);
-            if (fs.existsSync(fullPath)) {
-              fs.unlinkSync(fullPath);
-              console.log(`🗑️  [Cleanup] Deleted file: ${filePath}`);
-            }
-          } catch (fileError) {
-            console.error(`⚠️  [Cleanup] Failed to delete file ${filePath}:`, fileError);
+      // If booking was already cancelled, just return success
+      if (!cancelledNow) {
+        console.log(`ℹ️  [Cancellation] Booking ${bookingId} was already cancelled`);
+        return res.json({
+          message: "Booking was already cancelled",
+          booking: cancelledBooking,
+          refund: {
+            eligible: false,
+            amount: cancelledBooking.refundAmount || 0,
+            status: cancelledBooking.refundStatus || 'no_refund',
+            message: 'Booking was previously cancelled'
           }
-        }
+        });
       }
 
-      console.log(`✅ [Cancellation] Booking ${bookingId} ${wasFreshCancellation ? 'cancelled successfully' : 'was already cancelled'}`);
+      // Fresh cancellation - re-fetch to get latest state and verify
+      const freshBooking = await storage.getBookingById(bookingId);
+      
+      if (!freshBooking || freshBooking.status !== 'cancelled' || freshBooking.paymentStatus === 'paid') {
+        console.log(`⚠️  [Cancellation] Booking state changed after cancellation, skipping file cleanup`);
+        return res.json({
+          message: "Booking cancelled but state changed",
+          booking: cancelledBooking,
+          refund: {
+            eligible: isEligibleForRefund,
+            amount: refundAmount,
+            status: refundStatus,
+            message: 'State changed after cancellation'
+          }
+        });
+      }
+
+      // Create admin notification for fresh cancellation
+      await storage.createNotification('booking_cancelled', bookingId);
+      
+      // Collect file paths from the original booking (before paths were cleared)
+      const filesToDelete = [
+        booking.artworkFilePath,
+        booking.logoFilePath,
+        booking.optionalImagePath,
+      ].filter((filePath): filePath is string => !!filePath);
+
+      // Clean up files safely
+      const deletionPromises = filesToDelete.map(async (filePath) => {
+        try {
+          const fullPath = path.join(process.cwd(), filePath);
+          if (fs.existsSync(fullPath)) {
+            await fs.promises.unlink(fullPath);
+            console.log(`🗑️  [Cleanup] Deleted file: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error(`⚠️  [Cleanup] Failed to delete file ${filePath}:`, fileError);
+        }
+      });
+      
+      await Promise.allSettled(deletionPromises);
+
+      console.log(`✅ [Cancellation] Booking ${bookingId} cancelled successfully`);
 
       res.json({
         message: "Booking cancelled successfully",

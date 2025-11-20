@@ -84,7 +84,7 @@ export interface IStorage {
   cancelBooking(id: string, refundData: {
     refundAmount: number;
     refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
-  }): Promise<Booking | undefined>;
+  }): Promise<{ booking: Booking; cancelledNow: boolean } | undefined>;
   approveBooking(id: string): Promise<Booking | undefined>;
   rejectBooking(id: string, rejectionNote: string): Promise<Booking | undefined>;
   deleteBooking(id: string): Promise<boolean>;
@@ -633,14 +633,14 @@ export class MemStorage implements IStorage {
       refundAmount: number;
       refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
     }
-  ): Promise<Booking | undefined> {
+  ): Promise<{ booking: Booking; cancelledNow: boolean } | undefined> {
     const booking = this.bookings.get(id);
     if (!booking) return undefined;
     
     // Idempotent: if already cancelled, return existing booking without overwriting data
     if (booking.status === 'cancelled') {
       console.log(`⚠️  Booking ${id} is already cancelled, skipping duplicate cancellation`);
-      return booking;
+      return { booking, cancelledNow: false };
     }
     
     const quantity = booking.quantity || 1;
@@ -655,7 +655,6 @@ export class MemStorage implements IStorage {
       artworkFilePath: null,
       logoFilePath: null,
       optionalImagePath: null,
-      designFilePath: null,
     };
     this.bookings.set(id, updatedBooking);
     
@@ -670,7 +669,7 @@ export class MemStorage implements IStorage {
       this.campaigns.set(campaign.id, updatedCampaign);
     }
     
-    return updatedBooking;
+    return { booking: updatedBooking, cancelledNow: true };
   }
 
   async approveBooking(id: string): Promise<Booking | undefined> {
@@ -1381,7 +1380,7 @@ export class DbStorage implements IStorage {
       refundAmount: number;
       refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
     }
-  ): Promise<Booking | undefined> {
+  ): Promise<{ booking: Booking; cancelledNow: boolean } | undefined> {
     // Get the current booking to access campaign and amount info
     const currentBooking = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
     if (!currentBooking || currentBooking.length === 0) return undefined;
@@ -1391,7 +1390,10 @@ export class DbStorage implements IStorage {
     // Idempotent: if already cancelled, return existing booking without overwriting data
     if (booking.status === 'cancelled') {
       console.log(`⚠️  Booking ${id} is already cancelled, skipping duplicate cancellation`);
-      return this.convertBookingTimestamps(booking);
+      return { 
+        booking: this.convertBookingTimestamps(booking), 
+        cancelledNow: false 
+      };
     }
     
     const quantity = booking.quantity || 1;
@@ -1407,7 +1409,6 @@ export class DbStorage implements IStorage {
         artworkFilePath: null,
         logoFilePath: null,
         optionalImagePath: null,
-        designFilePath: null,
       })
       .where(eq(bookingsTable.id, id))
       .returning();
@@ -1420,7 +1421,12 @@ export class DbStorage implements IStorage {
       })
       .where(eq(campaignsTable.id, booking.campaignId));
     
-    return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
+    if (!result[0]) return undefined;
+    
+    return { 
+      booking: this.convertBookingTimestamps(result[0]), 
+      cancelledNow: true 
+    };
   }
 
   async approveBooking(id: string): Promise<Booking | undefined> {
