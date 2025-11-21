@@ -911,6 +911,8 @@ export function registerRoutes(app: Express): Server {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    let loyaltyDiscountApplied = false; // Track for rollback in catch block
+
     try {
       // Inject server-side contract acceptance fields before validation
       // The frontend doesn't need to send these - we enforce them server-side
@@ -965,7 +967,7 @@ export function registerRoutes(app: Express): Server {
       });
 
       // Determine if loyalty discount was applied
-      const loyaltyDiscountApplied = pricingQuote.appliedRules.some(rule => rule.ruleId === 'loyalty-discount');
+      loyaltyDiscountApplied = pricingQuote.appliedRules.some(rule => rule.ruleId === 'loyalty-discount');
       
       // ATOMIC RESERVATION: If loyalty discount is being used, reserve it immediately
       // This prevents race conditions where multiple bookings see the same discount
@@ -1035,6 +1037,22 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error) {
       console.error("Booking creation error:", error);
+      
+      // ROLLBACK: If we reserved a loyalty discount but booking creation failed, release it back
+      if (loyaltyDiscountApplied) {
+        try {
+          const currentUser = await storage.getUser(req.user.id);
+          if (currentUser) {
+            await storage.updateUserLoyalty(req.user.id, {
+              loyaltyDiscountsAvailable: currentUser.loyaltyDiscountsAvailable + 1,
+            });
+            console.log(`🔄 [Loyalty Rollback] Released loyalty discount back to user ${req.user.id}. Available: ${currentUser.loyaltyDiscountsAvailable + 1}`);
+          }
+        } catch (rollbackError) {
+          console.error("❌ [Loyalty Rollback] Failed to release discount:", rollbackError);
+        }
+      }
+      
       res.status(400).json({ message: "Failed to create booking" });
     }
   });
