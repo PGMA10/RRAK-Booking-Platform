@@ -833,6 +833,11 @@ export default function CustomerDashboardPage() {
                       const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                       const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
                       
+                      // Calculate partial refund (minus Stripe processing fees)
+                      const originalAmount = booking.amountPaid || booking.amount;
+                      const stripeFee = Math.round(originalAmount * 0.029) + 30; // 2.9% + $0.30
+                      const netRefund = Math.max(0, originalAmount - stripeFee);
+                      
                       return (
                         <div className="space-y-3">
                           <p>
@@ -842,9 +847,39 @@ export default function CustomerDashboardPage() {
                             This action cannot be undone. The slot will be released and made available to other businesses.
                           </p>
                           {isEligibleForRefund ? (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
-                              ✓ Full refund of ${((booking.amountPaid || booking.amount) / 100).toFixed(2)} will be processed automatically
-                            </div>
+                            netRefund > 0 ? (
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 space-y-3">
+                                <div className="font-semibold text-base">
+                                  ✓ Refund of ${(netRefund / 100).toFixed(2)} will be processed
+                                </div>
+                                <div className="text-sm space-y-1.5">
+                                  <div className="text-green-700 mb-2">
+                                    Stripe deducts a 2.9% + $0.30 processing fee from all refunds:
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Original payment:</span>
+                                    <span className="font-medium">${(originalAmount / 100).toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Processing fee:</span>
+                                    <span className="font-medium">-${(stripeFee / 100).toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between pt-1.5 border-t border-green-300">
+                                    <span className="font-semibold">You'll receive:</span>
+                                    <span className="font-semibold">${(netRefund / 100).toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 space-y-2">
+                                <div className="font-semibold">
+                                  ⚠ No refund available
+                                </div>
+                                <div className="text-sm">
+                                  Your payment of ${(originalAmount / 100).toFixed(2)} would be fully consumed by the Stripe processing fee (${(stripeFee / 100).toFixed(2)}). While you meet the 7-day cancellation policy, there's no refund remaining after fees.
+                                </div>
+                              </div>
+                            )
                           ) : (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
                               ⚠ No refund - within 7 days of print deadline
