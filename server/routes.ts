@@ -2618,13 +2618,15 @@ export function registerRoutes(app: Express): Server {
 
       // If we have a current campaign, get its specific stats
       if (currentCampaign) {
-        // Get bookings for this specific campaign (exclude canceled)
+        // Get bookings for this specific campaign (exclude cancelled bookings)
         const campaignBookings = allBookings.filter(b => 
-          b.campaignId === currentCampaign.id && b.status !== 'canceled'
+          b.campaignId === currentCampaign.id && 
+          b.status !== 'cancelled' && 
+          b.paymentStatus === 'paid'  // Only count paid bookings
         );
         
-        // Count slots booked (from actual bookings, not campaign counter)
-        const slotsBooked = campaignBookings.length;
+        // Count slots booked (sum quantity from paid bookings, not campaign counter)
+        const slotsBooked = campaignBookings.reduce((sum, b) => sum + (b.quantity || 1), 0);
         
         // Revenue from paid bookings in this campaign
         const campaignRevenue = campaignBookings
