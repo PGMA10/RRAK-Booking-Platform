@@ -1675,21 +1675,40 @@ export function registerRoutes(app: Express): Server {
       const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
       let refundAmount = 0;
       let refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed' = 'no_refund';
+      let stripeFee = 0;
+      let originalAmount = 0;
 
-      // Process Stripe refund if eligible
+      // Process Stripe refund if eligible (minus processing fee)
       if (isEligibleForRefund && booking.stripePaymentIntentId) {
         try {
-          console.log(`💰 [Cancellation] Processing Stripe refund for payment intent: ${booking.stripePaymentIntentId}`);
+          originalAmount = booking.amountPaid || booking.amount;
+          
+          // Calculate Stripe processing fee: 2.9% + $0.30
+          // Stripe refunds the 2.9% but keeps the $0.30 flat fee
+          const percentageFee = Math.round(originalAmount * 0.029); // 2.9% in cents
+          const flatFee = 30; // $0.30 in cents
+          stripeFee = percentageFee + flatFee;
+          
+          // Calculate net refund amount (original amount - processing fee)
+          const netRefundAmount = originalAmount - stripeFee;
+          
+          console.log(`💰 [Cancellation] Processing partial refund:`, {
+            originalAmount,
+            stripeFee,
+            netRefundAmount,
+            paymentIntent: booking.stripePaymentIntentId
+          });
           
           const refund = await stripe.refunds.create({
             payment_intent: booking.stripePaymentIntentId,
+            amount: netRefundAmount, // Issue partial refund
             reason: 'requested_by_customer',
           });
 
           refundAmount = refund.amount;
           refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
           
-          console.log(`✅ [Cancellation] Refund ${refund.status}: ${refundAmount} cents`);
+          console.log(`✅ [Cancellation] Refund ${refund.status}: $${(refundAmount / 100).toFixed(2)} (Original: $${(originalAmount / 100).toFixed(2)}, Fee: $${(stripeFee / 100).toFixed(2)})`);
         } catch (stripeError: any) {
           console.error("❌ [Cancellation] Stripe refund error:", stripeError.message);
           refundStatus = 'failed';
@@ -1738,6 +1757,8 @@ export function registerRoutes(app: Express): Server {
           refund: {
             eligible: isEligibleForRefund,
             amount: refundAmount,
+            originalAmount: originalAmount,
+            stripeFee: stripeFee,
             status: refundStatus,
             message: 'State changed after cancellation'
           }
@@ -1782,11 +1803,16 @@ export function registerRoutes(app: Express): Server {
         refund: {
           eligible: isEligibleForRefund,
           amount: refundAmount,
+          originalAmount: originalAmount,
+          stripeFee: stripeFee,
           status: refundStatus,
-          message: refundStatus === 'processed' ? `Refund of $${(refundAmount / 100).toFixed(2)} processing` :
-                   refundStatus === 'pending' ? `Refund of $${(refundAmount / 100).toFixed(2)} pending` :
-                   refundStatus === 'no_refund' ? 'No refund - within 7 days of print deadline' :
-                   'Refund failed - please contact support'
+          message: refundStatus === 'processed' ? 
+            `Refund of $${(refundAmount / 100).toFixed(2)} processing (Original: $${(originalAmount / 100).toFixed(2)}, Processing Fee: $${(stripeFee / 100).toFixed(2)})` :
+          refundStatus === 'pending' ? 
+            `Refund of $${(refundAmount / 100).toFixed(2)} pending (Original: $${(originalAmount / 100).toFixed(2)}, Processing Fee: $${(stripeFee / 100).toFixed(2)})` :
+          refundStatus === 'no_refund' ? 
+            'No refund - within 7 days of print deadline' :
+            'Refund failed - please contact support'
         }
       });
     } catch (error) {
