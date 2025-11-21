@@ -1684,31 +1684,40 @@ export function registerRoutes(app: Express): Server {
           originalAmount = booking.amountPaid || booking.amount;
           
           // Calculate Stripe processing fee: 2.9% + $0.30
-          // Stripe refunds the 2.9% but keeps the $0.30 flat fee
           const percentageFee = Math.round(originalAmount * 0.029); // 2.9% in cents
           const flatFee = 30; // $0.30 in cents
           stripeFee = percentageFee + flatFee;
           
           // Calculate net refund amount (original amount - processing fee)
-          const netRefundAmount = originalAmount - stripeFee;
+          // Guard against negative refunds for fully-discounted/zero-value bookings
+          const netRefundAmount = Math.max(0, originalAmount - stripeFee);
           
-          console.log(`💰 [Cancellation] Processing partial refund:`, {
+          console.log(`💰 [Cancellation] Refund calculation:`, {
             originalAmount,
             stripeFee,
             netRefundAmount,
             paymentIntent: booking.stripePaymentIntentId
           });
           
-          const refund = await stripe.refunds.create({
-            payment_intent: booking.stripePaymentIntentId,
-            amount: netRefundAmount, // Issue partial refund
-            reason: 'requested_by_customer',
-          });
+          // Only process refund if there's a positive amount to refund after fees
+          if (netRefundAmount > 0) {
+            const refund = await stripe.refunds.create({
+              payment_intent: booking.stripePaymentIntentId,
+              amount: netRefundAmount, // Issue partial refund
+              reason: 'requested_by_customer',
+            });
 
-          refundAmount = refund.amount;
-          refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
-          
-          console.log(`✅ [Cancellation] Refund ${refund.status}: $${(refundAmount / 100).toFixed(2)} (Original: $${(originalAmount / 100).toFixed(2)}, Fee: $${(stripeFee / 100).toFixed(2)})`);
+            refundAmount = refund.amount;
+            refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
+            console.log(`✅ [Cancellation] Refund ${refundStatus}: $${(refundAmount / 100).toFixed(2)} (Original: $${(originalAmount / 100).toFixed(2)}, Fee: $${(stripeFee / 100).toFixed(2)})`);
+          } else {
+            // Amount is too small to issue a refund after fees
+            // Keep the breakdown for transparency even though no money is returned
+            console.log(`⚠️  [Cancellation] No refund available - processing fees consume entire payment ($${(originalAmount / 100).toFixed(2)} payment - $${(stripeFee / 100).toFixed(2)} fee = $0)`);
+            refundAmount = 0;
+            refundStatus = 'no_refund';
+            // Keep originalAmount and stripeFee for transparency
+          }
         } catch (stripeError: any) {
           console.error("❌ [Cancellation] Stripe refund error:", stripeError.message);
           refundStatus = 'failed';
@@ -1739,7 +1748,9 @@ export function registerRoutes(app: Express): Server {
           booking: cancelledBooking,
           refund: {
             eligible: false,
-            amount: cancelledBooking.refundAmount || 0,
+            netRefund: cancelledBooking.refundAmount || 0,
+            originalAmount: 0,
+            processingFee: 0,
             status: cancelledBooking.refundStatus || 'no_refund',
             message: 'Booking was previously cancelled'
           }
@@ -1756,9 +1767,9 @@ export function registerRoutes(app: Express): Server {
           booking: cancelledBooking,
           refund: {
             eligible: isEligibleForRefund,
-            amount: refundAmount,
+            netRefund: refundAmount,
             originalAmount: originalAmount,
-            stripeFee: stripeFee,
+            processingFee: stripeFee,
             status: refundStatus,
             message: 'State changed after cancellation'
           }
@@ -1802,9 +1813,9 @@ export function registerRoutes(app: Express): Server {
         booking: cancelledBooking,
         refund: {
           eligible: isEligibleForRefund,
-          amount: refundAmount,
+          netRefund: refundAmount,
           originalAmount: originalAmount,
-          stripeFee: stripeFee,
+          processingFee: stripeFee,
           status: refundStatus,
           message: refundStatus === 'processed' ? 
             `Refund of $${(refundAmount / 100).toFixed(2)} processing (Original: $${(originalAmount / 100).toFixed(2)}, Processing Fee: $${(stripeFee / 100).toFixed(2)})` :
