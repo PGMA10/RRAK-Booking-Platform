@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features & Implementations
 - **Artwork Upload System**: Multer-based file upload (PNG, JPG, PDF, max 10MB) to `uploads/artwork` directory. Workflow: `pending_upload` → `under_review` → `approved`/`rejected`.
-- **Customer Self-Service Cancellation**: Customer-initiated booking cancellation with automatic Stripe refund processing based on a 7-day policy relative to the print deadline.
+- **Customer Self-Service Cancellation**: Customer-initiated booking cancellation with automatic Stripe refund processing based on a 7-day policy relative to the print deadline. Refunds automatically deduct Stripe processing fees (2.9% + $0.30) from the refund amount. API responses include full breakdown: original payment amount, processing fee deducted, and net refund issued.
 - **Admin Notification Center**: Centralized notifications for new bookings, pending artwork review, canceled bookings, design brief submissions, and design revision requests, with a 30-second polling for updates and per-admin dismissal. Includes Action Items widget on admin dashboard and Quick Actions button for "Review Ad Materials" with notification badge counts.
 - **Admin Dashboard Current Campaign Focus**: Displays current month's campaign metrics (slots booked, print/mail deadline countdowns, revenue) with auto-refresh.
 - **Admin Dashboard Real-Data Integration**: Dashboard uses live API endpoints (`/api/admin/dashboard-stats`, `/api/admin/recent-activity`, `/api/admin/business-metrics`) to display real-time data including current campaign statistics, recent booking activity, and business metrics. Features TanStack Query with auto-refresh intervals and loading states.
