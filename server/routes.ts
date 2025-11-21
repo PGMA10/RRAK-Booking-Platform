@@ -1798,8 +1798,14 @@ export function registerRoutes(app: Express): Server {
       await storage.createNotification('booking_cancelled', bookingId);
       
       // Release loyalty discount if one was reserved for this booking
-      if (booking.loyaltyDiscountApplied) {
+      // Drizzle converts INTEGER (0/1) to boolean, but field can be null
+      console.log(`🔍 [Loyalty] Checking for discount release: loyaltyDiscountApplied=${booking.loyaltyDiscountApplied} (type: ${typeof booking.loyaltyDiscountApplied})`);
+      
+      if (booking.loyaltyDiscountApplied === true) {
+        console.log(`🎟️ [Loyalty] Releasing discount for booking ${bookingId}...`);
         await releaseLoyaltyDiscount(booking.userId, bookingId);
+      } else {
+        console.log(`ℹ️  [Loyalty] No discount to release for booking ${bookingId}`);
       }
       
       // Collect file paths from the original booking (before paths were cleared)

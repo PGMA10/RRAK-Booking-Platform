@@ -87,7 +87,10 @@ export function startBookingExpirationService(storage: IStorage) {
             }
             
             // Release loyalty discount if one was reserved for this booking
-            if (latestBooking.loyaltyDiscountApplied) {
+            // Drizzle converts INTEGER (0/1) to boolean, but field can be null
+            console.log(`  🔍 [Expiration] Checking discount: loyaltyDiscountApplied=${latestBooking.loyaltyDiscountApplied} (type: ${typeof latestBooking.loyaltyDiscountApplied})`);
+            
+            if (latestBooking.loyaltyDiscountApplied === true) {
               try {
                 const user = await storage.getUser(latestBooking.userId);
                 if (user) {
