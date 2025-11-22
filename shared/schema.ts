@@ -38,6 +38,16 @@ export const industries = sqliteTable("industries", {
   icon: text("icon").notNull(),
 });
 
+export const industrySubcategories = sqliteTable("industry_subcategories", {
+  id: text("id").primaryKey(),
+  industryId: text("industry_id").notNull().references(() => industries.id),
+  name: text("name").notNull(), // e.g., "Electrical", "Carpentry"
+  description: text("description"),
+  status: text("status").notNull().default("active"), // 'active' or 'inactive'
+  sortOrder: integer("sort_order").notNull().default(0), // for display ordering
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
 export const campaigns = sqliteTable("campaigns", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -72,6 +82,8 @@ export const bookings = sqliteTable("bookings", {
   campaignId: text("campaign_id").notNull().references(() => campaigns.id),
   routeId: text("route_id").notNull().references(() => routes.id),
   industryId: text("industry_id").notNull().references(() => industries.id),
+  industrySubcategoryId: text("industry_subcategory_id").references(() => industrySubcategories.id), // Nullable for backward compatibility and "Other" industry
+  industrySubcategoryLabel: text("industry_subcategory_label"), // Denormalized subcategory name for display
   industryDescription: text("industry_description"), // Required when industryId is "Other"
   businessName: text("business_name").notNull(),
   contactEmail: text("contact_email").notNull(),
@@ -231,6 +243,11 @@ export const insertIndustrySchema = createInsertSchema(industries).omit({
   id: true,
 });
 
+export const insertIndustrySubcategorySchema = createInsertSchema(industrySubcategories).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   id: true,
   createdAt: true,
@@ -305,6 +322,8 @@ export type Route = typeof routes.$inferSelect;
 export type InsertRoute = z.infer<typeof insertRouteSchema>;
 export type Industry = typeof industries.$inferSelect;
 export type InsertIndustry = z.infer<typeof insertIndustrySchema>;
+export type IndustrySubcategory = typeof industrySubcategories.$inferSelect;
+export type InsertIndustrySubcategory = z.infer<typeof insertIndustrySubcategorySchema>;
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Booking = typeof bookings.$inferSelect;

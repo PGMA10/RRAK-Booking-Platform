@@ -86,6 +86,39 @@ export function initializeDatabase() {
     )
   `);
 
+  // Create industry_subcategories table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS industry_subcategories (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      industry_id TEXT NOT NULL REFERENCES industries(id),
+      name TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create unique index on industry_subcategories to prevent duplicate names within an industry
+  try {
+    sqlite.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_industry_subcategory_unique 
+      ON industry_subcategories(industry_id, LOWER(name))
+    `);
+  } catch (e) {
+    // Index already exists, ignore
+  }
+
+  // Create index on industry_subcategories for efficient lookups by industry
+  try {
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_industry_subcategory_lookup 
+      ON industry_subcategories(industry_id, sort_order)
+    `);
+  } catch (e) {
+    // Index already exists, ignore
+  }
+
   // Create campaigns table
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS campaigns (
@@ -282,6 +315,18 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add industry subcategory columns to existing bookings table if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN industry_subcategory_id TEXT REFERENCES industry_subcategories(id)`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN industry_subcategory_label TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add pricing metadata columns to existing bookings table if they don't exist
   try {
     sqlite.exec(`ALTER TABLE bookings ADD COLUMN base_price_before_discounts INTEGER`);
@@ -400,6 +445,19 @@ export function initializeDatabase() {
     sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);
   } catch (e) {
     // Column already exists, ignore
+  }
+
+  // Create composite unique index on bookings for subcategory-level uniqueness
+  // This enforces that only one booking can exist per campaign/route/subcategory combination
+  // Note: SQLite treats NULL values as distinct in unique indexes, so multiple NULL subcategories are allowed
+  try {
+    sqlite.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_subcategory_unique 
+      ON bookings(campaign_id, route_id, industry_subcategory_id)
+      WHERE industry_subcategory_id IS NOT NULL AND status != 'cancelled' AND payment_status != 'failed'
+    `);
+  } catch (e) {
+    // Index already exists, ignore
   }
 
   // Create admin_notifications table
