@@ -360,7 +360,7 @@ export default function SlotGridPage() {
                                 <Button
                                   key={`${slot.routeId}-${slot.industryId}`}
                                   variant="outline"
-                                  className={`h-16 p-2 text-xs font-medium cursor-pointer transition-colors ${getSlotStatusColor(slot.status)}`}
+                                  className={`h-auto min-h-16 p-2 text-xs font-medium cursor-pointer transition-colors ${getSlotStatusColor(slot.status)}`}
                                   onClick={() => handleSlotClick(slot)}
                                   data-testid={`slot-${slot.route.zipCode}-${slot.industry.name.replace(/\s+/g, '-').toLowerCase()}`}
                                 >
@@ -372,9 +372,14 @@ export default function SlotGridPage() {
                                       </>
                                     ) : (
                                       <>
-                                        <div className="font-bold truncate">
+                                        <div className="font-bold truncate mb-1">
                                           {slot.booking?.businessName || 'Booked'}
                                         </div>
+                                        {slot.booking?.industrySubcategoryLabel && (
+                                          <div className="text-[10px] mb-1 px-1 py-0.5 bg-background/50 rounded border border-current/20">
+                                            {slot.industry.name} → {slot.booking.industrySubcategoryLabel}
+                                          </div>
+                                        )}
                                         <div className="text-xs opacity-75 capitalize">
                                           {slot.status}
                                         </div>
@@ -498,6 +503,9 @@ export default function SlotGridPage() {
               <DialogTitle>Slot Details</DialogTitle>
               <DialogDescription>
                 {selectedSlot?.route.name} ({selectedSlot?.route.zipCode}) - {selectedSlot?.industry.name}
+                {selectedSlot?.booking?.industrySubcategoryLabel && (
+                  <span className="ml-1">→ {selectedSlot.booking.industrySubcategoryLabel}</span>
+                )}
               </DialogDescription>
             </DialogHeader>
             {selectedSlot?.booking && (
@@ -515,6 +523,14 @@ export default function SlotGridPage() {
                       {selectedSlot.booking.status}
                     </Badge>
                   </div>
+                  {selectedSlot.booking.industrySubcategoryLabel && (
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium text-muted-foreground">Industry Category</p>
+                      <p className="font-medium" data-testid="text-booking-subcategory">
+                        {selectedSlot.industry.name} → {selectedSlot.booking.industrySubcategoryLabel}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Contact Email</p>
                     <p className="font-medium" data-testid="text-booking-email">

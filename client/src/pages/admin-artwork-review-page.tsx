@@ -156,7 +156,12 @@ export default function AdminArtworkReviewPage() {
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
-                            <p>{booking.industry?.name || 'N/A'}</p>
+                            <p>
+                              {booking.industry?.name || 'N/A'}
+                              {booking.industrySubcategoryLabel && (
+                                <> → {booking.industrySubcategoryLabel}</>
+                              )}
+                            </p>
                           </div>
                         </div>
                       </div>

@@ -548,7 +548,12 @@ export default function CustomerDashboardPage() {
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Industry</p>
-                            <p>{booking.industry?.name || 'N/A'}</p>
+                            <p>
+                              {booking.industry?.name || 'N/A'}
+                              {booking.industrySubcategoryLabel && (
+                                <> → {booking.industrySubcategoryLabel}</>
+                              )}
+                            </p>
                           </div>
                           <div>
                             <p className="font-medium text-foreground">Quantity</p>
@@ -686,7 +691,12 @@ export default function CustomerDashboardPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">{booking.campaign?.name || 'Campaign'}</h4>
-                        <p className="text-sm text-muted-foreground">{booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name} - {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name}
+                          {booking.industrySubcategoryLabel && (
+                            <> → {booking.industrySubcategoryLabel}</>
+                          )} - {booking.quantity || 1} slot{(booking.quantity || 1) > 1 ? 's' : ''}
+                        </p>
                       </div>
                       <Badge className={`${getArtworkStatusColor(booking.artworkStatus)} flex items-center gap-1`}>
                         {getArtworkStatusIcon(booking.artworkStatus)}

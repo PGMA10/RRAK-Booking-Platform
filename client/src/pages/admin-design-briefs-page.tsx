@@ -174,6 +174,9 @@ export default function AdminDesignBriefsPage() {
                           </p>
                           <p>
                             Route: {booking.route?.zipCode} {booking.route?.name} - {booking.industry?.name}
+                            {booking.industrySubcategoryLabel && (
+                              <> → {booking.industrySubcategoryLabel}</>
+                            )}
                           </p>
                           <p>
                             Slots: {booking.quantity || 1} | Revisions: {booking.revisionCount || 0}/2
