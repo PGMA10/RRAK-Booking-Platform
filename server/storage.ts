@@ -8,6 +8,8 @@ import {
   type InsertRoute,
   type Industry,
   type InsertIndustry,
+  type IndustrySubcategory,
+  type InsertIndustrySubcategory,
   type Campaign,
   type InsertCampaign,
   type Booking,
@@ -18,7 +20,7 @@ import {
   type AdminSetting,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -49,6 +51,12 @@ export interface IStorage {
   createIndustry(industry: InsertIndustry): Promise<Industry>;
   updateIndustry(id: string, updates: Partial<Industry>): Promise<Industry | undefined>;
   deleteIndustry(id: string): Promise<boolean>;
+  
+  // Industry Subcategories
+  getSubcategoriesByIndustry(industryId: string): Promise<IndustrySubcategory[]>;
+  getAllSubcategories(): Promise<IndustrySubcategory[]>;
+  getSubcategory(id: string): Promise<IndustrySubcategory | undefined>;
+  createSubcategory(subcategory: InsertIndustrySubcategory): Promise<IndustrySubcategory>;
   
   // Campaigns
   getAllCampaigns(): Promise<Campaign[]>;
@@ -423,6 +431,23 @@ export class MemStorage implements IStorage {
 
   async deleteIndustry(id: string): Promise<boolean> {
     return this.industries.delete(id);
+  }
+
+  // Industry Subcategories (stub implementations - not used in production)
+  async getSubcategoriesByIndustry(industryId: string): Promise<IndustrySubcategory[]> {
+    return [];
+  }
+
+  async getAllSubcategories(): Promise<IndustrySubcategory[]> {
+    return [];
+  }
+
+  async getSubcategory(id: string): Promise<IndustrySubcategory | undefined> {
+    return undefined;
+  }
+
+  async createSubcategory(subcategory: InsertIndustrySubcategory): Promise<IndustrySubcategory> {
+    throw new Error("Subcategories not supported in MemStorage - use DbStorage instead");
   }
 
   // Campaigns
@@ -1035,6 +1060,38 @@ export class DbStorage implements IStorage {
   async deleteIndustry(id: string): Promise<boolean> {
     const result = await db.delete(industriesTable).where(eq(industriesTable.id, id));
     return (result as any).changes > 0;
+  }
+
+  // Industry Subcategories
+  async getSubcategoriesByIndustry(industryId: string): Promise<IndustrySubcategory[]> {
+    return await db
+      .select()
+      .from(industrySubcategoriesTable)
+      .where(eq(industrySubcategoriesTable.industryId, industryId))
+      .orderBy(industrySubcategoriesTable.sortOrder);
+  }
+
+  async getAllSubcategories(): Promise<IndustrySubcategory[]> {
+    return await db.select().from(industrySubcategoriesTable);
+  }
+
+  async getSubcategory(id: string): Promise<IndustrySubcategory | undefined> {
+    const result = await db
+      .select()
+      .from(industrySubcategoriesTable)
+      .where(eq(industrySubcategoriesTable.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createSubcategory(subcategory: InsertIndustrySubcategory): Promise<IndustrySubcategory> {
+    const subcategoryWithId = {
+      ...subcategory,
+      id: (subcategory as any).id || randomUUID().replace(/-/g, ''),
+      createdAt: new Date(),
+    };
+    const result = await db.insert(industrySubcategoriesTable).values(subcategoryWithId).returning();
+    return result[0];
   }
 
   async getAllCampaigns(): Promise<Campaign[]> {
