@@ -22,11 +22,20 @@ const customerBookingSchema = z.object({
   campaignId: z.string().min(1, "Please select a campaign"),
   routeId: z.string().min(1, "Please select a route"),
   industryId: z.string().min(1, "Please confirm your industry"),
+  industrySubcategoryId: z.string().optional(),
   industryDescription: z.string().optional(),
   quantity: z.string().min(1, "Please select quantity"),
 });
 
 type CustomerBookingData = z.infer<typeof customerBookingSchema>;
+
+interface IndustrySubcategory {
+  id: string;
+  industryId: string;
+  name: string;
+  sortOrder: number;
+  status: string;
+}
 
 interface PricingQuote {
   totalPrice: number;
@@ -63,6 +72,7 @@ export default function CustomerBookingPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<IndustrySubcategory | null>(null);
   const [slotAvailable, setSlotAvailable] = useState<boolean | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
@@ -75,6 +85,7 @@ export default function CustomerBookingPage() {
       campaignId: "",
       routeId: "",
       industryId: "",
+      industrySubcategoryId: "",
       industryDescription: "",
       quantity: "1",
     },
@@ -91,6 +102,13 @@ export default function CustomerBookingPage() {
 
   const { data: industries = [] } = useQuery<Industry[]>({
     queryKey: ["/api/industries"],
+  });
+
+  // Fetch subcategories when industry is selected
+  const watchedIndustryId = form.watch("industryId");
+  const { data: subcategories = [] } = useQuery<IndustrySubcategory[]>({
+    queryKey: [`/api/industries/${watchedIndustryId}/subcategories`],
+    enabled: !!watchedIndustryId,
   });
 
   // Fetch pricing quote when campaign and quantity are selected
@@ -133,15 +151,26 @@ export default function CustomerBookingPage() {
       const campaignId = form.getValues("campaignId");
       const routeId = form.getValues("routeId");
       const industryId = form.getValues("industryId");
+      const industrySubcategoryId = form.getValues("industrySubcategoryId");
 
       if (!campaignId || !routeId || !industryId) {
         setSlotAvailable(null);
         return;
       }
 
+      // For non-"Other" industries, wait for subcategory selection before checking availability
+      if (selectedIndustry && selectedIndustry.name.toLowerCase() !== "other" && subcategories.length > 0 && !industrySubcategoryId) {
+        setSlotAvailable(null);
+        return;
+      }
+
       setCheckingAvailability(true);
       try {
-        const response = await fetch(`/api/availability/${campaignId}/${routeId}/${industryId}`, {
+        let url = `/api/availability/${campaignId}/${routeId}/${industryId}`;
+        if (industrySubcategoryId) {
+          url += `?subcategoryId=${industrySubcategoryId}`;
+        }
+        const response = await fetch(url, {
           credentials: "include",
         });
         const data = await response.json();
@@ -155,7 +184,7 @@ export default function CustomerBookingPage() {
     };
 
     checkSlotAvailability();
-  }, [form.watch("campaignId"), form.watch("routeId"), form.watch("industryId")]);
+  }, [form.watch("campaignId"), form.watch("routeId"), form.watch("industryId"), form.watch("industrySubcategoryId"), selectedIndustry, subcategories]);
 
   // Update selected objects when form values change
   useEffect(() => {
@@ -171,7 +200,16 @@ export default function CustomerBookingPage() {
   useEffect(() => {
     const industryId = form.getValues("industryId");
     setSelectedIndustry(industries.find(i => i.id === industryId) || null);
+    
+    // Reset subcategory when industry changes
+    form.setValue("industrySubcategoryId", "");
+    setSelectedSubcategory(null);
   }, [form.watch("industryId"), industries]);
+
+  useEffect(() => {
+    const subcategoryId = form.getValues("industrySubcategoryId");
+    setSelectedSubcategory(subcategories.find(s => s.id === subcategoryId) || null);
+  }, [form.watch("industrySubcategoryId"), subcategories]);
 
   useEffect(() => {
     const quantity = form.getValues("quantity");
@@ -206,6 +244,7 @@ export default function CustomerBookingPage() {
       const bookingResponse = await apiRequest("POST", "/api/create-checkout-session", {
         ...bookingData,
         quantity: parseInt(bookingData.quantity as any) || 1,
+        industrySubcategoryLabel: selectedSubcategory?.name || null,
         businessName: user?.businessName || user?.username || "Unknown Business",
         contactEmail: user?.email || "",
         contactPhone: user?.phone || "",
@@ -562,6 +601,41 @@ export default function CustomerBookingPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Subcategory Selection - shown for all industries except "Other" */}
+                  {selectedIndustry && selectedIndustry.name.toLowerCase() !== "other" && subcategories.length > 0 && (
+                    <FormField
+                      control={form.control}
+                      name="industrySubcategoryId"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Business Specialization</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-subcategory">
+                                <SelectValue placeholder="Select your specialization..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {subcategories.map((subcategory) => (
+                                <SelectItem 
+                                  key={subcategory.id} 
+                                  value={subcategory.id}
+                                  data-testid={`option-subcategory-${subcategory.name.replace(/\s+/g, '-').toLowerCase()}`}
+                                >
+                                  {subcategory.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            This helps us match your business to the right slot and avoid competition.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   {/* Conditional Industry Description for "Other" */}
                   {selectedIndustry && selectedIndustry.name.toLowerCase() === "other" && (

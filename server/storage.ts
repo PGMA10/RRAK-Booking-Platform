@@ -21,7 +21,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db-sqlite";
 import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
-import { eq, and, sql, ne } from "drizzle-orm";
+import { eq, and, sql, ne, isNull } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 
@@ -79,7 +79,7 @@ export interface IStorage {
   getAllBookings(): Promise<Booking[]>;
   getBookingsByUser(userId: string): Promise<Booking[]>;
   getBookingsByCampaign(campaignId: string): Promise<Booking[]>;
-  getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined>;
+  getBooking(campaignId: string, routeId: string, industryId: string, industrySubcategoryId?: string | null): Promise<Booking | undefined>;
   getBookingById(id: string): Promise<Booking | undefined>;
   getBookingByStripeSessionId(sessionId: string): Promise<BookingWithDetails | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
@@ -567,11 +567,15 @@ export class MemStorage implements IStorage {
     return Array.from(this.bookings.values()).filter(booking => booking.campaignId === campaignId);
   }
 
-  async getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined> {
+  async getBooking(campaignId: string, routeId: string, industryId: string, industrySubcategoryId?: string | null): Promise<Booking | undefined> {
     return Array.from(this.bookings.values()).find(
       booking => booking.campaignId === campaignId && 
                  booking.routeId === routeId && 
-                 booking.industryId === industryId
+                 booking.industryId === industryId &&
+                 booking.status !== 'cancelled' &&
+                 booking.status !== 'failed' &&
+                 (booking.industrySubcategoryId === industrySubcategoryId || 
+                  (industrySubcategoryId === undefined && booking.industrySubcategoryId === null))
     );
   }
 
@@ -588,7 +592,10 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       status: insertBooking.status || "pending",
       industryDescription: insertBooking.industryDescription ?? null,
+      industrySubcategoryId: insertBooking.industrySubcategoryId ?? null,
+      industrySubcategoryLabel: insertBooking.industrySubcategoryLabel ?? null,
       contactPhone: insertBooking.contactPhone || null,
+      priceOverride: insertBooking.priceOverride ?? null,
       paymentId: insertBooking.paymentId || null,
       amount: insertBooking.amount || 60000,
       paymentStatus: insertBooking.paymentStatus || "pending",
@@ -1316,17 +1323,27 @@ export class DbStorage implements IStorage {
     })) as any;
   }
 
-  async getBooking(campaignId: string, routeId: string, industryId: string): Promise<Booking | undefined> {
-    // Only return bookings that actually reserve the slot (paid/approved, not pending or cancelled)
-    const result = await db.select().from(bookingsTable).where(
-      and(
-        eq(bookingsTable.campaignId, campaignId),
-        eq(bookingsTable.routeId, routeId),
-        eq(bookingsTable.industryId, industryId),
-        ne(bookingsTable.status, 'cancelled'),
-        eq(bookingsTable.paymentStatus, 'paid') // Only count paid bookings as occupying slots
-      )
-    ).limit(1);
+  async getBooking(campaignId: string, routeId: string, industryId: string, industrySubcategoryId?: string | null): Promise<Booking | undefined> {
+    // Return bookings that reserve the slot (paid or pending, excluding cancelled/failed)
+    // Pending bookings block slots until payment completes or booking expires (15 min timeout)
+    const conditions = [
+      eq(bookingsTable.campaignId, campaignId),
+      eq(bookingsTable.routeId, routeId),
+      eq(bookingsTable.industryId, industryId),
+      ne(bookingsTable.status, 'cancelled'),
+      ne(bookingsTable.status, 'failed')
+    ];
+
+    // Add subcategory condition if provided
+    if (industrySubcategoryId !== undefined) {
+      conditions.push(
+        industrySubcategoryId === null
+          ? isNull(bookingsTable.industrySubcategoryId)
+          : eq(bookingsTable.industrySubcategoryId, industrySubcategoryId)
+      );
+    }
+
+    const result = await db.select().from(bookingsTable).where(and(...conditions)).limit(1);
     return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 

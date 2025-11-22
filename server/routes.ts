@@ -873,18 +873,22 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/availability/:campaignId/:routeId/:industryId", async (req, res) => {
     try {
       const { campaignId, routeId, industryId } = req.params;
-      console.log("🔍 [Availability] Checking:", { campaignId, routeId, industryId });
+      const { subcategoryId } = req.query;
+      const industrySubcategoryId = subcategoryId as string | undefined;
+      
+      console.log("🔍 [Availability] Checking:", { campaignId, routeId, industryId, industrySubcategoryId });
       
       // Get the industry to check if it's "Other"
       const industry = await storage.getIndustry(industryId);
       
-      // "Other" industry is always available since multiple businesses can select it
-      if (industry && industry.name === "Other") {
-        console.log("✅ [Availability] 'Other' industry - always available");
+      // "Other" industry with NULL subcategory is always available since multiple businesses can select it
+      const isOtherIndustryNoSubcategory = industry && industry.name === "Other" && !industrySubcategoryId;
+      if (isOtherIndustryNoSubcategory) {
+        console.log("✅ [Availability] 'Other' industry with no subcategory - always available");
         return res.json({ available: true });
       }
       
-      const booking = await storage.getBooking(campaignId, routeId, industryId);
+      const booking = await storage.getBooking(campaignId, routeId, industryId, industrySubcategoryId || null);
       console.log("✅ [Availability] Result:", { available: !booking, bookingFound: !!booking });
       res.json({ available: !booking });
     } catch (error) {
@@ -957,14 +961,29 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      // Validate subcategory belongs to selected industry (if provided)
       const industry = await storage.getIndustry(validatedData.industryId);
+      if (!industry) {
+        return res.status(400).json({ message: "Invalid industry" });
+      }
+
+      if (validatedData.industrySubcategoryId) {
+        const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
+        if (!subcategory || subcategory.industryId !== validatedData.industryId) {
+          return res.status(400).json({ message: "Invalid subcategory for the selected industry" });
+        }
+      }
+
+      // Check if slot is already booked at subcategory level
+      // "Other" industry with NULL subcategory allows multiple bookings
+      const isOtherIndustryNoSubcategory = industry.name === "Other" && !validatedData.industrySubcategoryId;
       
-      if (!industry || industry.name !== "Other") {
+      if (!isOtherIndustryNoSubcategory) {
         const existingBooking = await storage.getBooking(
           validatedData.campaignId,
           validatedData.routeId,
-          validatedData.industryId
+          validatedData.industryId,
+          validatedData.industrySubcategoryId || null
         );
 
         if (existingBooking) {
@@ -1606,14 +1625,29 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      // Validate subcategory belongs to selected industry (if provided)
       const industry = await storage.getIndustry(validatedData.industryId);
+      if (!industry) {
+        return res.status(400).json({ message: "Invalid industry" });
+      }
+
+      if (validatedData.industrySubcategoryId) {
+        const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
+        if (!subcategory || subcategory.industryId !== validatedData.industryId) {
+          return res.status(400).json({ message: "Invalid subcategory for the selected industry" });
+        }
+      }
+
+      // Check if slot is already booked at subcategory level
+      // "Other" industry with NULL subcategory allows multiple bookings
+      const isOtherIndustryNoSubcategory = industry.name === "Other" && !validatedData.industrySubcategoryId;
       
-      if (!industry || industry.name !== "Other") {
+      if (!isOtherIndustryNoSubcategory) {
         const existingBooking = await storage.getBooking(
           validatedData.campaignId,
           validatedData.routeId,
-          validatedData.industryId
+          validatedData.industryId,
+          validatedData.industrySubcategoryId || null
         );
 
         if (existingBooking) {
@@ -2568,14 +2602,29 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Campaign not found" });
       }
 
-      // Check if slot is already booked (except for "Other" industry which allows multiple bookings)
+      // Validate subcategory belongs to selected industry (if provided)
       const industry = await storage.getIndustry(validatedData.industryId);
+      if (!industry) {
+        return res.status(400).json({ message: "Invalid industry" });
+      }
+
+      if (validatedData.industrySubcategoryId) {
+        const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
+        if (!subcategory || subcategory.industryId !== validatedData.industryId) {
+          return res.status(400).json({ message: "Invalid subcategory for the selected industry" });
+        }
+      }
+
+      // Check if slot is already booked at subcategory level
+      // "Other" industry with NULL subcategory allows multiple bookings
+      const isOtherIndustryNoSubcategory = industry.name === "Other" && !validatedData.industrySubcategoryId;
       
-      if (!industry || industry.name !== "Other") {
+      if (!isOtherIndustryNoSubcategory) {
         const existingBooking = await storage.getBooking(
           validatedData.campaignId,
           validatedData.routeId,
-          validatedData.industryId
+          validatedData.industryId,
+          validatedData.industrySubcategoryId || null
         );
 
         if (existingBooking) {
