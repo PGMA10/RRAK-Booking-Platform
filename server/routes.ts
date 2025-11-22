@@ -432,6 +432,25 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Industry Subcategories
+  app.get("/api/industries/:industryId/subcategories", async (req, res) => {
+    try {
+      const subcategories = await storage.getSubcategoriesByIndustry(req.params.industryId);
+      res.json(subcategories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
+  app.get("/api/subcategories", async (req, res) => {
+    try {
+      const subcategories = await storage.getAllSubcategories();
+      res.json(subcategories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
   // Campaigns
   app.get("/api/campaigns", async (req, res) => {
     try {

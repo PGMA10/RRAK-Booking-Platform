@@ -590,4 +590,232 @@ export function initializeDatabase() {
   `);
 
   console.log("✅ SQLite tables initialized");
+  
+  // Seed industry subcategories if the table is empty
+  seedIndustrySubcategories();
+}
+
+function seedIndustrySubcategories() {
+  // Check if subcategories already exist
+  const existingSubcategories = sqlite.prepare('SELECT COUNT(*) as count FROM industry_subcategories').get() as { count: number };
+  
+  if (existingSubcategories.count > 0) {
+    console.log("ℹ️  Industry subcategories already seeded");
+    return;
+  }
+
+  console.log("🌱 Seeding industry subcategories...");
+
+  // Get all industries to map subcategories
+  const industries = sqlite.prepare('SELECT id, name FROM industries').all() as Array<{id: string, name: string}>;
+  const industryMap = new Map(industries.map(i => [i.name, i.id]));
+
+  // Define subcategories for each industry category
+  const subcategoryData: Array<{industryName: string, subcategories: Array<{name: string, sortOrder: number}>}> = [
+    {
+      industryName: "Financial Advisors",
+      subcategories: [
+        { name: "Financial Planning/Advisory", sortOrder: 1 },
+        { name: "Investment Management", sortOrder: 2 },
+        { name: "Wealth Management", sortOrder: 3 },
+        { name: "Retirement Planning", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Accountants",
+      subcategories: [
+        { name: "Accounting/Bookkeeping", sortOrder: 1 },
+        { name: "Tax Services", sortOrder: 2 },
+        { name: "Payroll Services", sortOrder: 3 },
+        { name: "Audit Services", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Electricians",
+      subcategories: [
+        { name: "Residential Electrical", sortOrder: 1 },
+        { name: "Commercial Electrical", sortOrder: 2 },
+        { name: "Electrical Repair", sortOrder: 3 },
+        { name: "Electrical Installation", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Plumbers/HVAC",
+      subcategories: [
+        { name: "Plumbing Services", sortOrder: 1 },
+        { name: "HVAC Installation", sortOrder: 2 },
+        { name: "HVAC Repair", sortOrder: 3 },
+        { name: "Heating Services", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Clothing Stores",
+      subcategories: [
+        { name: "Women's Clothing", sortOrder: 1 },
+        { name: "Men's Clothing", sortOrder: 2 },
+        { name: "Children's Clothing", sortOrder: 3 },
+        { name: "Sportswear", sortOrder: 4 },
+        { name: "Specialty Apparel", sortOrder: 5 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Residential Cleaners",
+      subcategories: [
+        { name: "House Cleaning", sortOrder: 1 },
+        { name: "Deep Cleaning", sortOrder: 2 },
+        { name: "Move-In/Move-Out Cleaning", sortOrder: 3 },
+        { name: "Office Cleaning", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Dog Walkers",
+      subcategories: [
+        { name: "Dog Walking", sortOrder: 1 },
+        { name: "Pet Sitting", sortOrder: 2 },
+        { name: "Pet Care Services", sortOrder: 3 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Restaurants",
+      subcategories: [
+        { name: "Fine Dining", sortOrder: 1 },
+        { name: "Casual Dining", sortOrder: 2 },
+        { name: "Fast Food/Quick Service", sortOrder: 3 },
+        { name: "Cafe/Bakery", sortOrder: 4 },
+        { name: "Bar/Brewery", sortOrder: 5 },
+        { name: "Catering", sortOrder: 6 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Auto Services",
+      subcategories: [
+        { name: "Auto Repair/Mechanic", sortOrder: 1 },
+        { name: "Auto Detailing", sortOrder: 2 },
+        { name: "Tire Services", sortOrder: 3 },
+        { name: "Auto Body/Paint", sortOrder: 4 },
+        { name: "Oil Change/Maintenance", sortOrder: 5 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Hair/Beauty Salons",
+      subcategories: [
+        { name: "Hair Salon", sortOrder: 1 },
+        { name: "Nail Salon", sortOrder: 2 },
+        { name: "Spa/Massage", sortOrder: 3 },
+        { name: "Beauty Supply Store", sortOrder: 4 },
+        { name: "Aesthetics/Med Spa", sortOrder: 5 },
+        { name: "Barber Shop", sortOrder: 6 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Home Services",
+      subcategories: [
+        { name: "General Contractor", sortOrder: 1 },
+        { name: "Roofing", sortOrder: 2 },
+        { name: "Carpentry", sortOrder: 3 },
+        { name: "Landscaping/Lawn Care", sortOrder: 4 },
+        { name: "Pest Control", sortOrder: 5 },
+        { name: "Appliance Repair", sortOrder: 6 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Health/Fitness",
+      subcategories: [
+        { name: "Dentist/Orthodontist", sortOrder: 1 },
+        { name: "Chiropractor", sortOrder: 2 },
+        { name: "Physical Therapy", sortOrder: 3 },
+        { name: "Gym/Fitness Center", sortOrder: 4 },
+        { name: "Personal Training", sortOrder: 5 },
+        { name: "Yoga/Pilates Studio", sortOrder: 6 },
+        { name: "Massage Therapy", sortOrder: 7 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Real Estate",
+      subcategories: [
+        { name: "Realtor/Agent", sortOrder: 1 },
+        { name: "Loan Originator/Mortgage", sortOrder: 2 },
+        { name: "Property Management", sortOrder: 3 },
+        { name: "Appraisal Services", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Legal Services",
+      subcategories: [
+        { name: "Family Law", sortOrder: 1 },
+        { name: "Criminal Defense", sortOrder: 2 },
+        { name: "Personal Injury", sortOrder: 3 },
+        { name: "Estate Planning", sortOrder: 4 },
+        { name: "Business Law", sortOrder: 5 },
+        { name: "General", sortOrder: 99 }
+      ]
+    },
+    {
+      industryName: "Pet Services",
+      subcategories: [
+        { name: "Veterinary Care", sortOrder: 1 },
+        { name: "Pet Grooming", sortOrder: 2 },
+        { name: "Pet Training", sortOrder: 3 },
+        { name: "Pet Supply Store", sortOrder: 4 },
+        { name: "General", sortOrder: 99 }
+      ]
+    }
+  ];
+
+  // Insert subcategories
+  const insertStmt = sqlite.prepare(`
+    INSERT INTO industry_subcategories (id, industry_id, name, sort_order, status, created_at)
+    VALUES (?, ?, ?, ?, 'active', ?)
+  `);
+
+  const insertMany = sqlite.transaction((subcategories) => {
+    for (const subcategory of subcategories) {
+      insertStmt.run(subcategory.id, subcategory.industryId, subcategory.name, subcategory.sortOrder, subcategory.createdAt);
+    }
+  });
+
+  const subcategoriesToInsert: Array<{id: string, industryId: string, name: string, sortOrder: number, createdAt: number}> = [];
+  const now = Date.now();
+
+  for (const category of subcategoryData) {
+    const industryId = industryMap.get(category.industryName);
+    if (!industryId) {
+      console.warn(`⚠️  Industry not found: ${category.industryName}`);
+      continue;
+    }
+
+    for (const subcat of category.subcategories) {
+      subcategoriesToInsert.push({
+        id: generateSQLiteId(),
+        industryId,
+        name: subcat.name,
+        sortOrder: subcat.sortOrder,
+        createdAt: now
+      });
+    }
+  }
+
+  insertMany(subcategoriesToInsert);
+
+  console.log(`✅ Seeded ${subcategoriesToInsert.length} industry subcategories`);
+}
+
+// Helper to generate SQLite-compatible IDs
+function generateSQLiteId(): string {
+  return Array.from({ length: 16 }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join('');
 }
