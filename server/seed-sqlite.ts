@@ -99,31 +99,36 @@ export async function seedSQLite() {
       console.log("✅ 4 Routes created");
     }
 
-    // Check if industries exist
+    // Check if industries exist and match expected taxonomy
     const existingIndustries = await db.select().from(industries);
+    const EXPECTED_INDUSTRY_COUNT = 14;
     
     if (existingIndustries.length === 0) {
       // Create industries
       await db.insert(industries).values([
-        { id: generateId(), name: "Restaurants", description: "Food service establishments", icon: "utensils", status: "active" },
-        { id: generateId(), name: "Retail", description: "Retail stores and shops", icon: "shopping-bag", status: "active" },
-        { id: generateId(), name: "Healthcare", description: "Medical and health services", icon: "heart", status: "active" },
-        { id: generateId(), name: "Professional Services", description: "Legal, accounting, consulting", icon: "briefcase", status: "active" },
-        { id: generateId(), name: "Home Services", description: "Plumbing, HVAC, electrical", icon: "home", status: "active" },
-        { id: generateId(), name: "Automotive", description: "Auto repair and services", icon: "car", status: "active" },
-        { id: generateId(), name: "Beauty & Wellness", description: "Salons, spas, gyms", icon: "sparkles", status: "active" },
-        { id: generateId(), name: "Real Estate", description: "Property sales and management", icon: "building", status: "active" },
-        { id: generateId(), name: "Education", description: "Schools and training centers", icon: "graduation-cap", status: "active" },
-        { id: generateId(), name: "Financial Services", description: "Banking and insurance", icon: "dollar-sign", status: "active" },
-        { id: generateId(), name: "Technology", description: "IT and tech services", icon: "cpu", status: "active" },
-        { id: generateId(), name: "Entertainment", description: "Events and recreation", icon: "ticket", status: "active" },
-        { id: generateId(), name: "Pet Services", description: "Veterinary and pet care", icon: "paw-print", status: "active" },
         { id: generateId(), name: "Construction", description: "Building and contractors", icon: "hammer", status: "active" },
-        { id: generateId(), name: "Legal Services", description: "Law firms and attorneys", icon: "scale", status: "active" },
+        { id: generateId(), name: "Healthcare", description: "Medical and health services", icon: "heart", status: "active" },
+        { id: generateId(), name: "Financial Services", description: "Banking and insurance", icon: "dollar-sign", status: "active" },
+        { id: generateId(), name: "Real Estate", description: "Property sales and management", icon: "building", status: "active" },
+        { id: generateId(), name: "Beauty & Wellness", description: "Salons, spas, aesthetics", icon: "sparkles", status: "active" },
+        { id: generateId(), name: "Home Services", description: "Cleaning, landscaping, pest control", icon: "home", status: "active" },
+        { id: generateId(), name: "Automotive", description: "Auto repair and services", icon: "car", status: "active" },
+        { id: generateId(), name: "Food & Beverage", description: "Restaurants, catering, bars", icon: "utensils", status: "active" },
+        { id: generateId(), name: "Professional Services", description: "Legal, IT, consulting", icon: "briefcase", status: "active" },
+        { id: generateId(), name: "Retail", description: "Retail stores and shops", icon: "shopping-bag", status: "active" },
+        { id: generateId(), name: "Pet Services", description: "Veterinary and pet care", icon: "paw-print", status: "active" },
+        { id: generateId(), name: "Fitness & Recreation", description: "Gyms, yoga, sports facilities", icon: "dumbbell", status: "active" },
+        { id: generateId(), name: "Outdoor Recreation and Tours", description: "Hunting, fishing, scenic tours", icon: "mountain", status: "active" },
         { id: generateId(), name: "Other", description: "Other business types", icon: "ellipsis", status: "active" },
       ]);
-      console.log("✅ 16 Industries created");
+      console.log("✅ 14 Industries created");
+    } else if (existingIndustries.length !== EXPECTED_INDUSTRY_COUNT) {
+      console.log(`⚠️  Warning: Found ${existingIndustries.length} industries, expected ${EXPECTED_INDUSTRY_COUNT}. Database may have legacy industry data.`);
     }
+
+    // Seed industry subcategories after industries are created
+    const { seedIndustrySubcategories } = await import("./db-sqlite");
+    seedIndustrySubcategories();
 
     console.log("ℹ️  Campaign seeding disabled - campaigns can be manually created in admin panel");
 
