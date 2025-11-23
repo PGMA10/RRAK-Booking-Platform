@@ -589,6 +589,50 @@ export function initializeDatabase() {
     )
   `);
 
+  // Create waitlist_entries table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS waitlist_entries (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+      route_id TEXT NOT NULL REFERENCES routes(id),
+      industry_subcategory_id TEXT NOT NULL REFERENCES industry_subcategories(id),
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      notified_count INTEGER NOT NULL DEFAULT 0,
+      last_notified_at INTEGER,
+      last_notified_channels TEXT,
+      created_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
+  // Create unique index to prevent duplicate active waitlist entries for same slot
+  try {
+    sqlite.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_waitlist_unique_active
+      ON waitlist_entries(user_id, campaign_id, route_id, industry_subcategory_id)
+      WHERE status = 'active'
+    `);
+  } catch (e) {
+    // Index already exists, ignore
+  }
+
+  // Create waitlist_notifications table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS waitlist_notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      sent_by_admin_id TEXT NOT NULL REFERENCES users(id),
+      campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+      route_id TEXT REFERENCES routes(id),
+      industry_subcategory_id TEXT REFERENCES industry_subcategories(id),
+      message TEXT NOT NULL,
+      channels TEXT NOT NULL,
+      recipient_count INTEGER NOT NULL DEFAULT 0,
+      recipient_user_ids TEXT NOT NULL,
+      sent_at INTEGER DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+    )
+  `);
+
   console.log("✅ SQLite tables initialized");
 }
 

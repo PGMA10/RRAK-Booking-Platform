@@ -18,10 +18,15 @@ import {
   type DesignRevision,
   type InsertDesignRevision,
   type AdminSetting,
+  type WaitlistEntry,
+  type InsertWaitlistEntry,
+  type WaitlistEntryWithDetails,
+  type WaitlistNotification,
+  type InsertWaitlistNotification,
   SLOTS_PER_ROUTE,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
+import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable, waitlistEntries as waitlistEntriesTable, waitlistNotifications as waitlistNotificationsTable } from "@shared/schema";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
@@ -175,6 +180,25 @@ export interface IStorage {
   getAdminSetting(key: string): Promise<AdminSetting | undefined>;
   setAdminSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<AdminSetting>;
   
+  // Waitlist
+  createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry>;
+  getWaitlistEntriesByUser(userId: string): Promise<WaitlistEntryWithDetails[]>;
+  getAllWaitlistEntries(filters?: {
+    campaignId?: string;
+    routeId?: string;
+    industrySubcategoryId?: string;
+    status?: string;
+  }): Promise<WaitlistEntryWithDetails[]>;
+  updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined>;
+  deleteWaitlistEntry(id: string): Promise<boolean>;
+  notifyWaitlistCustomers(params: {
+    adminId: string;
+    entryIds: string[];
+    message: string;
+    channels: ('in_app' | 'email')[];
+  }): Promise<{ notifiedCount: number }>;
+  markWaitlistAsConverted(userId: string, campaignId: string, routeId: string, industrySubcategoryId: string): Promise<void>;
+  
   sessionStore: session.Store;
 }
 
@@ -186,6 +210,8 @@ export class MemStorage implements IStorage {
   private campaignRoutes: Map<string, Set<string>> = new Map(); // campaignId -> Set of routeIds
   private campaignIndustries: Map<string, Set<string>> = new Map(); // campaignId -> Set of industryIds
   private bookings: Map<string, Booking> = new Map();
+  private waitlistEntries: Map<string, WaitlistEntry> = new Map();
+  private waitlistNotifications: Map<string, WaitlistNotification> = new Map();
   public sessionStore: session.Store;
 
   constructor() {
@@ -946,6 +972,202 @@ export class MemStorage implements IStorage {
     // In MemStorage, return empty array
     return [];
   }
+
+  // Waitlist methods
+  async createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry> {
+    const id = randomUUID();
+    const waitlistEntry: WaitlistEntry = {
+      ...entry,
+      id,
+      notes: entry.notes || null,
+      status: entry.status || "active",
+      notifiedCount: 0,
+      lastNotifiedAt: null,
+      lastNotifiedChannels: null,
+      createdAt: new Date(),
+    };
+    this.waitlistEntries.set(id, waitlistEntry);
+    return waitlistEntry;
+  }
+
+  async getWaitlistEntriesByUser(userId: string): Promise<WaitlistEntryWithDetails[]> {
+    const entries = Array.from(this.waitlistEntries.values()).filter(e => e.userId === userId);
+    return entries.map(entry => ({
+      ...entry,
+      user: this.users.get(entry.userId),
+      campaign: this.campaigns.get(entry.campaignId),
+      route: this.routes.get(entry.routeId),
+      industrySubcategory: undefined,
+    }));
+  }
+
+  async getAllWaitlistEntries(filters?: {
+    campaignId?: string;
+    routeId?: string;
+    industrySubcategoryId?: string;
+    status?: string;
+  }): Promise<WaitlistEntryWithDetails[]> {
+    let entries = Array.from(this.waitlistEntries.values());
+    
+    if (filters) {
+      if (filters.campaignId) {
+        entries = entries.filter(e => e.campaignId === filters.campaignId);
+      }
+      if (filters.routeId) {
+        entries = entries.filter(e => e.routeId === filters.routeId);
+      }
+      if (filters.industrySubcategoryId) {
+        entries = entries.filter(e => e.industrySubcategoryId === filters.industrySubcategoryId);
+      }
+      if (filters.status) {
+        entries = entries.filter(e => e.status === filters.status);
+      }
+    }
+    
+    return entries.map(entry => ({
+      ...entry,
+      user: this.users.get(entry.userId),
+      campaign: this.campaigns.get(entry.campaignId),
+      route: this.routes.get(entry.routeId),
+      industrySubcategory: undefined,
+    }));
+  }
+
+  async updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined> {
+    const entry = this.waitlistEntries.get(id);
+    if (!entry) return undefined;
+    
+    const updatedEntry: WaitlistEntry = { ...entry, ...updates, id };
+    this.waitlistEntries.set(id, updatedEntry);
+    return updatedEntry;
+  }
+
+  async deleteWaitlistEntry(id: string): Promise<boolean> {
+    return this.waitlistEntries.delete(id);
+  }
+
+  async notifyWaitlistCustomers(params: {
+    adminId: string;
+    entryIds: string[];
+    message: string;
+    channels: ('in_app' | 'email')[];
+  }): Promise<{ notifiedCount: number }> {
+    const { adminId, entryIds, message, channels } = params;
+    const now = new Date();
+    let notifiedCount = 0;
+    const recipientUserIds: string[] = [];
+    
+    for (const entryId of entryIds) {
+      const entry = this.waitlistEntries.get(entryId);
+      if (entry) {
+        const updatedEntry: WaitlistEntry = {
+          ...entry,
+          notifiedCount: entry.notifiedCount + 1,
+          lastNotifiedAt: now,
+          lastNotifiedChannels: JSON.stringify(channels),
+        };
+        this.waitlistEntries.set(entryId, updatedEntry);
+        recipientUserIds.push(entry.userId);
+        notifiedCount++;
+      }
+    }
+    
+    const notificationId = randomUUID();
+    const notification: WaitlistNotification = {
+      id: notificationId,
+      sentByAdminId: adminId,
+      campaignId: entryIds.length > 0 ? this.waitlistEntries.get(entryIds[0])?.campaignId || '' : '',
+      routeId: null,
+      industrySubcategoryId: null,
+      message,
+      channels: JSON.stringify(channels),
+      recipientCount: notifiedCount,
+      recipientUserIds: JSON.stringify(recipientUserIds),
+      sentAt: now,
+    };
+    this.waitlistNotifications.set(notificationId, notification);
+    
+    return { notifiedCount };
+  }
+
+  async markWaitlistAsConverted(userId: string, campaignId: string, routeId: string, industrySubcategoryId: string): Promise<void> {
+    const entries = Array.from(this.waitlistEntries.values()).filter(
+      e => e.userId === userId && 
+           e.campaignId === campaignId && 
+           e.routeId === routeId && 
+           e.industrySubcategoryId === industrySubcategoryId && 
+           e.status === 'active'
+    );
+    
+    for (const entry of entries) {
+      const updatedEntry: WaitlistEntry = {
+        ...entry,
+        status: 'converted',
+      };
+      this.waitlistEntries.set(entry.id, updatedEntry);
+    }
+  }
+
+  async getCustomers(filters?: any): Promise<Array<User & any>> {
+    throw new Error("getCustomers not implemented in MemStorage");
+  }
+
+  async getCustomerDetails(customerId: string): Promise<any> {
+    throw new Error("getCustomerDetails not implemented in MemStorage");
+  }
+
+  async addCustomerNote(customerId: string, note: string, createdBy: string): Promise<void> {
+    throw new Error("addCustomerNote not implemented in MemStorage");
+  }
+
+  async addCustomerTag(customerId: string, tag: string, createdBy: string): Promise<void> {
+    throw new Error("addCustomerTag not implemented in MemStorage");
+  }
+
+  async removeCustomerTag(customerId: string, tag: string): Promise<void> {
+    throw new Error("removeCustomerTag not implemented in MemStorage");
+  }
+
+  async createDesignRevision(designRevision: InsertDesignRevision): Promise<DesignRevision> {
+    throw new Error("createDesignRevision not implemented in MemStorage");
+  }
+
+  async getDesignRevisionById(id: string): Promise<DesignRevision | undefined> {
+    throw new Error("getDesignRevisionById not implemented in MemStorage");
+  }
+
+  async getDesignRevisionsByBooking(bookingId: string): Promise<DesignRevision[]> {
+    throw new Error("getDesignRevisionsByBooking not implemented in MemStorage");
+  }
+
+  async getLatestDesignRevision(bookingId: string): Promise<DesignRevision | undefined> {
+    throw new Error("getLatestDesignRevision not implemented in MemStorage");
+  }
+
+  async updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined> {
+    throw new Error("updateDesignRevisionStatus not implemented in MemStorage");
+  }
+
+  async getAllAdminSettings(): Promise<AdminSetting[]> {
+    throw new Error("getAllAdminSettings not implemented in MemStorage");
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSetting | undefined> {
+    throw new Error("getAdminSetting not implemented in MemStorage");
+  }
+
+  async setAdminSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<AdminSetting> {
+    throw new Error("setAdminSetting not implemented in MemStorage");
+  }
+
+  async updateUserLoyalty(id: string, loyalty: any): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser: User = { ...user, ...loyalty };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
 }
 
 export class DbStorage implements IStorage {
@@ -1257,8 +1479,8 @@ export class DbStorage implements IStorage {
       industry: r.industry,
       campaign: r.campaign ? {
         ...r.campaign,
-        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
-        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -1284,8 +1506,8 @@ export class DbStorage implements IStorage {
       industry: r.industry,
       campaign: r.campaign ? {
         ...r.campaign,
-        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
-        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -1316,8 +1538,8 @@ export class DbStorage implements IStorage {
       industry: r.industry,
       campaign: r.campaign ? {
         ...r.campaign,
-        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
-        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -1608,8 +1830,8 @@ export class DbStorage implements IStorage {
       industry: r.industry,
       campaign: r.campaign ? {
         ...r.campaign,
-        mailDate: r.campaign.mailDate ? new Date(r.campaign.mailDate as any) : null,
-        printDeadline: r.campaign.printDeadline ? new Date(r.campaign.printDeadline as any) : null,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     })) as any;
@@ -2268,6 +2490,192 @@ export class DbStorage implements IStorage {
       const result = await db.insert(adminSettingsTable).values(newSetting).returning();
       return result[0];
     }
+  }
+
+  // Waitlist methods
+  async createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry> {
+    const entryWithId = {
+      ...entry,
+      id: randomUUID().replace(/-/g, ''),
+      createdAt: new Date(),
+      notifiedCount: 0,
+      lastNotifiedAt: null,
+      lastNotifiedChannels: null,
+      status: entry.status || "active",
+    };
+    const result = await db.insert(waitlistEntriesTable).values(entryWithId).returning();
+    return result[0];
+  }
+
+  async getWaitlistEntriesByUser(userId: string): Promise<WaitlistEntryWithDetails[]> {
+    const results = await db
+      .select({
+        entry: waitlistEntriesTable,
+        user: usersTable,
+        campaign: campaignsTable,
+        route: routesTable,
+        industrySubcategory: industrySubcategoriesTable,
+      })
+      .from(waitlistEntriesTable)
+      .leftJoin(usersTable, eq(waitlistEntriesTable.userId, usersTable.id))
+      .leftJoin(campaignsTable, eq(waitlistEntriesTable.campaignId, campaignsTable.id))
+      .leftJoin(routesTable, eq(waitlistEntriesTable.routeId, routesTable.id))
+      .leftJoin(industrySubcategoriesTable, eq(waitlistEntriesTable.industrySubcategoryId, industrySubcategoriesTable.id))
+      .where(eq(waitlistEntriesTable.userId, userId));
+    
+    return results.map(r => ({
+      ...r.entry,
+      createdAt: r.entry.createdAt ? new Date(r.entry.createdAt as any) : null,
+      lastNotifiedAt: r.entry.lastNotifiedAt ? new Date(r.entry.lastNotifiedAt as any) : null,
+      user: r.user ? {
+        ...r.user,
+        createdAt: r.user.createdAt ? new Date(r.user.createdAt as any) : null,
+      } : undefined,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+      route: r.route,
+      industrySubcategory: r.industrySubcategory ? {
+        ...r.industrySubcategory,
+        createdAt: r.industrySubcategory.createdAt ? new Date(r.industrySubcategory.createdAt as any) : null,
+      } : undefined,
+    }));
+  }
+
+  async getAllWaitlistEntries(filters?: {
+    campaignId?: string;
+    routeId?: string;
+    industrySubcategoryId?: string;
+    status?: string;
+  }): Promise<WaitlistEntryWithDetails[]> {
+    const conditions = [];
+    
+    if (filters) {
+      if (filters.campaignId) {
+        conditions.push(eq(waitlistEntriesTable.campaignId, filters.campaignId));
+      }
+      if (filters.routeId) {
+        conditions.push(eq(waitlistEntriesTable.routeId, filters.routeId));
+      }
+      if (filters.industrySubcategoryId) {
+        conditions.push(eq(waitlistEntriesTable.industrySubcategoryId, filters.industrySubcategoryId));
+      }
+      if (filters.status) {
+        conditions.push(eq(waitlistEntriesTable.status, filters.status));
+      }
+    }
+    
+    const query = db
+      .select({
+        entry: waitlistEntriesTable,
+        user: usersTable,
+        campaign: campaignsTable,
+        route: routesTable,
+        industrySubcategory: industrySubcategoriesTable,
+      })
+      .from(waitlistEntriesTable)
+      .leftJoin(usersTable, eq(waitlistEntriesTable.userId, usersTable.id))
+      .leftJoin(campaignsTable, eq(waitlistEntriesTable.campaignId, campaignsTable.id))
+      .leftJoin(routesTable, eq(waitlistEntriesTable.routeId, routesTable.id))
+      .leftJoin(industrySubcategoriesTable, eq(waitlistEntriesTable.industrySubcategoryId, industrySubcategoriesTable.id));
+    
+    const results = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
+    
+    return results.map(r => ({
+      ...r.entry,
+      createdAt: r.entry.createdAt ? new Date(r.entry.createdAt as any) : null,
+      lastNotifiedAt: r.entry.lastNotifiedAt ? new Date(r.entry.lastNotifiedAt as any) : null,
+      user: r.user ? {
+        ...r.user,
+        createdAt: r.user.createdAt ? new Date(r.user.createdAt as any) : null,
+      } : undefined,
+      campaign: r.campaign ? {
+        ...r.campaign,
+        mailDate: new Date(r.campaign.mailDate as any),
+        printDeadline: new Date(r.campaign.printDeadline as any),
+        createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
+      } : undefined,
+      route: r.route,
+      industrySubcategory: r.industrySubcategory ? {
+        ...r.industrySubcategory,
+        createdAt: r.industrySubcategory.createdAt ? new Date(r.industrySubcategory.createdAt as any) : null,
+      } : undefined,
+    }));
+  }
+
+  async updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined> {
+    const result = await db.update(waitlistEntriesTable)
+      .set(updates)
+      .where(eq(waitlistEntriesTable.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWaitlistEntry(id: string): Promise<boolean> {
+    const result = await db.delete(waitlistEntriesTable).where(eq(waitlistEntriesTable.id, id));
+    return (result as any).changes > 0;
+  }
+
+  async notifyWaitlistCustomers(params: {
+    adminId: string;
+    entryIds: string[];
+    message: string;
+    channels: ('in_app' | 'email')[];
+  }): Promise<{ notifiedCount: number }> {
+    const { adminId, entryIds, message, channels } = params;
+    const now = new Date();
+    let notifiedCount = 0;
+    const recipientUserIds: string[] = [];
+    
+    for (const entryId of entryIds) {
+      const entry = await db.select().from(waitlistEntriesTable).where(eq(waitlistEntriesTable.id, entryId)).limit(1);
+      if (entry[0]) {
+        await db.update(waitlistEntriesTable)
+          .set({
+            notifiedCount: entry[0].notifiedCount + 1,
+            lastNotifiedAt: now,
+            lastNotifiedChannels: JSON.stringify(channels),
+          })
+          .where(eq(waitlistEntriesTable.id, entryId));
+        
+        recipientUserIds.push(entry[0].userId);
+        notifiedCount++;
+      }
+    }
+    
+    const firstEntry = entryIds.length > 0 ? await db.select().from(waitlistEntriesTable).where(eq(waitlistEntriesTable.id, entryIds[0])).limit(1) : [];
+    const campaignId = firstEntry[0]?.campaignId || '';
+    
+    const notification = {
+      id: randomUUID().replace(/-/g, ''),
+      sentByAdminId: adminId,
+      campaignId,
+      routeId: null,
+      industrySubcategoryId: null,
+      message,
+      channels: JSON.stringify(channels),
+      recipientCount: notifiedCount,
+      recipientUserIds: JSON.stringify(recipientUserIds),
+      sentAt: now,
+    };
+    await db.insert(waitlistNotificationsTable).values(notification);
+    
+    return { notifiedCount };
+  }
+
+  async markWaitlistAsConverted(userId: string, campaignId: string, routeId: string, industrySubcategoryId: string): Promise<void> {
+    await db.update(waitlistEntriesTable)
+      .set({ status: 'converted' })
+      .where(and(
+        eq(waitlistEntriesTable.userId, userId),
+        eq(waitlistEntriesTable.campaignId, campaignId),
+        eq(waitlistEntriesTable.routeId, routeId),
+        eq(waitlistEntriesTable.industrySubcategoryId, industrySubcategoryId),
+        eq(waitlistEntriesTable.status, 'active')
+      ));
   }
 }
 

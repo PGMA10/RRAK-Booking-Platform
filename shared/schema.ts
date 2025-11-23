@@ -229,6 +229,33 @@ export const adminSettings = sqliteTable("admin_settings", {
   updatedBy: text("updated_by").references(() => users.id),
 });
 
+export const waitlistEntries = sqliteTable("waitlist_entries", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  routeId: text("route_id").notNull().references(() => routes.id),
+  industrySubcategoryId: text("industry_subcategory_id").notNull().references(() => industrySubcategories.id),
+  notes: text("notes"), // Optional customer notes about what they're looking for
+  status: text("status").notNull().default("active"), // 'active', 'notified', 'converted', 'cancelled'
+  notifiedCount: integer("notified_count").notNull().default(0), // How many times admin has notified this entry
+  lastNotifiedAt: integer("last_notified_at", { mode: 'timestamp_ms' }),
+  lastNotifiedChannels: text("last_notified_channels"), // JSON array: ['in_app', 'email']
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
+export const waitlistNotifications = sqliteTable("waitlist_notifications", {
+  id: text("id").primaryKey(),
+  sentByAdminId: text("sent_by_admin_id").notNull().references(() => users.id),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  routeId: text("route_id").references(() => routes.id), // Nullable if notifying across all routes
+  industrySubcategoryId: text("industry_subcategory_id").references(() => industrySubcategories.id), // Nullable if notifying all subcategories
+  message: text("message").notNull(), // The notification message sent
+  channels: text("channels").notNull(), // JSON array: ['in_app', 'email']
+  recipientCount: integer("recipient_count").notNull().default(0), // How many customers were notified
+  recipientUserIds: text("recipient_user_ids").notNull(), // JSON array of user IDs
+  sentAt: integer("sent_at", { mode: 'timestamp_ms' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -319,6 +346,19 @@ export const insertCampaignIndustrySchema = createInsertSchema(campaignIndustrie
   createdAt: true,
 });
 
+export const insertWaitlistEntrySchema = createInsertSchema(waitlistEntries).omit({
+  id: true,
+  createdAt: true,
+  notifiedCount: true,
+  lastNotifiedAt: true,
+  lastNotifiedChannels: true,
+});
+
+export const insertWaitlistNotificationSchema = createInsertSchema(waitlistNotifications).omit({
+  id: true,
+  sentAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -353,6 +393,10 @@ export type CampaignRoute = typeof campaignRoutes.$inferSelect;
 export type InsertCampaignRoute = z.infer<typeof insertCampaignRouteSchema>;
 export type CampaignIndustry = typeof campaignIndustries.$inferSelect;
 export type InsertCampaignIndustry = z.infer<typeof insertCampaignIndustrySchema>;
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
+export type InsertWaitlistEntry = z.infer<typeof insertWaitlistEntrySchema>;
+export type WaitlistNotification = typeof waitlistNotifications.$inferSelect;
+export type InsertWaitlistNotification = z.infer<typeof insertWaitlistNotificationSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {
@@ -364,4 +408,12 @@ export type BookingWithDetails = Booking & {
 // Notification with booking details
 export type NotificationWithDetails = AdminNotification & {
   booking?: BookingWithDetails;
+};
+
+// Extended Waitlist Entry type with joined data for admin view
+export type WaitlistEntryWithDetails = WaitlistEntry & {
+  user?: User;
+  campaign?: Campaign;
+  route?: Route;
+  industrySubcategory?: IndustrySubcategory;
 };
