@@ -967,6 +967,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Invalid industry" });
       }
 
+      // Require subcategory if this industry has subcategories available (except "Other")
+      const isOtherIndustry = industry.name.toLowerCase() === "other";
+      if (!isOtherIndustry) {
+        const availableSubcategories = await storage.getSubcategoriesByIndustry(validatedData.industryId);
+        if (availableSubcategories.length > 0 && !validatedData.industrySubcategoryId) {
+          return res.status(400).json({ message: "Please select a specialization for this industry" });
+        }
+      }
+
       if (validatedData.industrySubcategoryId) {
         const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
         if (!subcategory || subcategory.industryId !== validatedData.industryId) {
@@ -1629,6 +1638,15 @@ export function registerRoutes(app: Express): Server {
       const industry = await storage.getIndustry(validatedData.industryId);
       if (!industry) {
         return res.status(400).json({ message: "Invalid industry" });
+      }
+
+      // Require subcategory if this industry has subcategories available (except "Other")
+      const isOtherIndustry = industry.name.toLowerCase() === "other";
+      if (!isOtherIndustry) {
+        const availableSubcategories = await storage.getSubcategoriesByIndustry(validatedData.industryId);
+        if (availableSubcategories.length > 0 && !validatedData.industrySubcategoryId) {
+          return res.status(400).json({ message: "Please select a specialization for this industry" });
+        }
       }
 
       if (validatedData.industrySubcategoryId) {
@@ -2608,6 +2626,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Invalid industry" });
       }
 
+      // Require subcategory if this industry has subcategories available (except "Other")
+      const isOtherIndustry = industry.name.toLowerCase() === "other";
+      if (!isOtherIndustry) {
+        const availableSubcategories = await storage.getSubcategoriesByIndustry(validatedData.industryId);
+        if (availableSubcategories.length > 0 && !validatedData.industrySubcategoryId) {
+          return res.status(400).json({ message: "Please select a specialization for this industry" });
+        }
+      }
+
       if (validatedData.industrySubcategoryId) {
         const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
         if (!subcategory || subcategory.industryId !== validatedData.industryId) {
@@ -3172,6 +3199,15 @@ export function registerRoutes(app: Express): Server {
       console.log("🔍 [Waitlist] Industry lookup for ID", validatedData.industryId, ":", industry);
       if (!industry) {
         return res.status(400).json({ message: "Industry not found" });
+      }
+
+      // Require subcategory if this industry has subcategories available (except "Other")
+      const isOtherIndustry = industry.name.toLowerCase() === "other";
+      if (!isOtherIndustry) {
+        const availableSubcategories = await storage.getSubcategoriesByIndustry(validatedData.industryId);
+        if (availableSubcategories.length > 0 && !validatedData.industrySubcategoryId) {
+          return res.status(400).json({ message: "Please select a specialization for this industry" });
+        }
       }
 
       if (validatedData.industrySubcategoryId) {
