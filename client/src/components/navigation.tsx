@@ -27,7 +27,10 @@ export function Navigation() {
       label: "Dashboard" 
     },
     { path: "/calendar", label: "Calendar" },
-    ...(user?.role === "admin" ? [{ path: "/admin/settings", label: "Settings" }] : []),
+    ...(user?.role === "admin" ? [
+      { path: "/admin/waitlist", label: "Waitlist" },
+      { path: "/admin/settings", label: "Settings" }
+    ] : []),
   ];
 
   return (

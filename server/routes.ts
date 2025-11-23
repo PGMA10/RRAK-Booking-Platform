@@ -3297,6 +3297,84 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin Waitlist Routes
+  app.get("/api/admin/waitlist", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { campaignId, routeId, industrySubcategoryId, status } = req.query;
+      
+      const filters: {
+        campaignId?: string;
+        routeId?: string;
+        industrySubcategoryId?: string;
+        status?: string;
+      } = {};
+
+      if (campaignId) filters.campaignId = campaignId as string;
+      if (routeId) filters.routeId = routeId as string;
+      if (industrySubcategoryId) filters.industrySubcategoryId = industrySubcategoryId as string;
+      if (status) filters.status = status as string;
+
+      const entries = await storage.getAllWaitlistEntries(filters);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching waitlist entries:", error);
+      res.status(500).json({ message: "Failed to fetch waitlist entries" });
+    }
+  });
+
+  app.post("/api/admin/waitlist/notify", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      // Validate request body with Zod
+      const notifySchema = z.object({
+        entryIds: z.array(z.string()).min(1, "At least one entry must be selected"),
+        message: z.string().trim().min(1, "Message is required"),
+        sendEmail: z.boolean(),
+        sendInApp: z.boolean(),
+      });
+
+      const validatedData = notifySchema.parse(req.body);
+
+      // Ensure at least one channel is selected
+      const channels: ("in_app" | "email")[] = [];
+      if (validatedData.sendInApp) channels.push("in_app");
+      if (validatedData.sendEmail) channels.push("email");
+
+      if (channels.length === 0) {
+        return res.status(400).json({ message: "At least one notification channel must be selected" });
+      }
+
+      const result = await storage.notifyWaitlistCustomers({
+        adminId: req.user.id,
+        entryIds: validatedData.entryIds,
+        message: validatedData.message,
+        channels,
+      });
+
+      res.json({
+        success: true,
+        notifiedCount: result.notifiedCount,
+        message: `Successfully notified ${result.notifiedCount} customer(s)`,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: error.errors.map(e => e.message).join(", ")
+        });
+      }
+      console.error("Error sending waitlist notifications:", error);
+      res.status(500).json({ message: "Failed to send notifications" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
