@@ -799,7 +799,6 @@ export class MemStorage implements IStorage {
     const bookings = Array.from(this.bookings.values()).filter(b => b.campaignId === campaignId);
     
     const slots = [];
-    let availableSlots = 0;
     let bookedSlots = 0;
     let pendingSlots = 0;
     let totalRevenue = 0;
@@ -817,8 +816,6 @@ export class MemStorage implements IStorage {
           } else {
             pendingSlots++;
           }
-        } else {
-          availableSlots++;
         }
         
         slots.push({
@@ -832,10 +829,13 @@ export class MemStorage implements IStorage {
       }
     }
     
+    const totalSlots = routes.length * SLOTS_PER_ROUTE;
+    const availableSlots = totalSlots - bookedSlots - pendingSlots;
+    
     return {
       slots,
       summary: {
-        totalSlots: routes.length * SLOTS_PER_ROUTE,
+        totalSlots,
         availableSlots,
         bookedSlots,
         pendingSlots,
@@ -1644,7 +1644,6 @@ export class DbStorage implements IStorage {
     });
 
     const slots = [];
-    let availableSlots = 0;
     let bookedSlots = 0;
     let pendingSlots = 0;
     let totalRevenue = 0;
@@ -1663,8 +1662,6 @@ export class DbStorage implements IStorage {
           } else {
             pendingSlots++;
           }
-        } else {
-          availableSlots++;
         }
         
         slots.push({
@@ -1678,10 +1675,13 @@ export class DbStorage implements IStorage {
       }
     }
     
+    const totalSlots = routes.length * SLOTS_PER_ROUTE;
+    const availableSlots = totalSlots - bookedSlots - pendingSlots;
+    
     return {
       slots,
       summary: {
-        totalSlots: routes.length * SLOTS_PER_ROUTE,
+        totalSlots,
         availableSlots,
         bookedSlots,
         pendingSlots,
