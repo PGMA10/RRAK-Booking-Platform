@@ -979,6 +979,7 @@ export class MemStorage implements IStorage {
     const waitlistEntry: WaitlistEntry = {
       ...entry,
       id,
+      industrySubcategoryId: entry.industrySubcategoryId || null,
       notes: entry.notes || null,
       status: entry.status || "active",
       notifiedCount: 0,

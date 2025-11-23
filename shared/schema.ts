@@ -234,7 +234,8 @@ export const waitlistEntries = sqliteTable("waitlist_entries", {
   userId: text("user_id").notNull().references(() => users.id),
   campaignId: text("campaign_id").notNull().references(() => campaigns.id),
   routeId: text("route_id").notNull().references(() => routes.id),
-  industrySubcategoryId: text("industry_subcategory_id").notNull().references(() => industrySubcategories.id),
+  industryId: text("industry_id").notNull().references(() => industries.id),
+  industrySubcategoryId: text("industry_subcategory_id").references(() => industrySubcategories.id), // Nullable for "Other" industry
   notes: text("notes"), // Optional customer notes about what they're looking for
   status: text("status").notNull().default("active"), // 'active', 'notified', 'converted', 'cancelled'
   notifiedCount: integer("notified_count").notNull().default(0), // How many times admin has notified this entry
