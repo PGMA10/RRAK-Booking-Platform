@@ -830,7 +830,7 @@ export class MemStorage implements IStorage {
     }
     
     const totalSlots = routes.length * SLOTS_PER_ROUTE;
-    const availableSlots = totalSlots - bookedSlots - pendingSlots;
+    const availableSlots = totalSlots - bookedSlots;
     
     return {
       slots,
@@ -1676,7 +1676,7 @@ export class DbStorage implements IStorage {
     }
     
     const totalSlots = routes.length * SLOTS_PER_ROUTE;
-    const availableSlots = totalSlots - bookedSlots - pendingSlots;
+    const availableSlots = totalSlots - bookedSlots;
     
     return {
       slots,
