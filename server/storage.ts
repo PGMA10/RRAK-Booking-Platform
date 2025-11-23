@@ -811,10 +811,10 @@ export class MemStorage implements IStorage {
         if (booking) {
           status = booking.status === 'pending' ? 'pending' : 'booked';
           if (status === 'booked') {
-            bookedSlots++;
+            bookedSlots += (booking.quantity || 1);
             totalRevenue += booking.amount;
           } else {
-            pendingSlots++;
+            pendingSlots += (booking.quantity || 1);
           }
         }
         
@@ -1657,10 +1657,10 @@ export class DbStorage implements IStorage {
         if (booking) {
           status = booking.status === 'pending' ? 'pending' : 'booked';
           if (status === 'booked') {
-            bookedSlots++;
+            bookedSlots += (booking.quantity || 1);
             totalRevenue += booking.amount;
           } else {
-            pendingSlots++;
+            pendingSlots += (booking.quantity || 1);
           }
         }
         
