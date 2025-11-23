@@ -2777,7 +2777,7 @@ export function registerRoutes(app: Express): Server {
           campaignId: null,
           campaignName: null,
           slotsBooked: 0,
-          totalSlots: 64,
+          totalSlots: 0,
           printDeadline: null,
           mailDeadline: null,
           revenueThisMonth: 0,

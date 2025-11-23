@@ -526,7 +526,7 @@ export default function CampaignManagementPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-testid={`text-slots-${campaign.id}`}>
-                    {campaign.bookedSlots || 0}/{campaign.totalSlots || 64}
+                    {campaign.bookedSlots || 0}/{campaign.totalSlots || 0}
                   </TableCell>
                   <TableCell data-testid={`text-revenue-${campaign.id}`}>
                     ${((campaign.revenue || 0) / 100).toLocaleString()}

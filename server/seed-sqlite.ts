@@ -1,5 +1,5 @@
 import { db } from "./db-sqlite";
-import { users, routes, industries, campaigns } from "@shared/schema";
+import { users, routes, industries, campaigns, campaignRoutes, SLOTS_PER_ROUTE } from "@shared/schema";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { eq } from "drizzle-orm";
@@ -15,6 +15,52 @@ async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
+}
+
+async function migrateCampaignSlots() {
+  try {
+    console.log("🔄 Migrating campaign slots to use dynamic calculation...");
+    
+    // Get all campaigns
+    const allCampaigns = await db.select().from(campaigns);
+    
+    if (allCampaigns.length === 0) {
+      console.log("ℹ️  No campaigns to migrate");
+      return;
+    }
+    
+    let migratedCount = 0;
+    for (const campaign of allCampaigns) {
+      // Count routes for this campaign
+      const campaignRouteEntries = await db
+        .select()
+        .from(campaignRoutes)
+        .where(eq(campaignRoutes.campaignId, campaign.id));
+      
+      const routeCount = campaignRouteEntries.length;
+      const correctTotalSlots = routeCount * SLOTS_PER_ROUTE;
+      
+      // Update if totalSlots is incorrect
+      if (campaign.totalSlots !== correctTotalSlots) {
+        await db
+          .update(campaigns)
+          .set({ totalSlots: correctTotalSlots })
+          .where(eq(campaigns.id, campaign.id));
+        
+        console.log(`  ✅ Updated campaign "${campaign.name}": ${campaign.totalSlots} → ${correctTotalSlots} slots (${routeCount} routes × ${SLOTS_PER_ROUTE})`);
+        migratedCount++;
+      }
+    }
+    
+    if (migratedCount > 0) {
+      console.log(`✅ Migrated ${migratedCount} campaign(s) to use dynamic slot calculation`);
+    } else {
+      console.log("ℹ️  All campaigns already using correct slot calculation");
+    }
+  } catch (error) {
+    console.error("❌ Error migrating campaign slots:", error);
+    // Don't throw - migration failure shouldn't break seed process
+  }
 }
 
 export async function seedSQLite() {
@@ -131,6 +177,9 @@ export async function seedSQLite() {
     seedIndustrySubcategories();
 
     console.log("ℹ️  Campaign seeding disabled - campaigns can be manually created in admin panel");
+    
+    // Migrate existing campaigns to recalculate totalSlots based on routes × SLOTS_PER_ROUTE
+    await migrateCampaignSlots();
 
     console.log("🎉 SQLite database seeding completed successfully!");
   } catch (error) {

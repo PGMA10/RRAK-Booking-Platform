@@ -18,6 +18,7 @@ import {
   type DesignRevision,
   type InsertDesignRevision,
   type AdminSetting,
+  SLOTS_PER_ROUTE,
 } from "@shared/schema";
 import { db } from "./db-sqlite";
 import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable } from "@shared/schema";
@@ -834,7 +835,7 @@ export class MemStorage implements IStorage {
     return {
       slots,
       summary: {
-        totalSlots: routes.length * industries.length,
+        totalSlots: routes.length * SLOTS_PER_ROUTE,
         availableSlots,
         bookedSlots,
         pendingSlots,
@@ -1207,9 +1208,8 @@ export class DbStorage implements IStorage {
       await db.insert(campaignRoutesTable).values(values);
     }
     
-    // Update campaign total slots
-    const industries = await this.getCampaignIndustries(campaignId);
-    const totalSlots = routeIds.length * industries.length;
+    // Update campaign total slots: each route has exactly 16 slots for unique subcategories
+    const totalSlots = routeIds.length * SLOTS_PER_ROUTE;
     await db.update(campaignsTable)
       .set({ totalSlots })
       .where(eq(campaignsTable.id, campaignId));
@@ -1230,9 +1230,9 @@ export class DbStorage implements IStorage {
       await db.insert(campaignIndustriesTable).values(values);
     }
     
-    // Update campaign total slots
+    // Update campaign total slots: each route has exactly 16 slots for unique subcategories
     const routes = await this.getCampaignRoutes(campaignId);
-    const totalSlots = routes.length * industryIds.length;
+    const totalSlots = routes.length * SLOTS_PER_ROUTE;
     await db.update(campaignsTable)
       .set({ totalSlots })
       .where(eq(campaignsTable.id, campaignId));
@@ -1681,7 +1681,7 @@ export class DbStorage implements IStorage {
     return {
       slots,
       summary: {
-        totalSlots: routes.length * industries.length,
+        totalSlots: routes.length * SLOTS_PER_ROUTE,
         availableSlots,
         bookedSlots,
         pendingSlots,

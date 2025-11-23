@@ -60,7 +60,7 @@ export const demoCampaigns = [
     scheduledDate: '2024-11-15',
     status: 'active',
     bookedSlots: 18,
-    totalSlots: 64,
+    totalSlots: 16, // 1 route × 16 slots per route (demo data)
     deadline: '2024-11-10',
     mailDate: '2024-11-15'
   },
@@ -70,7 +70,7 @@ export const demoCampaigns = [
     scheduledDate: '2024-12-15',
     status: 'open',
     bookedSlots: 7,
-    totalSlots: 64,
+    totalSlots: 16, // 1 route × 16 slots per route (demo data)
     deadline: '2024-12-10',
     mailDate: '2024-12-15'
   },
@@ -80,7 +80,7 @@ export const demoCampaigns = [
     scheduledDate: '2025-01-15',
     status: 'planning',
     bookedSlots: 0,
-    totalSlots: 64,
+    totalSlots: 16, // 1 route × 16 slots per route (demo data)
     deadline: '2025-01-10',
     mailDate: '2025-01-15'
   }

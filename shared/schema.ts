@@ -3,6 +3,9 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Business constants
+export const SLOTS_PER_ROUTE = 16; // Each route/mailer has exactly 16 slots for unique subcategories
+
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -54,7 +57,7 @@ export const campaigns = sqliteTable("campaigns", {
   mailDate: integer("mail_date", { mode: 'timestamp_ms' }).notNull(),
   printDeadline: integer("print_deadline", { mode: 'timestamp_ms' }).notNull(),
   status: text("status").notNull().default("planning"), // 'planning', 'booking_open', 'booking_closed', 'printed', 'mailed', 'completed'
-  totalSlots: integer("total_slots").notNull().default(64),
+  totalSlots: integer("total_slots").notNull().default(0),
   bookedSlots: integer("booked_slots").notNull().default(0),
   revenue: integer("revenue").notNull().default(0), // in cents
   baseSlotPrice: integer("base_slot_price"), // in cents, price for first slot in this campaign (overrides default $600)

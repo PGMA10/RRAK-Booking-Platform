@@ -195,7 +195,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-slots-booked">
-                    {statsLoading ? '...' : `${dashboardStats?.slotsBooked || 0}/${dashboardStats?.totalSlots || 64}`}
+                    {statsLoading ? '...' : `${dashboardStats?.slotsBooked || 0}/${dashboardStats?.totalSlots || 0}`}
                   </p>
                   <div className="mt-2 w-full bg-muted rounded-full h-2">
                     <div 
