@@ -606,6 +606,16 @@ export function initializeDatabase() {
     )
   `);
 
+  // Add industry_id column to waitlist_entries if it doesn't exist
+  try {
+    sqlite.exec(`ALTER TABLE waitlist_entries ADD COLUMN industry_id TEXT REFERENCES industries(id)`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Make industry_subcategory_id nullable by recreating the column constraint (SQLite limitation workaround)
+  // Note: SQLite doesn't support ALTER COLUMN, so we handle this via the application layer
+
   // Create unique index to prevent duplicate active waitlist entries for same slot
   try {
     sqlite.exec(`
