@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertBookingSchema, insertRouteSchema, insertIndustrySchema, insertCampaignSchema } from "@shared/schema";
+import { insertBookingSchema, insertRouteSchema, insertIndustrySchema, insertCampaignSchema, insertWaitlistEntrySchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -3137,6 +3137,107 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error fetching loyalty settings:', error);
       res.status(500).json({ message: "Failed to fetch loyalty settings" });
+    }
+  });
+
+  // Waitlist Routes
+  app.post("/api/waitlist", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const validatedData = insertWaitlistEntrySchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "active",
+      });
+
+      // Verify campaign exists
+      const campaign = await storage.getCampaign(validatedData.campaignId);
+      if (!campaign) {
+        return res.status(400).json({ message: "Campaign not found" });
+      }
+
+      // Verify route exists
+      const route = await storage.getRoute(validatedData.routeId);
+      if (!route) {
+        return res.status(400).json({ message: "Route not found" });
+      }
+
+      // Verify industry and subcategory exist
+      const industry = await storage.getIndustry(validatedData.industryId);
+      if (!industry) {
+        return res.status(400).json({ message: "Industry not found" });
+      }
+
+      if (validatedData.industrySubcategoryId) {
+        const subcategory = await storage.getSubcategory(validatedData.industrySubcategoryId);
+        if (!subcategory || subcategory.industryId !== validatedData.industryId) {
+          return res.status(400).json({ message: "Invalid subcategory for selected industry" });
+        }
+      }
+
+      // Check if user already has an active waitlist entry for this exact combination
+      const existingEntries = await storage.getWaitlistEntriesByUser(req.user.id);
+      const duplicate = existingEntries.find(entry =>
+        entry.campaignId === validatedData.campaignId &&
+        entry.routeId === validatedData.routeId &&
+        entry.industrySubcategoryId === validatedData.industrySubcategoryId &&
+        entry.status === "active"
+      );
+
+      if (duplicate) {
+        return res.status(400).json({ message: "You're already on the waitlist for this slot" });
+      }
+
+      const entry = await storage.createWaitlistEntry(validatedData);
+      res.json(entry);
+    } catch (error) {
+      console.error("Error creating waitlist entry:", error);
+      res.status(500).json({ message: "Failed to join waitlist" });
+    }
+  });
+
+  app.get("/api/waitlist", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const entries = await storage.getWaitlistEntriesByUser(req.user.id);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching waitlist entries:", error);
+      res.status(500).json({ message: "Failed to fetch waitlist entries" });
+    }
+  });
+
+  app.delete("/api/waitlist/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { id } = req.params;
+      
+      // Get entry to verify ownership
+      const entries = await storage.getWaitlistEntriesByUser(req.user.id);
+      const entry = entries.find(e => e.id === id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Waitlist entry not found" });
+      }
+
+      const success = await storage.deleteWaitlistEntry(id);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Waitlist entry not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting waitlist entry:", error);
+      res.status(500).json({ message: "Failed to remove from waitlist" });
     }
   });
 

@@ -10,11 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Briefcase, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Tag, ExternalLink, Bell, BellOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Campaign, Route, Industry } from "@shared/schema";
 
 // Customer booking form schema - dynamic validation will be applied in form submission
@@ -77,6 +77,7 @@ export default function CustomerBookingPage() {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [contractAccepted, setContractAccepted] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
 
   // Form handling
   const form = useForm<CustomerBookingData>({
@@ -155,17 +156,20 @@ export default function CustomerBookingPage() {
 
       if (!campaignId || !routeId || !industryId) {
         setSlotAvailable(null);
+        setOnWaitlist(false);
         return;
       }
 
       // For non-"Other" industries, wait for subcategory selection before checking availability
       if (selectedIndustry && selectedIndustry.name.toLowerCase() !== "other" && subcategories.length > 0 && !industrySubcategoryId) {
         setSlotAvailable(null);
+        setOnWaitlist(false);
         return;
       }
 
       setCheckingAvailability(true);
       try {
+        // Check slot availability
         let url = `/api/availability/${campaignId}/${routeId}/${industryId}`;
         if (industrySubcategoryId) {
           url += `?subcategoryId=${industrySubcategoryId}`;
@@ -175,9 +179,27 @@ export default function CustomerBookingPage() {
         });
         const data = await response.json();
         setSlotAvailable(data.available);
+
+        // If slot unavailable, check if user is already on waitlist for this slot
+        if (!data.available) {
+          const waitlistResponse = await fetch("/api/waitlist", {
+            credentials: "include",
+          });
+          const waitlistEntries = await waitlistResponse.json();
+          const isOnWaitlist = waitlistEntries.some((entry: any) =>
+            entry.campaignId === campaignId &&
+            entry.routeId === routeId &&
+            entry.industrySubcategoryId === (industrySubcategoryId || null) &&
+            entry.status === "active"
+          );
+          setOnWaitlist(isOnWaitlist);
+        } else {
+          setOnWaitlist(false);
+        }
       } catch (error) {
         console.error("Error checking availability:", error);
         setSlotAvailable(null);
+        setOnWaitlist(false);
       } finally {
         setCheckingAvailability(false);
       }
@@ -272,6 +294,38 @@ export default function CustomerBookingPage() {
         variant: "destructive",
         title: "Booking Failed",
         description: error.message || "Failed to create checkout session. Please try again.",
+      });
+    },
+  });
+
+  // Join waitlist mutation
+  const joinWaitlistMutation = useMutation({
+    mutationFn: async () => {
+      const campaignId = form.getValues("campaignId");
+      const routeId = form.getValues("routeId");
+      const industryId = form.getValues("industryId");
+      const industrySubcategoryId = form.getValues("industrySubcategoryId");
+
+      return await apiRequest("POST", "/api/waitlist", {
+        campaignId,
+        routeId,
+        industryId,
+        industrySubcategoryId: industrySubcategoryId || null,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Added to Waitlist",
+        description: "We'll notify you when this slot becomes available.",
+      });
+      setOnWaitlist(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to Join Waitlist",
+        description: error.message || "Please try again later.",
       });
     },
   });
@@ -880,27 +934,54 @@ export default function CustomerBookingPage() {
                 </CardContent>
               </Card>
 
-              {/* Proceed to Payment */}
+              {/* Proceed to Payment or Join Waitlist */}
               <div className="flex justify-end space-x-4">
                 <Link href="/customer/dashboard">
                   <Button variant="outline" data-testid="button-cancel-booking">
                     Cancel
                   </Button>
                 </Link>
-                <Button 
-                  type="submit"
-                  disabled={!contractAccepted || !slotAvailable || checkingAvailability || isLoadingPrice}
-                  data-testid="button-proceed-payment"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {isLoadingPrice ? (
-                    "Calculating Price..."
-                  ) : pricingQuote ? (
-                    `Proceed to Payment (${formatCurrency(pricingQuote.totalPrice)})`
-                  ) : (
-                    "Select Campaign to See Price"
-                  )}
-                </Button>
+                
+                {slotAvailable === false ? (
+                  // Slot unavailable - show waitlist button
+                  <Button
+                    type="button"
+                    variant={onWaitlist ? "secondary" : "default"}
+                    disabled={onWaitlist || joinWaitlistMutation.isPending}
+                    onClick={() => joinWaitlistMutation.mutate()}
+                    data-testid="button-join-waitlist"
+                  >
+                    {onWaitlist ? (
+                      <>
+                        <BellOff className="h-4 w-4 mr-2" />
+                        Already on Waitlist
+                      </>
+                    ) : joinWaitlistMutation.isPending ? (
+                      "Joining..."
+                    ) : (
+                      <>
+                        <Bell className="h-4 w-4 mr-2" />
+                        Join Waitlist
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  // Slot available or checking - show payment button
+                  <Button 
+                    type="submit"
+                    disabled={!contractAccepted || !slotAvailable || checkingAvailability || isLoadingPrice}
+                    data-testid="button-proceed-payment"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    {isLoadingPrice ? (
+                      "Calculating Price..."
+                    ) : pricingQuote ? (
+                      `Proceed to Payment (${formatCurrency(pricingQuote.totalPrice)})`
+                    ) : (
+                      "Select Campaign to See Price"
+                    )}
+                  </Button>
+                )}
               </div>
             </form>
           </Form>
