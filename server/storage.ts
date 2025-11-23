@@ -2537,7 +2537,7 @@ export class DbStorage implements IStorage {
         printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
-      route: r.route,
+      route: r.route || undefined,
       industrySubcategory: r.industrySubcategory ? {
         ...r.industrySubcategory,
         createdAt: r.industrySubcategory.createdAt ? new Date(r.industrySubcategory.createdAt as any) : null,
@@ -2598,7 +2598,7 @@ export class DbStorage implements IStorage {
         printDeadline: new Date(r.campaign.printDeadline as any),
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
-      route: r.route,
+      route: r.route || undefined,
       industrySubcategory: r.industrySubcategory ? {
         ...r.industrySubcategory,
         createdAt: r.industrySubcategory.createdAt ? new Date(r.industrySubcategory.createdAt as any) : null,
