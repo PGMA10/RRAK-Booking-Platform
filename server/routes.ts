@@ -3153,6 +3153,8 @@ export function registerRoutes(app: Express): Server {
         status: "active",
       });
 
+      console.log("🔍 [Waitlist] Validated data:", validatedData);
+
       // Verify campaign exists
       const campaign = await storage.getCampaign(validatedData.campaignId);
       if (!campaign) {
@@ -3167,6 +3169,7 @@ export function registerRoutes(app: Express): Server {
 
       // Verify industry and subcategory exist
       const industry = await storage.getIndustry(validatedData.industryId);
+      console.log("🔍 [Waitlist] Industry lookup for ID", validatedData.industryId, ":", industry);
       if (!industry) {
         return res.status(400).json({ message: "Industry not found" });
       }
