@@ -297,7 +297,7 @@ export default function CustomerRegistrationPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium">Affordable Pricing</h4>
+                    <h4 className="font-medium">No Hidden Fees</h4>
                     <p className="text-sm text-muted-foreground">
                       Everything included starting at $600 per slot. Multi-slot and loyalty discounts available.
                     </p>
