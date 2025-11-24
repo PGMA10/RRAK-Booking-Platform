@@ -696,6 +696,54 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/campaigns/:id/reopen", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Only allow reopening from booking_closed status
+      if (campaign.status !== "booking_closed") {
+        return res.status(400).json({ 
+          message: "Only campaigns with 'Booking Closed' status can be reopened" 
+        });
+      }
+      
+      // Check that print deadline is still in the future
+      const now = new Date();
+      const printDeadline = new Date(campaign.printDeadline);
+      if (printDeadline <= now) {
+        return res.status(400).json({ 
+          message: "Cannot reopen campaign - print deadline has passed" 
+        });
+      }
+      
+      // Get count of existing bookings for this campaign
+      const allBookings = await storage.getAllBookings();
+      const existingBookingsCount = allBookings.filter(
+        b => b.campaignId === req.params.id && b.paymentStatus === "paid"
+      ).length;
+      
+      // Update status to booking_open
+      const updatedCampaign = await storage.updateCampaign(req.params.id, {
+        status: "booking_open"
+      });
+      
+      res.json({
+        campaign: updatedCampaign,
+        existingBookingsCount
+      });
+    } catch (error) {
+      console.error("❌ Campaign reopen error:", error);
+      res.status(500).json({ message: "Failed to reopen campaign" });
+    }
+  });
+
   // Campaign Routes and Industries Management
   app.get("/api/campaigns/:id/routes", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {

@@ -98,6 +98,7 @@ export default function CampaignManagementPage() {
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [deleteCampaignId, setDeleteCampaignId] = useState<string | null>(null);
   const [availabilityCampaign, setAvailabilityCampaign] = useState<Campaign | null>(null);
+  const [reopenCampaignId, setReopenCampaignId] = useState<string | null>(null);
 
   // Fetch campaigns
   const { data: campaigns = [], isLoading } = useQuery({
@@ -194,6 +195,26 @@ export default function CampaignManagementPage() {
     },
   });
 
+  // Reopen mutation
+  const reopenMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/campaigns/${id}/reopen`),
+    onSuccess: (data: { campaign: Campaign; existingBookingsCount: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      setReopenCampaignId(null);
+      toast({
+        title: "Success",
+        description: `Campaign reopened successfully. ${data.existingBookingsCount} existing ${data.existingBookingsCount === 1 ? 'booking' : 'bookings'}.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reopen campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onCreateSubmit = (data: CampaignFormData) => {
     // Transform prices from dollars string to cents integer
     const transformed = {
@@ -243,6 +264,10 @@ export default function CampaignManagementPage() {
       id: campaign.id, 
       data: { status: newStatus as CampaignFormData["status"] }
     });
+  };
+
+  const handleReopen = (campaign: Campaign) => {
+    setReopenCampaignId(campaign.id);
   };
 
   // Calculate totals for summary cards
@@ -558,6 +583,15 @@ export default function CampaignManagementPage() {
                             ))}
                           </>
                         )}
+                        {campaign.status === "booking_closed" && (
+                          <DropdownMenuItem 
+                            onClick={() => handleReopen(campaign)}
+                            className="text-blue-600"
+                            data-testid={`button-reopen-${campaign.id}`}
+                          >
+                            Reopen Campaign
+                          </DropdownMenuItem>
+                        )}
                         {["planning", "booking_open"].includes(campaign.status) && (
                           <DropdownMenuItem 
                             onClick={() => handleDelete(campaign.id)}
@@ -727,6 +761,39 @@ export default function CampaignManagementPage() {
               data-testid="button-confirm-delete"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen Confirmation Dialog */}
+      <AlertDialog open={!!reopenCampaignId} onOpenChange={(open) => !open && setReopenCampaignId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reopen Campaign for Booking</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This will change the campaign status back to "Booking Open" so customers can book additional slots.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-sm text-blue-900">
+                    <strong>Note:</strong> Any existing bookings will remain. New bookings will be added alongside them.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  The system will verify that the print deadline hasn't passed before reopening.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reopen">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => reopenCampaignId && reopenMutation.mutate(reopenCampaignId)}
+              data-testid="button-confirm-reopen"
+            >
+              Reopen Campaign
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
