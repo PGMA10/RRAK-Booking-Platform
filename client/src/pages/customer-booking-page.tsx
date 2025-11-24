@@ -266,6 +266,7 @@ export default function CustomerBookingPage() {
       const bookingResponse = await apiRequest("POST", "/api/create-checkout-session", {
         ...bookingData,
         quantity: parseInt(bookingData.quantity as any) || 1,
+        industrySubcategoryId: bookingData.industrySubcategoryId || null,
         industrySubcategoryLabel: selectedSubcategory?.name || null,
         businessName: user?.businessName || user?.username || "Unknown Business",
         contactEmail: user?.email || "",
