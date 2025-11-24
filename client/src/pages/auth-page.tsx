@@ -141,8 +141,8 @@ export default function AuthPage() {
                   <div className="text-muted-foreground">per route</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="font-semibold" style={{ color: '#EE5E18' }}>$400 Launch Special</div>
-                  <div className="text-muted-foreground">Save $200 (Regular $600)</div>
+                  <div className="font-semibold" style={{ color: '#EE5E18' }}>Starting at $600</div>
+                  <div className="text-muted-foreground">Per slot</div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-4">
                   <div className="font-semibold" style={{ color: '#EE5E18' }}>16 Industries</div>
