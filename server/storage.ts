@@ -97,7 +97,7 @@ export interface IStorage {
   }): Promise<Booking | undefined>;
   cancelBooking(id: string, refundData: {
     refundAmount: number;
-    refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed';
+    refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed' | 'pending_manual';
   }): Promise<{ booking: Booking; cancelledNow: boolean } | undefined>;
   approveBooking(id: string): Promise<Booking | undefined>;
   rejectBooking(id: string, rejectionNote: string): Promise<Booking | undefined>;

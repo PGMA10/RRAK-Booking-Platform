@@ -1752,6 +1752,91 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get refund calculation preview for a booking
+  app.get("/api/bookings/:bookingId/refund-preview", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const { bookingId } = req.params;
+      
+      // Get booking with campaign details
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Verify user owns this booking
+      if (booking.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to view this booking" });
+      }
+
+      // Check if booking is eligible for cancellation
+      if (booking.status === 'cancelled') {
+        return res.status(400).json({ message: "Booking is already cancelled" });
+      }
+
+      if (booking.paymentStatus !== 'paid') {
+        return res.json({
+          eligible: false,
+          message: "Only paid bookings are eligible for refunds",
+          originalAmount: 0,
+          processingFee: 0,
+          netRefund: 0,
+        });
+      }
+
+      // Get campaign to check print deadline
+      const campaign = await storage.getCampaign(booking.campaignId);
+      if (!campaign || !campaign.printDeadline) {
+        return res.status(400).json({ 
+          message: "Campaign information unavailable" 
+        });
+      }
+
+      // Calculate days until print deadline
+      const now = new Date();
+      const printDeadline = new Date(campaign.printDeadline);
+      const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Check refund eligibility (7+ days before print deadline)
+      const isEligible = daysUntilDeadline >= 7;
+      
+      if (!isEligible) {
+        return res.json({
+          eligible: false,
+          message: `Cancellations must be made at least 7 days before the print deadline. Only ${daysUntilDeadline} days remaining.`,
+          originalAmount: booking.amountPaid || booking.amount,
+          processingFee: 0,
+          netRefund: 0,
+          daysUntilDeadline,
+        });
+      }
+
+      // Calculate refund breakdown
+      const originalAmount = booking.amountPaid || booking.amount;
+      const percentageFee = Math.round(originalAmount * 0.029); // 2.9% in cents
+      const flatFee = 30; // $0.30 in cents
+      const processingFee = percentageFee + flatFee;
+      const netRefund = Math.max(0, originalAmount - processingFee);
+
+      res.json({
+        eligible: true,
+        message: netRefund > 0 
+          ? "Your refund will be processed automatically upon cancellation."
+          : "No refund available - processing fees consume the entire payment amount.",
+        originalAmount,
+        processingFee,
+        netRefund,
+        daysUntilDeadline,
+      });
+    } catch (error) {
+      console.error("Refund preview error:", error);
+      res.status(500).json({ message: "Failed to calculate refund preview" });
+    }
+  });
+
   // Cancel booking with refund logic
   app.post("/api/bookings/:bookingId/cancel", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1811,55 +1896,63 @@ export function registerRoutes(app: Express): Server {
 
       // Determine refund eligibility (7+ days before print deadline)
       const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
+      const isAdminCancellation = req.user.role === 'admin';
       let refundAmount = 0;
-      let refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed' = 'no_refund';
+      let refundStatus: 'pending' | 'processed' | 'no_refund' | 'failed' | 'pending_manual' = 'no_refund';
       let stripeFee = 0;
       let originalAmount = 0;
 
-      // Process Stripe refund if eligible (minus processing fee)
+      // Process Stripe refund if eligible
       if (isEligibleForRefund && booking.stripePaymentIntentId) {
-        try {
-          originalAmount = booking.amountPaid || booking.amount;
-          
-          // Calculate Stripe processing fee: 2.9% + $0.30
-          const percentageFee = Math.round(originalAmount * 0.029); // 2.9% in cents
-          const flatFee = 30; // $0.30 in cents
-          stripeFee = percentageFee + flatFee;
-          
-          // Calculate net refund amount (original amount - processing fee)
-          // Guard against negative refunds for fully-discounted/zero-value bookings
-          const netRefundAmount = Math.max(0, originalAmount - stripeFee);
-          
-          console.log(`💰 [Cancellation] Refund calculation:`, {
-            originalAmount,
-            stripeFee,
-            netRefundAmount,
-            paymentIntent: booking.stripePaymentIntentId
-          });
-          
-          // Only process refund if there's a positive amount to refund after fees
-          if (netRefundAmount > 0) {
-            const refund = await stripe.refunds.create({
-              payment_intent: booking.stripePaymentIntentId,
-              amount: netRefundAmount, // Issue partial refund
-              reason: 'requested_by_customer',
-            });
+        originalAmount = booking.amountPaid || booking.amount;
+        
+        // Calculate Stripe processing fee: 2.9% + $0.30
+        const percentageFee = Math.round(originalAmount * 0.029); // 2.9% in cents
+        const flatFee = 30; // $0.30 in cents
+        stripeFee = percentageFee + flatFee;
+        
+        // Calculate net refund amount (original amount - processing fee)
+        const netRefundAmount = Math.max(0, originalAmount - stripeFee);
+        
+        console.log(`💰 [Cancellation] Refund calculation:`, {
+          originalAmount,
+          stripeFee,
+          netRefundAmount,
+          paymentIntent: booking.stripePaymentIntentId,
+          isAdminCancellation,
+        });
 
-            refundAmount = refund.amount;
-            refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
-            console.log(`✅ [Cancellation] Refund ${refundStatus}: $${(refundAmount / 100).toFixed(2)} (Original: $${(originalAmount / 100).toFixed(2)}, Fee: $${(stripeFee / 100).toFixed(2)})`);
-          } else {
-            // Amount is too small to issue a refund after fees
-            // Keep the breakdown for transparency even though no money is returned
-            console.log(`⚠️  [Cancellation] No refund available - processing fees consume entire payment ($${(originalAmount / 100).toFixed(2)} payment - $${(stripeFee / 100).toFixed(2)} fee = $0)`);
-            refundAmount = 0;
-            refundStatus = 'no_refund';
-            // Keep originalAmount and stripeFee for transparency
+        // Admin cancellations: Mark as pending_manual (admin will issue full refund in Stripe dashboard)
+        if (isAdminCancellation) {
+          refundAmount = 0; // No automatic refund
+          refundStatus = 'pending_manual';
+          console.log(`🔧 [Cancellation] Admin-initiated cancellation - refund will be processed manually in Stripe dashboard`);
+        } 
+        // Customer cancellations: Automatic refund with fees deducted
+        else {
+          try {
+            // Only process refund if there's a positive amount to refund after fees
+            if (netRefundAmount > 0) {
+              const refund = await stripe.refunds.create({
+                payment_intent: booking.stripePaymentIntentId,
+                amount: netRefundAmount, // Issue partial refund (minus fees)
+                reason: 'requested_by_customer',
+              });
+
+              refundAmount = refund.amount;
+              refundStatus = refund.status === 'succeeded' ? 'processed' : 'pending';
+              console.log(`✅ [Cancellation] Customer automatic refund ${refundStatus}: $${(refundAmount / 100).toFixed(2)} (Original: $${(originalAmount / 100).toFixed(2)}, Fee: $${(stripeFee / 100).toFixed(2)})`);
+            } else {
+              // Amount is too small to issue a refund after fees
+              console.log(`⚠️  [Cancellation] No refund available - processing fees consume entire payment ($${(originalAmount / 100).toFixed(2)} payment - $${(stripeFee / 100).toFixed(2)} fee = $0)`);
+              refundAmount = 0;
+              refundStatus = 'no_refund';
+            }
+          } catch (stripeError: any) {
+            console.error("❌ [Cancellation] Stripe refund error:", stripeError.message);
+            refundStatus = 'failed';
+            // Continue with cancellation even if refund fails
           }
-        } catch (stripeError: any) {
-          console.error("❌ [Cancellation] Stripe refund error:", stripeError.message);
-          refundStatus = 'failed';
-          // Continue with cancellation even if refund fails
         }
       } else if (!isEligibleForRefund && booking.paymentStatus === 'paid') {
         console.log(`❌ [Cancellation] Not eligible for refund - less than 7 days before print deadline`);
@@ -1869,7 +1962,7 @@ export function registerRoutes(app: Express): Server {
       // Cancel the booking in storage
       const cancelResult = await storage.cancelBooking(bookingId, {
         refundAmount,
-        refundStatus,
+        refundStatus: refundStatus as 'pending' | 'processed' | 'no_refund' | 'failed' | 'pending_manual',
       });
 
       if (!cancelResult) {

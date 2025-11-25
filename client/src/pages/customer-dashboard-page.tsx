@@ -47,6 +47,30 @@ export default function CustomerDashboardPage() {
   const [expandedDesignBriefs, setExpandedDesignBriefs] = useState<Set<string>>(new Set());
   const [showAllHistory, setShowAllHistory] = useState(false);
 
+  // Fetch refund preview when canceling a booking
+  const { data: refundPreview, isLoading: refundPreviewLoading } = useQuery<{
+    eligible: boolean;
+    message: string;
+    originalAmount: number;
+    processingFee: number;
+    netRefund: number;
+    daysUntilDeadline?: number;
+  }>({
+    queryKey: ['/api/bookings', cancelBookingId, 'refund-preview'],
+    queryFn: async () => {
+      if (!cancelBookingId) throw new Error('No booking ID');
+      const response = await fetch(`/api/bookings/${cancelBookingId}/refund-preview`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch refund preview');
+      }
+      return response.json();
+    },
+    enabled: !!cancelBookingId,
+    retry: false,
+  });
+
   // Redirect admin users to admin dashboard
   if (user && user.role === "admin") {
     return <Redirect to="/admin" />;
@@ -838,16 +862,6 @@ export default function CustomerDashboardPage() {
                         );
                       }
                       
-                      const now = new Date();
-                      const printDeadline = new Date(booking.campaign.printDeadline);
-                      const daysUntilDeadline = Math.ceil((printDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                      const isEligibleForRefund = daysUntilDeadline >= 7 && booking.paymentStatus === 'paid';
-                      
-                      // Calculate partial refund (minus Stripe processing fees)
-                      const originalAmount = booking.amountPaid || booking.amount;
-                      const stripeFee = Math.round(originalAmount * 0.029) + 30; // 2.9% + $0.30
-                      const netRefund = Math.max(0, originalAmount - stripeFee);
-                      
                       return (
                         <div className="space-y-3">
                           <p>
@@ -856,11 +870,20 @@ export default function CustomerDashboardPage() {
                           <p className="text-sm">
                             This action cannot be undone. The slot will be released and made available to other businesses.
                           </p>
-                          {isEligibleForRefund ? (
-                            netRefund > 0 ? (
+                          
+                          {/* Show loading state while fetching refund preview */}
+                          {refundPreviewLoading ? (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 animate-spin" />
+                                <span>Calculating refund...</span>
+                              </div>
+                            </div>
+                          ) : refundPreview?.eligible ? (
+                            refundPreview.netRefund > 0 ? (
                               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 space-y-3">
                                 <div className="font-semibold text-base">
-                                  ✓ Refund of ${(netRefund / 100).toFixed(2)} will be processed
+                                  ✓ Refund of ${(refundPreview.netRefund / 100).toFixed(2)} will be processed
                                 </div>
                                 <div className="text-sm space-y-1.5">
                                   <div className="text-green-700 mb-2">
@@ -868,15 +891,15 @@ export default function CustomerDashboardPage() {
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Original payment:</span>
-                                    <span className="font-medium">${(originalAmount / 100).toFixed(2)}</span>
+                                    <span className="font-medium">${(refundPreview.originalAmount / 100).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Processing fee:</span>
-                                    <span className="font-medium">-${(stripeFee / 100).toFixed(2)}</span>
+                                    <span className="font-medium">-${(refundPreview.processingFee / 100).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between pt-1.5 border-t border-green-300">
                                     <span className="font-semibold">You'll receive:</span>
-                                    <span className="font-semibold">${(netRefund / 100).toFixed(2)}</span>
+                                    <span className="font-semibold">${(refundPreview.netRefund / 100).toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -886,15 +909,15 @@ export default function CustomerDashboardPage() {
                                   ⚠ No refund available
                                 </div>
                                 <div className="text-sm">
-                                  Your payment of ${(originalAmount / 100).toFixed(2)} would be fully consumed by the Stripe processing fee (${(stripeFee / 100).toFixed(2)}). While you meet the 7-day cancellation policy, there's no refund remaining after fees.
+                                  Your payment of ${(refundPreview.originalAmount / 100).toFixed(2)} would be fully consumed by the Stripe processing fee (${(refundPreview.processingFee / 100).toFixed(2)}). While you meet the 7-day cancellation policy, there's no refund remaining after fees.
                                 </div>
                               </div>
                             )
-                          ) : (
+                          ) : refundPreview ? (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                              ⚠ No refund - within 7 days of print deadline
+                              ⚠️ {refundPreview.message}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })()}
@@ -908,7 +931,7 @@ export default function CustomerDashboardPage() {
                 onClick={handleCancelBooking}
                 className="bg-red-600 hover:bg-red-700"
                 data-testid="dialog-cancel-yes"
-                disabled={!bookings?.find(b => b.id === cancelBookingId)?.campaign?.printDeadline || cancelBookingMutation.isPending}
+                disabled={!bookings?.find(b => b.id === cancelBookingId)?.campaign?.printDeadline || cancelBookingMutation.isPending || refundPreviewLoading}
               >
                 {cancelBookingMutation.isPending ? 'Cancelling...' : 'Cancel Booking'}
               </AlertDialogAction>
