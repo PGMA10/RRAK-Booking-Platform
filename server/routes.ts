@@ -2831,14 +2831,73 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { bookingId } = req.params;
-      const success = await storage.deleteBooking(bookingId);
       
-      if (!success) {
+      // Get booking details before canceling
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      console.log(`🔧 [Admin Delete] Canceling booking ${bookingId} (admin-initiated, no automatic refund)`);
+
+      // Cancel the booking with no automatic refund (admin will handle manually if needed)
+      const cancelResult = await storage.cancelBooking(bookingId, {
+        refundAmount: 0,
+        refundStatus: 'pending_manual' as 'pending' | 'processed' | 'no_refund' | 'failed' | 'pending_manual', // Admin will process refund manually in Stripe if needed
+      });
+
+      if (!cancelResult) {
+        return res.status(500).json({ message: "Failed to cancel booking" });
+      }
+
+      const { booking: cancelledBooking, cancelledNow } = cancelResult;
+
+      // If booking was already cancelled, just return success
+      if (!cancelledNow) {
+        return res.json({ 
+          message: "Booking was already cancelled",
+          booking: cancelledBooking 
+        });
+      }
+
+      // Create admin notification for cancellation
+      await storage.createNotification('booking_cancelled', bookingId);
       
-      res.json({ message: "Booking cancelled successfully" });
+      // Release loyalty discount if one was reserved
+      if (booking.loyaltyDiscountApplied === true) {
+        console.log(`🎟️ [Loyalty] Releasing discount for admin-cancelled booking ${bookingId}...`);
+        await releaseLoyaltyDiscount(booking.userId, bookingId);
+      }
+
+      // Clean up files
+      const filesToDelete = [
+        booking.artworkFilePath,
+        booking.logoFilePath,
+        booking.optionalImagePath,
+      ].filter((filePath): filePath is string => !!filePath);
+
+      const deletionPromises = filesToDelete.map(async (filePath) => {
+        try {
+          const fullPath = path.join(process.cwd(), filePath);
+          if (fs.existsSync(fullPath)) {
+            await fs.promises.unlink(fullPath);
+            console.log(`🗑️  [Cleanup] Deleted file: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error(`⚠️  [Cleanup] Failed to delete file ${filePath}:`, fileError);
+        }
+      });
+      
+      await Promise.allSettled(deletionPromises);
+
+      console.log(`✅ [Admin Delete] Booking ${bookingId} cancelled successfully (refund status: pending_manual)`);
+      
+      res.json({ 
+        message: "Booking cancelled successfully. Refund must be processed manually in Stripe dashboard.",
+        booking: cancelledBooking 
+      });
     } catch (error) {
+      console.error("❌ [Admin Delete] Error:", error);
       res.status(500).json({ message: "Failed to cancel booking" });
     }
   });
