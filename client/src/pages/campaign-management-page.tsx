@@ -197,7 +197,10 @@ export default function CampaignManagementPage() {
 
   // Reopen mutation
   const reopenMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/campaigns/${id}/reopen`),
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/campaigns/${id}/reopen`);
+      return await response.json();
+    },
     onSuccess: (data: { campaign: Campaign; existingBookingsCount: number }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setReopenCampaignId(null);
