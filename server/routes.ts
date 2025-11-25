@@ -707,10 +707,11 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Campaign not found" });
       }
       
-      // Only allow reopening from booking_closed status
-      if (campaign.status !== "booking_closed") {
+      // Only allow reopening from booking_closed or later statuses
+      const allowedStatuses = ["booking_closed", "printed", "mailed", "completed"];
+      if (!allowedStatuses.includes(campaign.status)) {
         return res.status(400).json({ 
-          message: "Only campaigns with 'Booking Closed' status can be reopened" 
+          message: "Only campaigns that are booking closed or later can be reopened" 
         });
       }
       

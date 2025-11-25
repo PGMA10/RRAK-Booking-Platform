@@ -586,7 +586,7 @@ export default function CampaignManagementPage() {
                             ))}
                           </>
                         )}
-                        {campaign.status === "booking_closed" && (
+                        {["booking_closed", "printed", "mailed", "completed"].includes(campaign.status) && (
                           <DropdownMenuItem 
                             onClick={() => handleReopen(campaign)}
                             className="text-blue-600"
@@ -779,11 +779,24 @@ export default function CampaignManagementPage() {
                 <p>
                   This will change the campaign status back to "Booking Open" so customers can book additional slots.
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-sm text-blue-900">
-                    <strong>Note:</strong> Any existing bookings will remain. New bookings will be added alongside them.
-                  </p>
-                </div>
+                {(() => {
+                  const campaign = campaigns.find((c: Campaign) => c.id === reopenCampaignId);
+                  const isAdvancedStatus = campaign && ["printed", "mailed", "completed"].includes(campaign.status);
+                  
+                  return isAdvancedStatus ? (
+                    <div className="bg-amber-50 border border-amber-300 rounded-md p-3">
+                      <p className="text-sm text-amber-900">
+                        <strong>⚠️ Warning:</strong> This campaign is marked as "{getStatusDisplay(campaign.status)}". Reopening it will reset the status to "Booking Open". Make sure you want to do this.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                      <p className="text-sm text-blue-900">
+                        <strong>Note:</strong> Any existing bookings will remain. New bookings will be added alongside them.
+                      </p>
+                    </div>
+                  );
+                })()}
                 <p className="text-sm text-muted-foreground">
                   The system will verify that the print deadline hasn't passed before reopening.
                 </p>
