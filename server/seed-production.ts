@@ -40,7 +40,7 @@ async function seedProduction() {
         business_name TEXT,
         phone TEXT,
         role TEXT NOT NULL DEFAULT 'customer',
-        marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+        marketing_opt_in BOOLEAN NOT NULL DEFAULT FALSE,
         referred_by_user_id TEXT,
         referral_code TEXT UNIQUE,
         loyalty_slots_earned INTEGER NOT NULL DEFAULT 0,
@@ -175,8 +175,9 @@ async function seedProduction() {
         design_status TEXT NOT NULL DEFAULT 'pending_design',
         revision_count INTEGER NOT NULL DEFAULT 0,
         base_price_before_discounts INTEGER,
-        loyalty_discount_applied INTEGER NOT NULL DEFAULT 0,
-        counts_toward_loyalty INTEGER NOT NULL DEFAULT 1,
+        loyalty_discount_applied BOOLEAN NOT NULL DEFAULT FALSE,
+        counts_toward_loyalty BOOLEAN NOT NULL DEFAULT TRUE,
+        contract_accepted BOOLEAN NOT NULL DEFAULT FALSE,
         cancellation_date BIGINT,
         refund_amount INTEGER,
         refund_status TEXT,
@@ -252,6 +253,83 @@ async function seedProduction() {
       )
     `);
     console.log("  ✅ waitlist_notifications table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_notifications (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        booking_id TEXT NOT NULL REFERENCES bookings(id),
+        is_handled BOOLEAN NOT NULL DEFAULT FALSE,
+        handled_at BIGINT,
+        created_at BIGINT
+      )
+    `);
+    console.log("  ✅ admin_notifications table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customer_notes (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES users(id),
+        note TEXT NOT NULL,
+        created_by TEXT NOT NULL REFERENCES users(id),
+        created_at BIGINT
+      )
+    `);
+    console.log("  ✅ customer_notes table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customer_tags (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES users(id),
+        tag TEXT NOT NULL,
+        created_by TEXT NOT NULL REFERENCES users(id),
+        created_at BIGINT
+      )
+    `);
+    console.log("  ✅ customer_tags table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS referrals (
+        id TEXT PRIMARY KEY,
+        referrer_id TEXT NOT NULL REFERENCES users(id),
+        referred_id TEXT NOT NULL REFERENCES users(id),
+        status TEXT NOT NULL DEFAULT 'pending',
+        credit_amount INTEGER NOT NULL DEFAULT 10000,
+        credit_used BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at BIGINT
+      )
+    `);
+    console.log("  ✅ referrals table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pricing_rules (
+        id TEXT PRIMARY KEY,
+        campaign_id TEXT REFERENCES campaigns(id),
+        user_id TEXT REFERENCES users(id),
+        rule_type TEXT NOT NULL,
+        value INTEGER NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 0,
+        usage_limit INTEGER,
+        usage_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        description TEXT NOT NULL,
+        display_name TEXT,
+        created_at BIGINT,
+        created_by TEXT REFERENCES users(id)
+      )
+    `);
+    console.log("  ✅ pricing_rules table");
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pricing_rule_applications (
+        id TEXT PRIMARY KEY,
+        pricing_rule_id TEXT NOT NULL REFERENCES pricing_rules(id),
+        booking_id TEXT NOT NULL REFERENCES bookings(id),
+        user_id TEXT NOT NULL REFERENCES users(id),
+        applied_at BIGINT
+      )
+    `);
+    console.log("  ✅ pricing_rule_applications table");
 
     console.log("\n👤 Checking for admin user...");
     const adminCheck = await pool.query(`SELECT id FROM users WHERE username = 'admin'`);
