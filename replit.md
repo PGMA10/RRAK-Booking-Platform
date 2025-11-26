@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: Users, Routes, Industries, IndustrySubcategories, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals, DesignRevisions, WaitlistEntries, WaitlistNotifications, AdminSettings, PricingRules. Relationships include foreign key constraints.
 - **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason`, `basePriceBeforeDiscounts`, `loyaltyDiscountApplied`, `countsTowardLoyalty` for bookings; `quantity` for multi-slot bookings; `marketingOptIn`, `referredByUserId`, `referralCode`, `phone`, `loyaltySlotsEarned`, `loyaltyDiscountsAvailable`, `loyaltyYearReset` for users; `mainMessage`, `qrCodeDestination`, `brandColor`, `adStyle`, `logoFilePath`, `optionalImagePath`, `designStatus`, `revisionCount` for ad design briefs; `bulkBookingThreshold`, `bulkBookingDiscount`, `loyaltySlotThreshold`, `loyaltyDiscountAmount` for admin_settings.
 - **Timestamp Handling**: Both SQLite and PostgreSQL store timestamps as BIGINT (milliseconds), matching JavaScript Date.getTime() format.
-- **Boolean Handling**: Both databases use INTEGER (0/1) for boolean fields to maintain compatibility.
+- **Boolean Handling**: SQLite uses INTEGER (0/1) for boolean fields; PostgreSQL uses native BOOLEAN type. The storage layer and schema-pg.ts use proper boolean types for PostgreSQL compatibility.
 
 ### Authentication & Authorization
 - **Strategy**: Session-based authentication with Scrypt password hashing
