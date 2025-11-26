@@ -25,9 +25,22 @@ import {
   type InsertWaitlistNotification,
   SLOTS_PER_ROUTE,
 } from "@shared/schema";
-import { db } from "./db-sqlite";
-import { users as usersTable, routes as routesTable, industries as industriesTable, industrySubcategories as industrySubcategoriesTable, campaigns as campaignsTable, campaignRoutes as campaignRoutesTable, campaignIndustries as campaignIndustriesTable, bookings as bookingsTable, dismissedNotifications as dismissedNotificationsTable, designRevisions as designRevisionsTable, adminSettings as adminSettingsTable, waitlistEntries as waitlistEntriesTable, waitlistNotifications as waitlistNotificationsTable } from "@shared/schema";
+import { db, schema } from "./db-config";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
+
+const usersTable = schema.users;
+const routesTable = schema.routes;
+const industriesTable = schema.industries;
+const industrySubcategoriesTable = schema.industrySubcategories;
+const campaignsTable = schema.campaigns;
+const campaignRoutesTable = schema.campaignRoutes;
+const campaignIndustriesTable = schema.campaignIndustries;
+const bookingsTable = schema.bookings;
+const dismissedNotificationsTable = schema.dismissedNotifications;
+const designRevisionsTable = schema.designRevisions;
+const adminSettingsTable = schema.adminSettings;
+const waitlistEntriesTable = schema.waitlistEntries;
+const waitlistNotificationsTable = schema.waitlistNotifications;
 
 const MemoryStore = createMemoryStore(session);
 
@@ -70,6 +83,7 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<boolean>;
+  recalculateCampaignStats(campaignId: string): Promise<Campaign | undefined>;
   
   // Campaign Routes & Industries (per-campaign availability)
   getCampaignRoutes(campaignId: string): Promise<Route[]>;
@@ -516,6 +530,31 @@ export class MemStorage implements IStorage {
     this.campaignRoutes.delete(id);
     this.campaignIndustries.delete(id);
     return this.campaigns.delete(id);
+  }
+
+  async recalculateCampaignStats(campaignId: string): Promise<Campaign | undefined> {
+    const campaign = this.campaigns.get(campaignId);
+    if (!campaign) return undefined;
+    
+    // Get all active bookings for this campaign
+    let actualBookedSlots = 0;
+    let actualRevenue = 0;
+    
+    const bookings = Array.from(this.bookings.values());
+    for (const booking of bookings) {
+      if (booking.campaignId === campaignId && 
+          booking.paymentStatus === 'paid' && 
+          booking.status !== 'cancelled') {
+        actualBookedSlots += booking.quantity || 1;
+        actualRevenue += booking.amountPaid || booking.amount || 0;
+      }
+    }
+    
+    // Update campaign with correct values
+    campaign.bookedSlots = actualBookedSlots;
+    campaign.revenue = actualRevenue;
+    
+    return campaign;
   }
 
   // Campaign Routes & Industries (per-campaign availability)
@@ -1351,12 +1390,49 @@ export class DbStorage implements IStorage {
   }
 
   async deleteCampaign(id: string): Promise<boolean> {
+    // First delete all bookings associated with this campaign
+    // (only cancelled bookings should exist if admin is allowed to delete the campaign)
+    await db.delete(bookingsTable).where(eq(bookingsTable.campaignId, id));
+    
     // Delete campaign-specific routes and industries
     await db.delete(campaignRoutesTable).where(eq(campaignRoutesTable.campaignId, id));
     await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, id));
     
     const result = await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
     return (result as any).changes > 0;
+  }
+
+  async recalculateCampaignStats(campaignId: string): Promise<Campaign | undefined> {
+    // Get all active (non-cancelled, paid) bookings for this campaign
+    const bookings = await db.select()
+      .from(bookingsTable)
+      .where(and(
+        eq(bookingsTable.campaignId, campaignId),
+        eq(bookingsTable.paymentStatus, 'paid'),
+        ne(bookingsTable.status, 'cancelled')
+      ));
+    
+    // Calculate actual values from bookings
+    let actualBookedSlots = 0;
+    let actualRevenue = 0;
+    
+    for (const booking of bookings) {
+      actualBookedSlots += booking.quantity || 1;
+      actualRevenue += booking.amountPaid || booking.amount || 0;
+    }
+    
+    console.log(`📊 [Recalculate] Campaign ${campaignId}: Found ${bookings.length} active bookings, ${actualBookedSlots} slots, $${(actualRevenue / 100).toFixed(2)} revenue`);
+    
+    // Update campaign with correct values
+    const result = await db.update(campaignsTable)
+      .set({
+        bookedSlots: actualBookedSlots,
+        revenue: actualRevenue,
+      })
+      .where(eq(campaignsTable.id, campaignId))
+      .returning();
+    
+    return result[0];
   }
 
   // Campaign Routes & Industries (per-campaign availability)

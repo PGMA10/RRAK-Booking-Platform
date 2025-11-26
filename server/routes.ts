@@ -686,13 +686,65 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
+      // Check for active (paid) bookings - don't allow deletion if there are still active bookings
+      const allBookings = await storage.getAllBookings();
+      const activeBookings = allBookings.filter(
+        b => b.campaignId === req.params.id && b.paymentStatus === "paid" && b.status !== "cancelled"
+      );
+      
+      if (activeBookings.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete campaign - there are ${activeBookings.length} active booking(s). Cancel all bookings first.`
+        });
+      }
+
       const deleted = await storage.deleteCampaign(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Campaign not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting campaign:", error);
       res.status(500).json({ message: "Failed to delete campaign" });
+    }
+  });
+
+  // Recalculate campaign stats (fix out-of-sync booked slots and revenue)
+  app.post("/api/campaigns/:id/recalculate", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaign = await storage.recalculateCampaignStats(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      res.json(campaign);
+    } catch (error) {
+      console.error("❌ Campaign recalculate error:", error);
+      res.status(500).json({ message: "Failed to recalculate campaign stats" });
+    }
+  });
+
+  // Recalculate ALL campaign stats (batch fix)
+  app.post("/api/campaigns/recalculate-all", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const campaigns = await storage.getAllCampaigns();
+      const results = await Promise.all(
+        campaigns.map(c => storage.recalculateCampaignStats(c.id))
+      );
+      res.json({ 
+        message: `Recalculated stats for ${results.length} campaigns`,
+        campaigns: results.filter(Boolean)
+      });
+    } catch (error) {
+      console.error("❌ Batch campaign recalculate error:", error);
+      res.status(500).json({ message: "Failed to recalculate campaign stats" });
     }
   });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -104,6 +104,19 @@ export default function CampaignManagementPage() {
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["/api/campaigns"],
   });
+
+  // Recalculate campaign stats on page load to ensure data is in sync
+  useEffect(() => {
+    if (user?.role === "admin") {
+      apiRequest("POST", "/api/campaigns/recalculate-all")
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+        })
+        .catch((error) => {
+          console.log("Campaign stats recalculation:", error.message);
+        });
+    }
+  }, [user?.role]);
 
   // Create form
   const createForm = useForm<CampaignFormData>({

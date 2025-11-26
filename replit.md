@@ -24,12 +24,15 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools**: TSX for TypeScript execution
 
 ### Database Architecture
-- **ORM**: Drizzle ORM
-- **Development Database**: SQLite
-- **Production Database**: PostgreSQL
-- **Schema**: Users, Routes, Industries, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals, DesignRevisions. Relationships include foreign key constraints.
+- **ORM**: Drizzle ORM with dual-dialect support
+- **Development Database**: SQLite (data.db) - uses `shared/schema.ts` with sqliteTable
+- **Production Database**: PostgreSQL (Neon) - uses `shared/schema-pg.ts` with pgTable
+- **Database Config**: `server/db-config.ts` conditionally selects database and schema based on NODE_ENV
+- **Production Seeding**: `server/seed-production.ts` creates PostgreSQL tables and admin user (admin/admin123)
+- **Schema**: Users, Routes, Industries, IndustrySubcategories, Campaigns, Bookings, CustomerNotes, CustomerTags, Referrals, DesignRevisions, WaitlistEntries, WaitlistNotifications, AdminSettings, PricingRules. Relationships include foreign key constraints.
 - **Key Fields**: `mailDate`, `printDeadline` for campaigns; `artworkStatus`, `artworkFilePath`, `rejectionReason`, `basePriceBeforeDiscounts`, `loyaltyDiscountApplied`, `countsTowardLoyalty` for bookings; `quantity` for multi-slot bookings; `marketingOptIn`, `referredByUserId`, `referralCode`, `phone`, `loyaltySlotsEarned`, `loyaltyDiscountsAvailable`, `loyaltyYearReset` for users; `mainMessage`, `qrCodeDestination`, `brandColor`, `adStyle`, `logoFilePath`, `optionalImagePath`, `designStatus`, `revisionCount` for ad design briefs; `bulkBookingThreshold`, `bulkBookingDiscount`, `loyaltySlotThreshold`, `loyaltyDiscountAmount` for admin_settings.
-- **Timestamp Handling**: SQLite stores dates as INTEGER, converted to Date objects on read.
+- **Timestamp Handling**: Both SQLite and PostgreSQL store timestamps as BIGINT (milliseconds), matching JavaScript Date.getTime() format.
+- **Boolean Handling**: Both databases use INTEGER (0/1) for boolean fields to maintain compatibility.
 
 ### Authentication & Authorization
 - **Strategy**: Session-based authentication with Scrypt password hashing

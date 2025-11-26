@@ -1,8 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { initializeDatabase } from "./db-sqlite";
-import { seedSQLite } from "./seed-sqlite";
+import { isProduction } from "./db-config";
 import { storage } from "./storage";
 import { startBookingExpirationService } from "./booking-expiration";
 
@@ -41,9 +40,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize SQLite database
-  initializeDatabase();
-  await seedSQLite();
+  // Initialize database based on environment
+  if (!isProduction) {
+    // SQLite for development
+    const { initializeDatabase } = await import("./db-sqlite");
+    const { seedSQLite } = await import("./seed-sqlite");
+    initializeDatabase();
+    await seedSQLite();
+  } else {
+    console.log("🚀 Production mode - PostgreSQL initialized via db-config");
+  }
   
   // Start booking expiration service (auto-cancel unpaid bookings after 15 minutes)
   startBookingExpirationService(storage);
