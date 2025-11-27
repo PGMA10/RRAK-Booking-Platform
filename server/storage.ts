@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import pgSession from "connect-pg-simple";
+import { Pool } from "@neondatabase/serverless";
 import {
   type User,
   type InsertUser,
@@ -25,7 +27,7 @@ import {
   type InsertWaitlistNotification,
   SLOTS_PER_ROUTE,
 } from "@shared/schema";
-import { db, schema } from "./db-config";
+import { db, schema, isProduction } from "./db-config";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
 
 const usersTable = schema.users;
@@ -1214,10 +1216,21 @@ export class DbStorage implements IStorage {
   public sessionStore: session.Store;
 
   constructor() {
-    // Use MemoryStore for sessions with SQLite
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    });
+    if (isProduction && process.env.DATABASE_URL) {
+      const PostgresStore = pgSession(session);
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      this.sessionStore = new PostgresStore({
+        pool: pool as any,
+        tableName: 'user_sessions',
+        createTableIfMissing: true,
+      });
+      console.log("✅ Using PostgreSQL session store for production");
+    } else {
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      });
+      console.log("✅ Using MemoryStore for development sessions");
+    }
   }
 
   // Helper function to convert SQLite INTEGER timestamps to Date objects for bookings
