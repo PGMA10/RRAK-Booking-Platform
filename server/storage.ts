@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import pgSession from "connect-pg-simple";
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import {
   type User,
   type InsertUser,
