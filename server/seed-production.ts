@@ -331,6 +331,16 @@ async function seedProduction() {
     `);
     console.log("  ✅ pricing_rule_applications table");
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        sid VARCHAR NOT NULL PRIMARY KEY,
+        sess JSON NOT NULL,
+        expire TIMESTAMP(6) NOT NULL
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS IDX_session_expire ON user_sessions (expire)`);
+    console.log("  ✅ user_sessions table (for session storage)");
+
     console.log("\n👤 Checking for admin user...");
     const adminCheck = await pool.query(`SELECT id FROM users WHERE username = 'admin'`);
     
