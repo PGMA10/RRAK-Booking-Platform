@@ -49,24 +49,28 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET!,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      secure: false, // Set to false for development (no HTTPS required)
+      secure: isProduction, // true for production HTTPS, false for development
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production
       path: '/',
     },
   };
 
-  // Don't use trust proxy in development
-  if (process.env.NODE_ENV !== "development") {
+  // Trust proxy in production for Replit deployments
+  if (isProduction) {
     app.set("trust proxy", 1);
   }
+  
+  console.log(`🔐 Auth config: production=${isProduction}, secure=${isProduction}, sameSite=${isProduction ? 'none' : 'lax'}`);
   
   app.use(session(sessionSettings));
   app.use(passport.initialize());
