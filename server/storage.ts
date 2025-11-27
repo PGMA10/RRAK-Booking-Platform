@@ -1218,11 +1218,26 @@ export class DbStorage implements IStorage {
   constructor() {
     if (isProduction && process.env.DATABASE_URL) {
       const PostgresStore = pgSession(session);
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const pool = new Pool({ 
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }, // Required for Neon connections
+      });
+      
+      pool.on('error', (err) => {
+        console.error('❌ Session store pool error:', err);
+      });
+      
+      pool.on('connect', () => {
+        console.log('✅ Session store pool connected to PostgreSQL');
+      });
+      
       this.sessionStore = new PostgresStore({
         pool: pool as any,
         tableName: 'user_sessions',
         createTableIfMissing: true,
+        errorLog: (err: Error) => {
+          console.error('❌ Session store error:', err);
+        },
       });
       console.log("✅ Using PostgreSQL session store for production");
     } else {
