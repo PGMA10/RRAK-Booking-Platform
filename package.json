@@ -86,7 +86,7 @@
     "@vitejs/plugin-react": "^4.3.2",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.1",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.3.0",
