@@ -2803,12 +2803,15 @@ export function registerRoutes(app: Express): Server {
     console.log("📦 [POST /api/slots] Request body:", JSON.stringify(req.body, null, 2));
 
     try {
-      const validatedData = insertBookingSchema.extend({
+      // Create a partial schema that makes userId optional (we'll add it from the session)
+      const slotBookingSchema = insertBookingSchema.omit({ userId: true }).extend({
         businessName: z.string().min(1, "Business name is required"),
         contactEmail: z.string().email("Valid email is required"),
         contactPhone: z.string().optional(),
         userId: z.string().optional(),
-      }).parse(req.body);
+      });
+      
+      const validatedData = slotBookingSchema.parse(req.body);
       
       console.log("✅ [POST /api/slots] Validated data:", JSON.stringify(validatedData, null, 2));
 
