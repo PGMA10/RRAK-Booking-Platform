@@ -14,16 +14,17 @@ console.log(`🗄️  Database: ${isProduction ? 'PostgreSQL' : 'SQLite (local)'
 
 let dbInstance: ReturnType<typeof drizzleSqlite> | ReturnType<typeof drizzlePg>;
 let sqliteInstance: Database.Database | null = null;
+let pgPool: Pool | null = null;
 let currentSchema: typeof schemaSqlite | typeof schemaPg;
 
 if (isProduction && process.env.DATABASE_URL) {
-  const pool = new Pool({ 
+  pgPool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
     max: 10,
     ssl: { rejectUnauthorized: false }
   });
   currentSchema = schemaPg;
-  dbInstance = drizzlePg(pool, { schema: schemaPg });
+  dbInstance = drizzlePg(pgPool, { schema: schemaPg });
   console.log("✅ Connected to PostgreSQL");
 } else {
   const dbPath = path.join(process.cwd(), "data.db");
@@ -39,5 +40,6 @@ if (isProduction && process.env.DATABASE_URL) {
 
 export const db = dbInstance;
 export const sqlite = sqliteInstance;
+export const pool = pgPool;
 export const schema = currentSchema;
 export type DbType = typeof db;

@@ -1,8 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { isProduction } from "./db-config";
+import { isProduction, pool } from "./db-config";
 import { storage } from "./storage";
 import { startBookingExpirationService } from "./booking-expiration";
 
@@ -49,19 +50,30 @@ app.use((req, res, next) => {
     initializeDatabase();
     await seedSQLite();
   } else {
-    // Production mode - run database migrations automatically
+    // Production mode - run SQL migrations directly using pg.Pool
     console.log("🚀 Production mode - Running database migrations...");
     try {
-      execSync("npx drizzle-kit push --force", { 
-        stdio: "inherit",
-        timeout: 60000 // 60 second timeout
-      });
+      if (!pool) {
+        throw new Error("PostgreSQL pool not initialized - check DATABASE_URL");
+      }
+      const migrationsDir = path.join(import.meta.dirname, "migrations");
+      
+      // Execute schema creation
+      const schemaSQL = fs.readFileSync(path.join(migrationsDir, "001_initial_schema.sql"), "utf-8");
+      await pool.query(schemaSQL);
+      console.log("✅ Database schema created");
+      
+      // Execute seed data
+      const seedSQL = fs.readFileSync(path.join(migrationsDir, "002_seed_data.sql"), "utf-8");
+      await pool.query(seedSQL);
+      console.log("✅ Seed data inserted");
+      
       console.log("✅ Database migrations completed successfully");
-    } catch (error) {
-      console.error("❌ Database migration failed:", error);
+    } catch (error: any) {
+      console.error("❌ Database migration failed:", error.message || error);
       // Continue anyway - tables might already exist
     }
-    console.log("🚀 Production mode - PostgreSQL initialized via db-config");
+    console.log("🚀 Production mode - PostgreSQL initialized");
   }
   
   // Start booking expiration service (auto-cancel unpaid bookings after 15 minutes)
