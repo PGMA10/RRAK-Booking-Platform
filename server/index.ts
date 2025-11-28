@@ -1,11 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
-import fs from "fs";
-import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { isProduction, pool } from "./db-config";
 import { storage } from "./storage";
 import { startBookingExpirationService } from "./booking-expiration";
+import { schemaSQL, seedSQL } from "./migrations";
 
 const app = express();
 app.use(express.json());
@@ -56,22 +55,25 @@ app.use((req, res, next) => {
       if (!pool) {
         throw new Error("PostgreSQL pool not initialized - check DATABASE_URL");
       }
-      const migrationsDir = path.join(import.meta.dirname, "migrations");
       
-      // Execute schema creation
-      const schemaSQL = fs.readFileSync(path.join(migrationsDir, "001_initial_schema.sql"), "utf-8");
+      // SQL is embedded in the bundle via migrations.ts - no file reading needed
+      console.log(`📝 Executing schema SQL (${schemaSQL.length} bytes)...`);
       await pool.query(schemaSQL);
-      console.log("✅ Database schema created");
+      console.log("✅ Database schema created successfully");
       
-      // Execute seed data
-      const seedSQL = fs.readFileSync(path.join(migrationsDir, "002_seed_data.sql"), "utf-8");
+      console.log(`📝 Executing seed SQL (${seedSQL.length} bytes)...`);
       await pool.query(seedSQL);
-      console.log("✅ Seed data inserted");
+      console.log("✅ Seed data inserted successfully");
       
-      console.log("✅ Database migrations completed successfully");
+      console.log("🎉 Database migrations completed successfully!");
     } catch (error: any) {
-      console.error("❌ Database migration failed:", error.message || error);
+      console.error("❌ Database migration failed:");
+      console.error("   Error:", error.message || error);
+      if (error.stack) {
+        console.error("   Stack:", error.stack.split("\n").slice(0, 3).join("\n"));
+      }
       // Continue anyway - tables might already exist
+      console.log("⚠️  Continuing startup (tables may already exist)...");
     }
     console.log("🚀 Production mode - PostgreSQL initialized");
   }
