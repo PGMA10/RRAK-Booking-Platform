@@ -120,14 +120,15 @@ export interface IStorage {
   deleteBooking(id: string): Promise<boolean>;
   getBookingsNeedingReview(): Promise<Booking[]>;
   
-  // Slot Grid Operations
+  // Slot Grid Operations - Returns 16 numbered slots per route
   getSlotGrid(campaignId: string): Promise<{
     slots: Array<{
+      slotIndex: number;
       routeId: string;
-      industryId: string;
       route: Route;
-      industry: Industry;
       booking?: Booking;
+      industry?: Industry;
+      subcategoryLabel?: string;
       status: 'available' | 'booked' | 'pending';
     }>;
     summary: {
@@ -860,44 +861,75 @@ export class MemStorage implements IStorage {
   }
 
   async getSlotGrid(campaignId: string) {
-    // Use campaign-specific routes and industries instead of global active filter
+    // Use campaign-specific routes
     const routes = await this.getCampaignRoutes(campaignId);
-    const industries = await this.getCampaignIndustries(campaignId);
-    const bookings = Array.from(this.bookings.values()).filter(b => b.campaignId === campaignId);
+    const allIndustries = await this.getAllIndustries();
+    const bookings = Array.from(this.bookings.values()).filter(b => 
+      b.campaignId === campaignId && b.status !== 'cancelled'
+    );
     
-    const slots = [];
+    const slots: Array<{
+      slotIndex: number;
+      routeId: string;
+      route: Route;
+      booking?: Booking;
+      industry?: Industry;
+      subcategoryLabel?: string;
+      status: 'available' | 'booked' | 'pending';
+    }> = [];
     let bookedSlots = 0;
     let pendingSlots = 0;
     let totalRevenue = 0;
     
+    // Create 16 numbered slots per route
     for (const route of routes) {
-      for (const industry of industries) {
-        const booking = bookings.find(b => b.routeId === route.id && b.industryId === industry.id);
+      // Get all bookings for this route, sorted by creation date
+      const routeBookings = bookings
+        .filter(b => b.routeId === route.id)
+        .sort((a, b) => {
+          const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : Number(a.createdAt);
+          const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : Number(b.createdAt);
+          return aTime - bTime;
+        });
+      
+      // Generate 16 slots for this route
+      for (let slotIndex = 1; slotIndex <= SLOTS_PER_ROUTE; slotIndex++) {
+        const booking = routeBookings[slotIndex - 1]; // 0-indexed array, 1-indexed slots
         
-        let status: 'available' | 'booked' | 'pending' = 'available';
         if (booking) {
-          status = booking.status === 'pending' ? 'pending' : 'booked';
+          const industry = allIndustries.find(i => i.id === booking.industryId);
+          const status: 'available' | 'booked' | 'pending' = booking.status === 'pending' ? 'pending' : 'booked';
+          
           if (status === 'booked') {
             bookedSlots += (booking.quantity || 1);
             totalRevenue += booking.amount;
           } else {
             pendingSlots += (booking.quantity || 1);
           }
+          
+          slots.push({
+            slotIndex,
+            routeId: route.id,
+            route,
+            booking,
+            industry,
+            subcategoryLabel: booking.industrySubcategoryLabel || undefined,
+            status,
+          });
+        } else {
+          // Empty/available slot
+          slots.push({
+            slotIndex,
+            routeId: route.id,
+            route,
+            status: 'available',
+          });
         }
-        
-        slots.push({
-          routeId: route.id,
-          industryId: industry.id,
-          route,
-          industry,
-          booking,
-          status,
-        });
       }
     }
     
     const totalSlots = routes.length * SLOTS_PER_ROUTE;
-    const availableSlots = totalSlots - bookedSlots;
+    const availableSlots = totalSlots - bookedSlots - pendingSlots;
     
     return {
       slots,
@@ -2008,11 +2040,12 @@ export class DbStorage implements IStorage {
 
   async getSlotGrid(campaignId: string): Promise<{
     slots: Array<{
+      slotIndex: number;
       routeId: string;
-      industryId: string;
       route: Route;
-      industry: Industry;
       booking?: Booking;
+      industry?: Industry;
+      subcategoryLabel?: string;
       status: 'available' | 'booked' | 'pending';
     }>;
     summary: {
@@ -2023,51 +2056,76 @@ export class DbStorage implements IStorage {
       totalRevenue: number;
     };
   }> {
-    // Use campaign-specific routes and industries instead of all routes/industries
+    // Use campaign-specific routes
     const routes = await this.getCampaignRoutes(campaignId);
-    const industries = await this.getCampaignIndustries(campaignId);
-    const bookings = await this.getBookingsByCampaign(campaignId);
+    const allIndustries = await this.getAllIndustries();
+    const allBookings = await this.getBookingsByCampaign(campaignId);
+    
+    // Filter out cancelled bookings
+    const bookings = allBookings.filter(b => b.status !== 'cancelled');
 
-    const bookingMap = new Map<string, Booking>();
-    bookings.forEach(booking => {
-      const key = `${booking.routeId}-${booking.industryId}`;
-      bookingMap.set(key, booking);
-    });
-
-    const slots = [];
+    const slots: Array<{
+      slotIndex: number;
+      routeId: string;
+      route: Route;
+      booking?: Booking;
+      industry?: Industry;
+      subcategoryLabel?: string;
+      status: 'available' | 'booked' | 'pending';
+    }> = [];
     let bookedSlots = 0;
     let pendingSlots = 0;
     let totalRevenue = 0;
 
+    // Create 16 numbered slots per route
     for (const route of routes) {
-      for (const industry of industries) {
-        const key = `${route.id}-${industry.id}`;
-        const booking = bookingMap.get(key);
+      // Get all bookings for this route, sorted by creation date
+      const routeBookings = bookings
+        .filter(b => b.routeId === route.id)
+        .sort((a, b) => {
+          const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : Number(a.createdAt);
+          const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : Number(b.createdAt);
+          return aTime - bTime;
+        });
+      
+      // Generate 16 slots for this route
+      for (let slotIndex = 1; slotIndex <= SLOTS_PER_ROUTE; slotIndex++) {
+        const booking = routeBookings[slotIndex - 1]; // 0-indexed array, 1-indexed slots
         
-        let status: 'available' | 'booked' | 'pending' = 'available';
         if (booking) {
-          status = booking.status === 'pending' ? 'pending' : 'booked';
+          const industry = allIndustries.find(i => i.id === booking.industryId);
+          const status: 'available' | 'booked' | 'pending' = booking.status === 'pending' ? 'pending' : 'booked';
+          
           if (status === 'booked') {
             bookedSlots += (booking.quantity || 1);
             totalRevenue += booking.amount;
           } else {
             pendingSlots += (booking.quantity || 1);
           }
+          
+          slots.push({
+            slotIndex,
+            routeId: route.id,
+            route,
+            booking,
+            industry,
+            subcategoryLabel: booking.industrySubcategoryLabel || undefined,
+            status,
+          });
+        } else {
+          // Empty/available slot
+          slots.push({
+            slotIndex,
+            routeId: route.id,
+            route,
+            status: 'available',
+          });
         }
-        
-        slots.push({
-          routeId: route.id,
-          industryId: industry.id,
-          route,
-          industry,
-          booking,
-          status,
-        });
       }
     }
     
     const totalSlots = routes.length * SLOTS_PER_ROUTE;
-    const availableSlots = totalSlots - bookedSlots;
+    const availableSlots = totalSlots - bookedSlots - pendingSlots;
     
     return {
       slots,

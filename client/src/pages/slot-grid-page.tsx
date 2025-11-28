@@ -17,13 +17,14 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Campaign, Route, Industry, Booking } from "@shared/schema";
 
-// Slot grid data types
+// Slot grid data types - 16 numbered slots per route
 type SlotData = {
+  slotIndex: number;
   routeId: string;
-  industryId: string;
   route: Route;
-  industry: Industry;
   booking?: Booking;
+  industry?: Industry;
+  subcategoryLabel?: string;
   status: 'available' | 'booked' | 'pending';
 };
 
@@ -119,15 +120,8 @@ export default function SlotGridPage() {
   // Event handlers
   const handleSlotClick = (slot: SlotData) => {
     setSelectedSlot(slot);
-    
-    if (slot.status === 'available') {
-      // Open booking dialog for available slots
-      form.setValue("businessName", "");
-      form.setValue("contactEmail", "");
-      form.setValue("contactPhone", "");
-      setIsBookingDialogOpen(true);
-    } else {
-      // Open view/manage dialog for booked slots
+    // Open view/manage dialog for booked/pending slots only
+    if (slot.status !== 'available') {
       setIsViewDialogOpen(true);
     }
   };
@@ -286,7 +280,7 @@ export default function SlotGridPage() {
                 Slot Availability Grid
               </CardTitle>
               <CardDescription>
-                Click on slots to book or manage.
+                16 slots per route. Click on booked slots to view details. Available slots are open for customer bookings.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -301,19 +295,28 @@ export default function SlotGridPage() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
                     {(() => {
+                      // Get unique routes from slots
                       const uniqueRoutes = slotGrid.slots.reduce((routes: Route[], slot) => {
                         if (!routes.find(r => r.id === slot.route.id)) {
                           routes.push(slot.route);
                         }
                         return routes;
                       }, []);
-                      const gridTemplateColumns = `minmax(150px, auto) repeat(${uniqueRoutes.length}, 1fr)`;
+                      const gridTemplateColumns = `minmax(80px, auto) repeat(${uniqueRoutes.length}, 1fr)`;
+                      
+                      // Get slots for a specific route and slot index
+                      const getSlot = (routeId: string, slotIndex: number) => {
+                        return slotGrid.slots.find(s => s.routeId === routeId && s.slotIndex === slotIndex);
+                      };
+                      
+                      // Get unique slot indices (should be 1-16)
+                      const slotIndices = [...new Set(slotGrid.slots.map(s => s.slotIndex))].sort((a, b) => a - b);
                       
                       return (
                         <>
                           {/* Route headers */}
                           <div className="grid gap-2 mb-4" style={{ gridTemplateColumns }}>
-                            <div className="text-sm font-medium text-muted-foreground">Industries</div>
+                            <div className="text-sm font-medium text-muted-foreground">Slot #</div>
                             {uniqueRoutes.map((route) => (
                               <div key={route.id} className="text-center">
                                 <div className="text-sm font-medium text-foreground flex items-center justify-center gap-1">
@@ -325,72 +328,71 @@ export default function SlotGridPage() {
                             ))}
                           </div>
                           
-                          {/* Grid rows */}
-                          {slotGrid.slots
-                            .reduce((industries: Industry[], slot) => {
-                              if (!industries.find(i => i.id === slot.industry.id)) {
-                                industries.push(slot.industry);
-                              }
-                              return industries;
-                            }, [])
-                            .map((industry) => (
-                              <div key={industry.id} className="grid gap-2 mb-2" style={{ gridTemplateColumns }}>
-                          {/* Industry label */}
-                          <div className="flex items-center text-sm font-medium text-foreground">
-                            <Briefcase className="h-3 w-3 mr-1" />
-                            <span className="truncate">{industry.name}</span>
-                          </div>
-                          
-                          {/* Slots for this industry across all routes */}
-                          {slotGrid.slots
-                            .reduce((routes: Route[], slot) => {
-                              if (!routes.find(r => r.id === slot.route.id)) {
-                                routes.push(slot.route);
-                              }
-                              return routes;
-                            }, [])
-                            .map((route) => {
-                              const slot = slotGrid.slots.find(
-                                s => s.routeId === route.id && s.industryId === industry.id
-                              );
+                          {/* Numbered slot rows from API */}
+                          {slotIndices.map((slotIndex) => (
+                            <div key={slotIndex} className="grid gap-2 mb-2" style={{ gridTemplateColumns }}>
+                              {/* Slot number label */}
+                              <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">
+                                #{slotIndex}
+                              </div>
                               
-                              if (!slot) return <div key={route.id} className="h-16"></div>;
-                              
-                              return (
-                                <Button
-                                  key={`${slot.routeId}-${slot.industryId}`}
-                                  variant="outline"
-                                  className={`h-auto min-h-16 p-2 text-xs font-medium cursor-pointer transition-colors ${getSlotStatusColor(slot.status)}`}
-                                  onClick={() => handleSlotClick(slot)}
-                                  data-testid={`slot-${slot.route.zipCode}-${slot.industry.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                >
-                                  <div className="text-center w-full">
-                                    {slot.status === 'available' ? (
-                                      <>
-                                        <div className="font-bold">$600</div>
-                                        <div className="text-xs opacity-75">Available</div>
-                                      </>
-                                    ) : (
-                                      <>
+                              {/* Slots for this row across all routes */}
+                              {uniqueRoutes.map((route) => {
+                                const slot = getSlot(route.id, slotIndex);
+                                
+                                if (!slot) {
+                                  return (
+                                    <div
+                                      key={`${route.id}-slot-${slotIndex}`}
+                                      className="h-auto min-h-16 p-2 text-xs font-medium border rounded-md bg-gray-100 border-gray-300 text-gray-500 flex items-center justify-center"
+                                      data-testid={`slot-${route.zipCode}-${slotIndex}`}
+                                    >
+                                      <div className="text-center w-full">
+                                        <div className="text-xs">N/A</div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
+                                if (slot.booking) {
+                                  return (
+                                    <Button
+                                      key={`${route.id}-slot-${slotIndex}`}
+                                      variant="outline"
+                                      className={`h-auto min-h-16 p-2 text-xs font-medium cursor-pointer transition-colors ${getSlotStatusColor(slot.status)}`}
+                                      onClick={() => handleSlotClick(slot)}
+                                      data-testid={`slot-${route.zipCode}-${slotIndex}`}
+                                    >
+                                      <div className="text-center w-full">
                                         <div className="font-bold truncate mb-1">
-                                          {slot.booking?.businessName || 'Booked'}
+                                          {slot.booking.businessName || 'Booked'}
                                         </div>
-                                        {slot.booking?.industrySubcategoryLabel && (
-                                          <div className="text-[10px] mb-1 px-1 py-0.5 bg-background/50 rounded border border-current/20">
-                                            {slot.industry.name} → {slot.booking.industrySubcategoryLabel}
-                                          </div>
-                                        )}
+                                        <div className="text-[10px] mb-1 px-1 py-0.5 bg-background/50 rounded border border-current/20">
+                                          {slot.industry?.name || 'Industry'}{slot.subcategoryLabel ? ` → ${slot.subcategoryLabel}` : ''}
+                                        </div>
                                         <div className="text-xs opacity-75 capitalize">
                                           {slot.status}
                                         </div>
-                                      </>
-                                    )}
+                                      </div>
+                                    </Button>
+                                  );
+                                }
+                                
+                                return (
+                                  <div
+                                    key={`${route.id}-slot-${slotIndex}`}
+                                    className="h-auto min-h-16 p-2 text-xs font-medium border rounded-md bg-green-100 border-green-300 text-green-800 flex items-center justify-center"
+                                    data-testid={`slot-${route.zipCode}-${slotIndex}`}
+                                  >
+                                    <div className="text-center w-full">
+                                      <div className="font-bold">$600</div>
+                                      <div className="text-xs opacity-75">Available</div>
+                                    </div>
                                   </div>
-                                </Button>
-                              );
-                            })}
-                        </div>
-                      ))}
+                                );
+                              })}
+                            </div>
+                          ))}
                         </>
                       );
                     })()}
@@ -500,11 +502,12 @@ export default function SlotGridPage() {
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent data-testid="dialog-view-booking">
             <DialogHeader>
-              <DialogTitle>Slot Details</DialogTitle>
+              <DialogTitle>Slot #{selectedSlot?.slotIndex} Details</DialogTitle>
               <DialogDescription>
-                {selectedSlot?.route.name} ({selectedSlot?.route.zipCode}) - {selectedSlot?.industry.name}
-                {selectedSlot?.booking?.industrySubcategoryLabel && (
-                  <span className="ml-1">→ {selectedSlot.booking.industrySubcategoryLabel}</span>
+                {selectedSlot?.route.name} ({selectedSlot?.route.zipCode})
+                {selectedSlot?.industry && ` - ${selectedSlot.industry.name}`}
+                {selectedSlot?.subcategoryLabel && (
+                  <span className="ml-1">→ {selectedSlot.subcategoryLabel}</span>
                 )}
               </DialogDescription>
             </DialogHeader>
@@ -523,11 +526,11 @@ export default function SlotGridPage() {
                       {selectedSlot.booking.status}
                     </Badge>
                   </div>
-                  {selectedSlot.booking.industrySubcategoryLabel && (
+                  {selectedSlot.subcategoryLabel && (
                     <div className="col-span-2">
                       <p className="text-sm font-medium text-muted-foreground">Industry Category</p>
                       <p className="font-medium" data-testid="text-booking-subcategory">
-                        {selectedSlot.industry.name} → {selectedSlot.booking.industrySubcategoryLabel}
+                        {selectedSlot.industry?.name || 'Industry'} → {selectedSlot.subcategoryLabel}
                       </p>
                     </div>
                   )}
