@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { execSync } from "child_process";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { isProduction } from "./db-config";
@@ -48,6 +49,18 @@ app.use((req, res, next) => {
     initializeDatabase();
     await seedSQLite();
   } else {
+    // Production mode - run database migrations automatically
+    console.log("🚀 Production mode - Running database migrations...");
+    try {
+      execSync("npm run db:push", { 
+        stdio: "inherit",
+        timeout: 60000 // 60 second timeout
+      });
+      console.log("✅ Database migrations completed successfully");
+    } catch (error) {
+      console.error("❌ Database migration failed:", error);
+      // Continue anyway - tables might already exist
+    }
     console.log("🚀 Production mode - PostgreSQL initialized via db-config");
   }
   
