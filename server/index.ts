@@ -65,6 +65,11 @@ app.use((req, res, next) => {
       await pool.query(seedSQL);
       console.log("✅ Seed data inserted successfully");
       
+      // Fix admin password hash (ensures login works even if user was created with wrong hash)
+      const adminPasswordHash = '26273261973baafcfdf1deacfe5282e06d4f45ea50824413a7691250bedb19d916e3ef3e87e1f890838b3d86a3f30d9667a3e90c72b6298a9ebe6a8ff9cd1a5e.0a906e7acbebb63364c7d6b7e11fb011';
+      await pool.query(`UPDATE users SET password = $1 WHERE username = 'admin'`, [adminPasswordHash]);
+      console.log("✅ Admin password updated");
+      
       console.log("🎉 Database migrations completed successfully!");
     } catch (error: any) {
       console.error("❌ Database migration failed:");
