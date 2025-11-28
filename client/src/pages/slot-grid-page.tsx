@@ -182,7 +182,7 @@ export default function SlotGridPage() {
       businessName: data.businessName,
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone || "",
-      otherDescription: data.otherDescription || null,
+      industryDescription: data.otherDescription || null,
       amount: 60000, // $600 in cents
     });
   };
