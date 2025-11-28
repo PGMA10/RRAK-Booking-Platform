@@ -1383,13 +1383,23 @@ export class DbStorage implements IStorage {
   }
 
   async createSubcategory(subcategory: InsertIndustrySubcategory): Promise<IndustrySubcategory> {
-    const subcategoryWithId = {
-      ...subcategory,
-      id: (subcategory as any).id || randomUUID().replace(/-/g, ''),
-      createdAt: new Date(),
-    };
-    const result = await db.insert(industrySubcategoriesTable).values(subcategoryWithId).returning();
-    return result[0];
+    try {
+      const subcategoryWithId = {
+        ...subcategory,
+        id: (subcategory as any).id || randomUUID().replace(/-/g, ''),
+        createdAt: Date.now(),
+      };
+      const result = await db.insert(industrySubcategoriesTable).values(subcategoryWithId).returning();
+      return result[0];
+    } catch (error: any) {
+      console.error('[DB Error] createSubcategory failed:', {
+        subcategory,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async getAllCampaigns(): Promise<Campaign[]> {
@@ -1495,23 +1505,45 @@ export class DbStorage implements IStorage {
   }
 
   async addRouteToCampaign(campaignId: string, routeId: string): Promise<void> {
-    const id = randomUUID();
-    await db.insert(campaignRoutesTable).values({
-      id,
-      campaignId,
-      routeId,
-      createdAt: new Date(),
-    });
+    try {
+      const id = randomUUID();
+      await db.insert(campaignRoutesTable).values({
+        id,
+        campaignId,
+        routeId,
+        createdAt: Date.now(),
+      });
+    } catch (error: any) {
+      console.error('[DB Error] addRouteToCampaign failed:', {
+        campaignId,
+        routeId,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async addIndustryToCampaign(campaignId: string, industryId: string): Promise<void> {
-    const id = randomUUID();
-    await db.insert(campaignIndustriesTable).values({
-      id,
-      campaignId,
-      industryId,
-      createdAt: new Date(),
-    });
+    try {
+      const id = randomUUID();
+      await db.insert(campaignIndustriesTable).values({
+        id,
+        campaignId,
+        industryId,
+        createdAt: Date.now(),
+      });
+    } catch (error: any) {
+      console.error('[DB Error] addIndustryToCampaign failed:', {
+        campaignId,
+        industryId,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async removeRouteFromCampaign(campaignId: string, routeId: string): Promise<void> {
@@ -1531,48 +1563,70 @@ export class DbStorage implements IStorage {
   }
 
   async setCampaignRoutes(campaignId: string, routeIds: string[]): Promise<void> {
-    // Delete all existing routes for this campaign
-    await db.delete(campaignRoutesTable).where(eq(campaignRoutesTable.campaignId, campaignId));
-    
-    // Insert new routes
-    if (routeIds.length > 0) {
-      const values = routeIds.map(routeId => ({
-        id: randomUUID(),
+    try {
+      // Delete all existing routes for this campaign
+      await db.delete(campaignRoutesTable).where(eq(campaignRoutesTable.campaignId, campaignId));
+      
+      // Insert new routes
+      if (routeIds.length > 0) {
+        const values = routeIds.map(routeId => ({
+          id: randomUUID(),
+          campaignId,
+          routeId,
+          createdAt: Date.now(),
+        }));
+        await db.insert(campaignRoutesTable).values(values);
+      }
+      
+      // Update campaign total slots: each route has exactly 16 slots for unique subcategories
+      const totalSlots = routeIds.length * SLOTS_PER_ROUTE;
+      await db.update(campaignsTable)
+        .set({ totalSlots })
+        .where(eq(campaignsTable.id, campaignId));
+    } catch (error: any) {
+      console.error('[DB Error] setCampaignRoutes failed:', {
         campaignId,
-        routeId,
-        createdAt: new Date(),
-      }));
-      await db.insert(campaignRoutesTable).values(values);
+        routeIds,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
     }
-    
-    // Update campaign total slots: each route has exactly 16 slots for unique subcategories
-    const totalSlots = routeIds.length * SLOTS_PER_ROUTE;
-    await db.update(campaignsTable)
-      .set({ totalSlots })
-      .where(eq(campaignsTable.id, campaignId));
   }
 
   async setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void> {
-    // Delete all existing industries for this campaign
-    await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, campaignId));
-    
-    // Insert new industries
-    if (industryIds.length > 0) {
-      const values = industryIds.map(industryId => ({
-        id: randomUUID(),
+    try {
+      // Delete all existing industries for this campaign
+      await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, campaignId));
+      
+      // Insert new industries
+      if (industryIds.length > 0) {
+        const values = industryIds.map(industryId => ({
+          id: randomUUID(),
+          campaignId,
+          industryId,
+          createdAt: Date.now(),
+        }));
+        await db.insert(campaignIndustriesTable).values(values);
+      }
+      
+      // Update campaign total slots: each route has exactly 16 slots for unique subcategories
+      const routes = await this.getCampaignRoutes(campaignId);
+      const totalSlots = routes.length * SLOTS_PER_ROUTE;
+      await db.update(campaignsTable)
+        .set({ totalSlots })
+        .where(eq(campaignsTable.id, campaignId));
+    } catch (error: any) {
+      console.error('[DB Error] setCampaignIndustries failed:', {
         campaignId,
-        industryId,
-        createdAt: new Date(),
-      }));
-      await db.insert(campaignIndustriesTable).values(values);
+        industryIds,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
     }
-    
-    // Update campaign total slots: each route has exactly 16 slots for unique subcategories
-    const routes = await this.getCampaignRoutes(campaignId);
-    const totalSlots = routes.length * SLOTS_PER_ROUTE;
-    await db.update(campaignsTable)
-      .set({ totalSlots })
-      .where(eq(campaignsTable.id, campaignId));
   }
 
   async getAllBookings(): Promise<Booking[]> {
@@ -2467,36 +2521,57 @@ export class DbStorage implements IStorage {
   }
 
   async addCustomerNote(customerId: string, note: string, createdBy: string): Promise<void> {
-    const { customerNotes } = await import("@shared/schema");
-    
-    await db.insert(customerNotes).values({
-      id: randomUUID(),
-      customerId,
-      note,
-      createdBy,
-      createdAt: new Date(),
-    });
+    try {
+      const { customerNotes } = await import("@shared/schema");
+      
+      await db.insert(customerNotes).values({
+        id: randomUUID(),
+        customerId,
+        note,
+        createdBy,
+        createdAt: Date.now(),
+      });
+    } catch (error: any) {
+      console.error('[DB Error] addCustomerNote failed:', {
+        customerId,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async addCustomerTag(customerId: string, tag: string, createdBy: string): Promise<void> {
-    const { customerTags } = await import("@shared/schema");
-    
-    // Check if tag already exists for this customer
-    const existing = await db.select()
-      .from(customerTags)
-      .where(and(
-        eq(customerTags.customerId, customerId),
-        eq(customerTags.tag, tag)
-      ));
-    
-    if (existing.length === 0) {
-      await db.insert(customerTags).values({
-        id: randomUUID(),
+    try {
+      const { customerTags } = await import("@shared/schema");
+      
+      // Check if tag already exists for this customer
+      const existing = await db.select()
+        .from(customerTags)
+        .where(and(
+          eq(customerTags.customerId, customerId),
+          eq(customerTags.tag, tag)
+        ));
+      
+      if (existing.length === 0) {
+        await db.insert(customerTags).values({
+          id: randomUUID(),
+          customerId,
+          tag,
+          createdBy,
+          createdAt: Date.now(),
+        });
+      }
+    } catch (error: any) {
+      console.error('[DB Error] addCustomerTag failed:', {
         customerId,
         tag,
-        createdBy,
-        createdAt: new Date(),
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
       });
+      throw error;
     }
   }
 
@@ -2512,13 +2587,23 @@ export class DbStorage implements IStorage {
 
   // Design Revisions
   async createDesignRevision(designRevision: InsertDesignRevision): Promise<DesignRevision> {
-    const revisionWithId = {
-      ...designRevision,
-      id: randomUUID().replace(/-/g, ''),
-      uploadedAt: new Date(),
-    };
-    const result = await db.insert(designRevisionsTable).values(revisionWithId).returning();
-    return result[0];
+    try {
+      const revisionWithId = {
+        ...designRevision,
+        id: randomUUID().replace(/-/g, ''),
+        uploadedAt: Date.now(),
+      };
+      const result = await db.insert(designRevisionsTable).values(revisionWithId).returning();
+      return result[0];
+    } catch (error: any) {
+      console.error('[DB Error] createDesignRevision failed:', {
+        bookingId: designRevision.bookingId,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async getDesignRevisionById(id: string): Promise<DesignRevision | undefined> {
@@ -2580,46 +2665,67 @@ export class DbStorage implements IStorage {
   }
 
   async setAdminSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<AdminSetting> {
-    const existing = await this.getAdminSetting(key);
-    
-    if (existing) {
-      const result = await db.update(adminSettingsTable)
-        .set({
+    try {
+      const existing = await this.getAdminSetting(key);
+      
+      if (existing) {
+        const result = await db.update(adminSettingsTable)
+          .set({
+            value,
+            description: description || existing.description,
+            updatedAt: Date.now(),
+            updatedBy,
+          })
+          .where(eq(adminSettingsTable.key, key))
+          .returning();
+        return result[0];
+      } else {
+        const newSetting = {
+          id: randomUUID().replace(/-/g, ''),
+          key,
           value,
-          description: description || existing.description,
-          updatedAt: new Date(),
+          description,
+          updatedAt: Date.now(),
           updatedBy,
-        })
-        .where(eq(adminSettingsTable.key, key))
-        .returning();
-      return result[0];
-    } else {
-      const newSetting = {
-        id: randomUUID().replace(/-/g, ''),
+        };
+        const result = await db.insert(adminSettingsTable).values(newSetting).returning();
+        return result[0];
+      }
+    } catch (error: any) {
+      console.error('[DB Error] setAdminSetting failed:', {
         key,
-        value,
-        description,
-        updatedAt: new Date(),
-        updatedBy,
-      };
-      const result = await db.insert(adminSettingsTable).values(newSetting).returning();
-      return result[0];
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
     }
   }
 
   // Waitlist methods
   async createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry> {
-    const entryWithId = {
-      ...entry,
-      id: randomUUID().replace(/-/g, ''),
-      createdAt: new Date(),
-      notifiedCount: 0,
-      lastNotifiedAt: null,
-      lastNotifiedChannels: null,
-      status: entry.status || "active",
-    };
-    const result = await db.insert(waitlistEntriesTable).values(entryWithId).returning();
-    return result[0];
+    try {
+      const entryWithId = {
+        ...entry,
+        id: randomUUID().replace(/-/g, ''),
+        createdAt: Date.now(),
+        notifiedCount: 0,
+        lastNotifiedAt: null,
+        lastNotifiedChannels: null,
+        status: entry.status || "active",
+      };
+      const result = await db.insert(waitlistEntriesTable).values(entryWithId).returning();
+      return result[0];
+    } catch (error: any) {
+      console.error('[DB Error] createWaitlistEntry failed:', {
+        userId: entry.userId,
+        campaignId: entry.campaignId,
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   async getWaitlistEntriesByUser(userId: string): Promise<WaitlistEntryWithDetails[]> {
