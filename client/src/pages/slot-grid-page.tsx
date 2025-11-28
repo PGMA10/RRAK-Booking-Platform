@@ -355,7 +355,7 @@ export default function SlotGridPage() {
                       };
                       
                       // Get unique slot indices (should be 1-16)
-                      const slotIndices = [...new Set(slotGrid.slots.map(s => s.slotIndex))].sort((a, b) => a - b);
+                      const slotIndices = Array.from(new Set(slotGrid.slots.map(s => s.slotIndex))).sort((a, b) => a - b);
                       
                       return (
                         <>
