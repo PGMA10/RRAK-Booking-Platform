@@ -390,6 +390,162 @@ async function seedProduction() {
       console.log("  ℹ️  Industries already exist");
     }
 
+    console.log("\n📋 Checking for industry subcategories...");
+    const subcategoryCheck = await pool.query(`SELECT id FROM industry_subcategories LIMIT 1`);
+    
+    if (subcategoryCheck.rows.length === 0) {
+      const industriesResult = await pool.query(`SELECT id, name FROM industries`);
+      const industryMap = new Map(industriesResult.rows.map((i: any) => [i.name, i.id]));
+      
+      const subcategoryData = [
+        {
+          industryName: "Construction",
+          subcategories: [
+            { name: "Electrical", sortOrder: 1 },
+            { name: "Carpentry", sortOrder: 2 },
+            { name: "Plumbing & HVAC", sortOrder: 3 },
+            { name: "Roofing", sortOrder: 4 },
+            { name: "Concrete & Masonry", sortOrder: 5 },
+            { name: "General Contractor", sortOrder: 6 }
+          ]
+        },
+        {
+          industryName: "Healthcare",
+          subcategories: [
+            { name: "Dentist/Orthodontist", sortOrder: 1 },
+            { name: "Psychiatry/Mental Health", sortOrder: 2 },
+            { name: "Chiropractic", sortOrder: 3 },
+            { name: "Optometry", sortOrder: 4 },
+            { name: "Physical Therapy", sortOrder: 5 },
+            { name: "Massage Therapy", sortOrder: 6 }
+          ]
+        },
+        {
+          industryName: "Financial Services",
+          subcategories: [
+            { name: "Accounting/Bookkeeping", sortOrder: 1 },
+            { name: "Financial Planning", sortOrder: 2 },
+            { name: "Insurance (General)", sortOrder: 3 },
+            { name: "Tax Services", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Real Estate",
+          subcategories: [
+            { name: "Realtor/Agent", sortOrder: 1 },
+            { name: "Loan Originator/Mortgage", sortOrder: 2 },
+            { name: "Property Management", sortOrder: 3 },
+            { name: "Appraisal Services", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Beauty & Wellness",
+          subcategories: [
+            { name: "Hair Salon", sortOrder: 1 },
+            { name: "Spa/Massage", sortOrder: 2 },
+            { name: "Beauty Supply Store", sortOrder: 3 },
+            { name: "Nail Salon", sortOrder: 4 },
+            { name: "Aesthetics/Med Spa", sortOrder: 5 }
+          ]
+        },
+        {
+          industryName: "Home Services",
+          subcategories: [
+            { name: "Cleaning Services", sortOrder: 1 },
+            { name: "Landscaping/Lawn Care", sortOrder: 2 },
+            { name: "Pest Control", sortOrder: 3 },
+            { name: "Appliance Repair", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Automotive",
+          subcategories: [
+            { name: "Auto Repair/Mechanic", sortOrder: 1 },
+            { name: "Auto Detailing", sortOrder: 2 },
+            { name: "Tire Services", sortOrder: 3 },
+            { name: "Auto Body/Paint", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Food & Beverage",
+          subcategories: [
+            { name: "Restaurant", sortOrder: 1 },
+            { name: "Catering", sortOrder: 2 },
+            { name: "Bakery/Cafe", sortOrder: 3 },
+            { name: "Bar/Brewery", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Professional Services",
+          subcategories: [
+            { name: "Legal Services", sortOrder: 1 },
+            { name: "IT Services", sortOrder: 2 },
+            { name: "Consulting", sortOrder: 3 }
+          ]
+        },
+        {
+          industryName: "Retail",
+          subcategories: [
+            { name: "Clothing/Apparel", sortOrder: 1 },
+            { name: "Sporting Goods", sortOrder: 2 },
+            { name: "Electronics", sortOrder: 3 },
+            { name: "Home Goods", sortOrder: 4 },
+            { name: "Specialty Retail", sortOrder: 5 }
+          ]
+        },
+        {
+          industryName: "Pet Services",
+          subcategories: [
+            { name: "Veterinary Care", sortOrder: 1 },
+            { name: "Pet Grooming", sortOrder: 2 },
+            { name: "Dog Walking/Pet Sitting", sortOrder: 3 },
+            { name: "Pet Supply Store", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Fitness & Recreation",
+          subcategories: [
+            { name: "Gym/Fitness Center", sortOrder: 1 },
+            { name: "Personal Training", sortOrder: 2 },
+            { name: "Yoga/Pilates Studio", sortOrder: 3 },
+            { name: "Sports Facilities", sortOrder: 4 }
+          ]
+        },
+        {
+          industryName: "Outdoor Recreation and Tours",
+          subcategories: [
+            { name: "Hunting guides", sortOrder: 1 },
+            { name: "Scenic touring (busses, Boats, ATVs and vans)", sortOrder: 2 },
+            { name: "Fishing charters", sortOrder: 3 }
+          ]
+        }
+      ];
+      
+      let subcategoryCount = 0;
+      const now = Date.now();
+      
+      for (const category of subcategoryData) {
+        const industryId = industryMap.get(category.industryName);
+        if (!industryId) {
+          console.warn(`  ⚠️  Industry not found: ${category.industryName}`);
+          continue;
+        }
+        
+        for (const subcat of category.subcategories) {
+          const subcatId = generateId();
+          await pool.query(
+            `INSERT INTO industry_subcategories (id, industry_id, name, sort_order, status, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [subcatId, industryId, subcat.name, subcat.sortOrder, "active", now]
+          );
+          subcategoryCount++;
+        }
+      }
+      
+      console.log(`  ✅ Created ${subcategoryCount} industry subcategories`);
+    } else {
+      console.log("  ℹ️  Industry subcategories already exist");
+    }
+
     console.log("\n🗺️  Checking for routes...");
     const routeCheck = await pool.query(`SELECT id FROM routes LIMIT 1`);
     
