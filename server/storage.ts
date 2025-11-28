@@ -30,6 +30,13 @@ import {
 import { db, schema, isProduction } from "./db-config";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
 
+// Helper function to get timestamp in the right format for the current database
+// SQLite timestamp_ms mode expects Date objects, PostgreSQL bigint mode expects numbers
+function getTimestamp(date?: Date | number): Date | number {
+  const d = date instanceof Date ? date : date ? new Date(date) : new Date();
+  return isProduction ? d.getTime() : d; // PostgreSQL: number, SQLite: Date
+}
+
 const usersTable = schema.users;
 const routesTable = schema.routes;
 const industriesTable = schema.industries;
@@ -1317,7 +1324,7 @@ export class DbStorage implements IStorage {
     const userWithId = {
       ...user,
       id: (user as any).id || randomUUID().replace(/-/g, ''),
-      createdAt: (user as any).createdAt || new Date(),
+      createdAt: (user as any).createdAt || getTimestamp(),
     };
     const result = await db.insert(usersTable).values(userWithId).returning();
     return result[0];
@@ -1801,7 +1808,7 @@ export class DbStorage implements IStorage {
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
-    const now = new Date();
+    const now = getTimestamp();
     const quantity = booking.quantity || 1;
     const bookingWithId = {
       ...booking,
@@ -1929,7 +1936,7 @@ export class DbStorage implements IStorage {
     const result = await db.update(bookingsTable)
       .set({
         status: 'cancelled',
-        cancellationDate: new Date(),
+        cancellationDate: getTimestamp(),
         refundAmount: refundData.refundAmount,
         refundStatus: refundData.refundStatus,
         // Clear file path columns to prevent orphaned references after deletion
@@ -1960,7 +1967,7 @@ export class DbStorage implements IStorage {
     const result = await db.update(bookingsTable)
       .set({
         approvalStatus: 'approved',
-        approvedAt: new Date(),
+        approvedAt: getTimestamp(),
         rejectedAt: null,
         rejectionNote: null,
       })
@@ -1974,7 +1981,7 @@ export class DbStorage implements IStorage {
     const result = await db.update(bookingsTable)
       .set({
         approvalStatus: 'rejected',
-        rejectedAt: new Date(),
+        rejectedAt: getTimestamp(),
         approvedAt: null,
         rejectionNote,
       })
@@ -2331,7 +2338,7 @@ export class DbStorage implements IStorage {
       bookingId,
       notificationType,
       userId,
-      dismissedAt: new Date(),
+      dismissedAt: getTimestamp(),
     });
   }
   
@@ -2690,7 +2697,7 @@ export class DbStorage implements IStorage {
   async updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined> {
     const updates: Partial<DesignRevision> = {
       status,
-      reviewedAt: new Date(),
+      reviewedAt: getTimestamp() as any,
     };
     
     if (customerFeedback) {
@@ -2903,7 +2910,7 @@ export class DbStorage implements IStorage {
     channels: ('in_app' | 'email')[];
   }): Promise<{ notifiedCount: number }> {
     const { adminId, entryIds, message, channels } = params;
-    const now = new Date();
+    const now = getTimestamp();
     let notifiedCount = 0;
     const recipientUserIds: string[] = [];
     
