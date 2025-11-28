@@ -2800,6 +2800,8 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Admin access required" });
     }
 
+    console.log("📦 [POST /api/slots] Request body:", JSON.stringify(req.body, null, 2));
+
     try {
       const validatedData = insertBookingSchema.extend({
         businessName: z.string().min(1, "Business name is required"),
@@ -2807,6 +2809,8 @@ export function registerRoutes(app: Express): Server {
         contactPhone: z.string().optional(),
         userId: z.string().optional(),
       }).parse(req.body);
+      
+      console.log("✅ [POST /api/slots] Validated data:", JSON.stringify(validatedData, null, 2));
 
       // Check if campaign exists
       const campaign = await storage.getCampaign(validatedData.campaignId);
@@ -2869,7 +2873,9 @@ export function registerRoutes(app: Express): Server {
       const booking = await storage.createBooking(bookingData);
       res.status(201).json(booking);
     } catch (error) {
+      console.error("❌ [POST /api/slots] Error:", error);
       if ((error as Error).name === "ZodError") {
+        console.error("❌ [POST /api/slots] Zod validation errors:", JSON.stringify((error as any).errors, null, 2));
         return res.status(400).json({ message: "Invalid booking data", errors: (error as any).errors });
       }
       res.status(500).json({ message: "Failed to create slot booking" });
