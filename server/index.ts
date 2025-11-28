@@ -52,7 +52,7 @@ app.use((req, res, next) => {
     // Production mode - run database migrations automatically
     console.log("🚀 Production mode - Running database migrations...");
     try {
-      execSync("npm run db:push", { 
+      execSync("npx drizzle-kit push --force", { 
         stdio: "inherit",
         timeout: 60000 // 60 second timeout
       });
