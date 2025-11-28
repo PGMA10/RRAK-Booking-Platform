@@ -286,11 +286,12 @@ export const seedSQL = `
 -- This file is automatically executed on production startup after schema creation
 
 -- Insert admin user (password: admin123, hashed with scrypt)
+-- Hash format: {64-byte-hex}.{16-byte-salt-hex}
 INSERT INTO "users" ("id", "username", "password", "email", "name", "role", "created_at")
 VALUES (
   'admin-001',
   'admin',
-  'c2NyeXB0AA4AAAAIAAAAAcj8zG1VK4zOiKUWTg+IjYQbHbBIBZYCL7QnPmk4Yj0xZK7/x9cWlGz6vlFH2+EQPtPEXQKxFqGvRLbRVHp6OA==',
+  '26273261973baafcfdf1deacfe5282e06d4f45ea50824413a7691250bedb19d916e3ef3e87e1f890838b3d86a3f30d9667a3e90c72b6298a9ebe6a8ff9cd1a5e.0a906e7acbebb63364c7d6b7e11fb011',
   'admin@routereach.ak',
   'Admin User',
   'admin',
