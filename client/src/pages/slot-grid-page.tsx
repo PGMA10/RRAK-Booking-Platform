@@ -39,11 +39,22 @@ type SlotGridResponse = {
   };
 };
 
-// Booking form validation schema
+// Subcategory type
+type IndustrySubcategory = {
+  id: string;
+  industryId: string;
+  name: string;
+  label: string;
+};
+
+// Booking form validation schema - now includes industry/subcategory selection
 const bookingFormSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   contactEmail: z.string().email("Valid email is required"),
   contactPhone: z.string().optional(),
+  industryId: z.string().min(1, "Industry is required"),
+  industrySubcategoryId: z.string().optional(),
+  otherDescription: z.string().optional(),
 });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
@@ -70,8 +81,14 @@ export default function SlotGridPage() {
       businessName: "",
       contactEmail: "",
       contactPhone: "",
+      industryId: "",
+      industrySubcategoryId: "",
+      otherDescription: "",
     },
   });
+
+  // Watch industryId for subcategory loading
+  const selectedIndustryId = form.watch("industryId");
 
   // Data fetching
   const { data: campaigns = [] } = useQuery<Campaign[]>({
@@ -81,6 +98,17 @@ export default function SlotGridPage() {
   const { data: slotGrid, isLoading: isLoadingSlots } = useQuery<SlotGridResponse>({
     queryKey: ["/api/slots", selectedCampaignId],
     enabled: !!selectedCampaignId,
+  });
+
+  // Fetch industries for the booking form
+  const { data: industries = [] } = useQuery<Industry[]>({
+    queryKey: ["/api/industries"],
+  });
+
+  // Fetch subcategories for the selected industry
+  const { data: subcategories = [] } = useQuery<IndustrySubcategory[]>({
+    queryKey: ["/api/industries", selectedIndustryId, "subcategories"],
+    enabled: !!selectedIndustryId,
   });
 
   // Mutations
@@ -120,8 +148,19 @@ export default function SlotGridPage() {
   // Event handlers
   const handleSlotClick = (slot: SlotData) => {
     setSelectedSlot(slot);
-    // Open view/manage dialog for booked/pending slots only
-    if (slot.status !== 'available') {
+    if (slot.status === 'available') {
+      // Open booking dialog for available slots
+      form.reset({
+        businessName: "",
+        contactEmail: "",
+        contactPhone: "",
+        industryId: "",
+        industrySubcategoryId: "",
+        otherDescription: "",
+      });
+      setIsBookingDialogOpen(true);
+    } else {
+      // Open view/manage dialog for booked/pending slots
       setIsViewDialogOpen(true);
     }
   };
@@ -129,13 +168,19 @@ export default function SlotGridPage() {
   const handleBookSlot = (data: BookingFormData) => {
     if (!selectedSlot || !selectedCampaignId) return;
 
+    // Get subcategory label if selected
+    const selectedSubcategory = subcategories.find(s => s.id === data.industrySubcategoryId);
+    
     createBookingMutation.mutate({
       campaignId: selectedCampaignId,
       routeId: selectedSlot.routeId,
-      industryId: selectedSlot.industryId,
+      industryId: data.industryId,
+      industrySubcategoryId: data.industrySubcategoryId || null,
+      industrySubcategoryLabel: selectedSubcategory?.label || null,
       businessName: data.businessName,
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone || "",
+      otherDescription: data.otherDescription || null,
       amount: 60000, // $600 in cents
     });
   };
@@ -379,16 +424,18 @@ export default function SlotGridPage() {
                                 }
                                 
                                 return (
-                                  <div
+                                  <Button
                                     key={`${route.id}-slot-${slotIndex}`}
-                                    className="h-auto min-h-16 p-2 text-xs font-medium border rounded-md bg-green-100 border-green-300 text-green-800 flex items-center justify-center"
+                                    variant="outline"
+                                    className="h-auto min-h-16 p-2 text-xs font-medium cursor-pointer transition-colors bg-green-100 hover:bg-green-200 border-green-300 text-green-800"
+                                    onClick={() => handleSlotClick(slot)}
                                     data-testid={`slot-${route.zipCode}-${slotIndex}`}
                                   >
                                     <div className="text-center w-full">
                                       <div className="font-bold">$600</div>
                                       <div className="text-xs opacity-75">Available</div>
                                     </div>
-                                  </div>
+                                  </Button>
                                 );
                               })}
                             </div>
@@ -414,11 +461,11 @@ export default function SlotGridPage() {
 
         {/* Booking Dialog */}
         <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-          <DialogContent data-testid="dialog-book-slot">
+          <DialogContent data-testid="dialog-book-slot" className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Book Slot</DialogTitle>
+              <DialogTitle>Book Slot #{selectedSlot?.slotIndex}</DialogTitle>
               <DialogDescription>
-                Book this slot for {selectedSlot?.route.name} ({selectedSlot?.route.zipCode}) - {selectedSlot?.industry.name}
+                Book this slot for {selectedSlot?.route.name} ({selectedSlot?.route.zipCode})
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -476,12 +523,96 @@ export default function SlotGridPage() {
                     </FormItem>
                   )}
                 />
+                
+                {/* Industry Selection */}
+                <FormField
+                  control={form.control}
+                  name="industryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Industry</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Reset subcategory when industry changes
+                          form.setValue("industrySubcategoryId", "");
+                          form.setValue("otherDescription", "");
+                        }} 
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-industry">
+                            <SelectValue placeholder="Select an industry" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {industries.map((industry) => (
+                            <SelectItem key={industry.id} value={industry.id}>
+                              {industry.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Subcategory Selection - only show if industry has subcategories */}
+                {selectedIndustryId && subcategories.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="industrySubcategoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Specialization</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-subcategory">
+                              <SelectValue placeholder="Select a specialization" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {subcategories.map((subcategory) => (
+                              <SelectItem key={subcategory.id} value={subcategory.id}>
+                                {subcategory.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Other Description - only show for "Other" industry */}
+                {selectedIndustryId && industries.find(i => i.id === selectedIndustryId)?.name === "Other" && (
+                  <FormField
+                    control={form.control}
+                    name="otherDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Type Description</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Describe your business type" 
+                            {...field} 
+                            data-testid="input-other-description"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <DialogFooter>
                   <Button 
                     type="button" 
                     variant="outline" 
                     onClick={() => setIsBookingDialogOpen(false)}
-                    data-testid="button-cancel-booking"
+                    data-testid="button-cancel-dialog"
                   >
                     Cancel
                   </Button>
