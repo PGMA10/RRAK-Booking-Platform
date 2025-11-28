@@ -1,5 +1,5 @@
-import { db } from "./db-sqlite";
-import { pricingRules, campaigns, bookings, users, pricingRuleApplications, adminSettings } from "@shared/schema";
+import { db, schema } from "./db-config";
+const { pricingRules, campaigns, bookings, users, pricingRuleApplications, adminSettings } = schema;
 import { eq, and, or, isNull, sql } from "drizzle-orm";
 
 // Default tiered pricing: First slot $600, additional slots +$500 each
