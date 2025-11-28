@@ -44,7 +44,9 @@ type IndustrySubcategory = {
   id: string;
   industryId: string;
   name: string;
-  label: string;
+  description?: string;
+  status: string;
+  sortOrder: number;
 };
 
 // Booking form validation schema - now includes industry/subcategory selection
@@ -168,7 +170,7 @@ export default function SlotGridPage() {
   const handleBookSlot = (data: BookingFormData) => {
     if (!selectedSlot || !selectedCampaignId) return;
 
-    // Get subcategory label if selected
+    // Get subcategory name if selected
     const selectedSubcategory = subcategories.find(s => s.id === data.industrySubcategoryId);
     
     createBookingMutation.mutate({
@@ -176,7 +178,7 @@ export default function SlotGridPage() {
       routeId: selectedSlot.routeId,
       industryId: data.industryId,
       industrySubcategoryId: data.industrySubcategoryId || null,
-      industrySubcategoryLabel: selectedSubcategory?.label || null,
+      industrySubcategoryLabel: selectedSubcategory?.name || null,
       businessName: data.businessName,
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone || "",
@@ -575,7 +577,7 @@ export default function SlotGridPage() {
                           <SelectContent>
                             {subcategories.map((subcategory) => (
                               <SelectItem key={subcategory.id} value={subcategory.id}>
-                                {subcategory.label}
+                                {subcategory.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
