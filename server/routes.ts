@@ -2800,8 +2800,6 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Admin access required" });
     }
 
-    console.log("📦 [POST /api/slots] Request body:", JSON.stringify(req.body, null, 2));
-
     try {
       // Create a partial schema that makes userId optional (we'll add it from the session)
       const slotBookingSchema = insertBookingSchema.omit({ userId: true }).extend({
@@ -2812,8 +2810,6 @@ export function registerRoutes(app: Express): Server {
       });
       
       const validatedData = slotBookingSchema.parse(req.body);
-      
-      console.log("✅ [POST /api/slots] Validated data:", JSON.stringify(validatedData, null, 2));
 
       // Check if campaign exists
       const campaign = await storage.getCampaign(validatedData.campaignId);
@@ -2876,11 +2872,10 @@ export function registerRoutes(app: Express): Server {
       const booking = await storage.createBooking(bookingData);
       res.status(201).json(booking);
     } catch (error) {
-      console.error("❌ [POST /api/slots] Error:", error);
       if ((error as Error).name === "ZodError") {
-        console.error("❌ [POST /api/slots] Zod validation errors:", JSON.stringify((error as any).errors, null, 2));
         return res.status(400).json({ message: "Invalid booking data", errors: (error as any).errors });
       }
+      console.error("Failed to create slot booking:", error);
       res.status(500).json({ message: "Failed to create slot booking" });
     }
   });
