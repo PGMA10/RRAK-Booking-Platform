@@ -1402,10 +1402,13 @@ export class DbStorage implements IStorage {
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
+    const now = Date.now();
     const campaignWithId = {
       ...campaign,
       id: (campaign as any).id || randomUUID().replace(/-/g, ''),
-      createdAt: (campaign as any).createdAt || new Date(),
+      createdAt: now,
+      mailDate: campaign.mailDate instanceof Date ? campaign.mailDate.getTime() : campaign.mailDate,
+      printDeadline: campaign.printDeadline instanceof Date ? campaign.printDeadline.getTime() : campaign.printDeadline,
     };
     
     const result = await db.insert(campaignsTable).values(campaignWithId).returning();
@@ -1413,7 +1416,14 @@ export class DbStorage implements IStorage {
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
-    const result = await db.update(campaignsTable).set(updates).where(eq(campaignsTable.id, id)).returning();
+    const processedUpdates = { ...updates };
+    if (processedUpdates.mailDate instanceof Date) {
+      processedUpdates.mailDate = processedUpdates.mailDate.getTime() as any;
+    }
+    if (processedUpdates.printDeadline instanceof Date) {
+      processedUpdates.printDeadline = processedUpdates.printDeadline.getTime() as any;
+    }
+    const result = await db.update(campaignsTable).set(processedUpdates).where(eq(campaignsTable.id, id)).returning();
     return result[0];
   }
 
