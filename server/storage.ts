@@ -32,7 +32,7 @@ import { eq, and, sql, ne, isNull } from "drizzle-orm";
 
 // Helper function to get timestamp in the right format for the current database
 // SQLite timestamp_ms mode expects Date objects, PostgreSQL bigint mode expects numbers
-function getTimestamp(date?: Date | number): Date | number {
+export function getTimestamp(date?: Date | number): Date | number {
   const d = date instanceof Date ? date : date ? new Date(date) : new Date();
   return isProduction ? d.getTime() : d; // PostgreSQL: number, SQLite: Date
 }

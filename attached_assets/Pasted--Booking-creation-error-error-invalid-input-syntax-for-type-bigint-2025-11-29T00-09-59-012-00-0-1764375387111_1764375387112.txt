@@ -1,0 +1,54 @@
+}
+Booking creation error: error: invalid input syntax for type bigint: "2025-11-29T00:09:59.012+00:00"
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.createBooking (file:///opt/render/project/src/dist/index.js:2119:20)
+    at async file:///opt/render/project/src/dist/index.js:4194:23 {
+  length: 172,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: "unnamed portal parameter $16 = '...'",
+  schema: undefined,
+  table: undefined,
+     [POST]400rrak-booking-platform.onrender.com/api/create-checkout-sessionclientIP="185.216.231.19" requestID="ffc57c56-c4a7-4ff0" responseTimeMS=231 responseBytes=312 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'numutils.c',
+  line: '876',
+  routine: 'pg_strtoint64_safe'
+}
+12:09:59 AM [express] POST /api/create-checkout-session 400 in 213ms :: {"message":"Failed to create …
+     [POST]400rrak-booking-platform.onrender.com/api/create-checkout-sessionclientIP="185.216.231.19" requestID="9d8da6e4-2cdb-489e" responseTimeMS=59 responseBytes=312 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+🔓 Deserializing user: 1f2246d8d8c943ce9809d1aeee59f13d
+👤 Deserialized user: { id: '1f2246d8d8c943ce9809d1aeee59f13d', role: 'customer' }
+💲 [Booking Pricing] Quote for user AWP: {
+  totalPrice: '$600.00',
+  priceSource: 'default_tiered',
+  appliedRules: 0
+}
+🔍 [Debug] Creating booking with data: {
+  userId: '1f2246d8d8c943ce9809d1aeee59f13d',
+  campaignId: 'db5d13eb385040dd8f0a98699acd182e',
+  routeId: 'route-99502',
+  industryId: 'ind-healthcare',
+  contractAccepted: true,
+  contractVersion: 'v2025'
+}
+Booking creation error: error: invalid input syntax for type bigint: "2025-11-29T00:10:00.964+00:00"
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.createBooking (file:///opt/render/project/src/dist/index.js:2119:20)
+    at async file:///opt/render/project/src/dist/index.js:4194:23 {
+  length: 172,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
