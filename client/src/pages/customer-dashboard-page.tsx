@@ -742,8 +742,8 @@ export default function CustomerDashboardPage() {
                       </div>
                     )}
 
-                    {/* Show Ad Design Brief form if no brief submitted yet */}
-                    {(!booking.designStatus || booking.designStatus === 'pending_design') ? (
+                    {/* Show Ad Design Brief form only for PAID bookings with no brief submitted yet */}
+                    {booking.paymentStatus === 'paid' && (!booking.designStatus || booking.designStatus === 'pending_design') ? (
                       <div className="mt-3">
                         {!expandedDesignBriefs.has(booking.id) ? (
                           <div className="relative">
@@ -787,18 +787,24 @@ export default function CustomerDashboardPage() {
                           </div>
                         )}
                       </div>
+                    ) : booking.paymentStatus !== 'paid' ? (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                        <p className="text-sm text-yellow-800">
+                          Complete payment to access the design brief form.
+                        </p>
+                      </div>
                     ) : (
                       <>
                         {/* Show design status for submitted briefs */}
                         {booking.designStatus === 'brief_submitted' && (
                           <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
-                            ⏱ Design brief submitted - awaiting admin review
+                            Design brief submitted - awaiting admin review
                           </div>
                         )}
                         {booking.designStatus === 'pending_approval' && (
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
-                              👁 Design ready for your review
+                              Design ready for your review
                             </div>
                             <Button
                               onClick={() => setReviewBookingId(booking.id)}
@@ -811,12 +817,12 @@ export default function CustomerDashboardPage() {
                         )}
                         {booking.designStatus === 'revision_requested' && (
                           <div className="flex items-center gap-2 text-sm text-orange-600 font-medium">
-                            🔄 Revision requested - awaiting updated design
+                            Revision requested - awaiting updated design
                           </div>
                         )}
                         {booking.designStatus === 'approved' && (
                           <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                            ✓ Design approved and ready for printing
+                            Design approved and ready for printing
                           </div>
                         )}
                       </>

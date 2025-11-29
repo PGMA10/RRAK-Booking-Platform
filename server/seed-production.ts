@@ -358,7 +358,7 @@ async function seedProduction() {
     }
 
     console.log("\n🏭 Checking for industries...");
-    const industryCheck = await pool.query(`SELECT id FROM industries LIMIT 1`);
+    const industryCheck = await pool.query(`SELECT id, name FROM industries`);
     
     if (industryCheck.rows.length === 0) {
       const industriesData = [
@@ -387,7 +387,18 @@ async function seedProduction() {
       }
       console.log("  ✅ Industries created");
     } else {
-      console.log("  ℹ️  Industries already exist");
+      // Check if "Other" industry exists and add it if missing
+      const hasOther = industryCheck.rows.some((i: any) => i.name === "Other");
+      if (!hasOther) {
+        const otherId = generateId();
+        await pool.query(
+          `INSERT INTO industries (id, name, description, icon, status) VALUES ($1, $2, $3, $4, $5)`,
+          [otherId, "Other", "Other business types", "ellipsis", "active"]
+        );
+        console.log("  ✅ Added missing 'Other' industry category");
+      } else {
+        console.log("  ℹ️  Industries already exist");
+      }
     }
 
     console.log("\n📋 Checking for industry subcategories...");

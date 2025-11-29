@@ -168,8 +168,23 @@ export async function seedSQLite() {
         { id: generateId(), name: "Other", description: "Other business types", icon: "ellipsis", status: "active" },
       ]);
       console.log("✅ 14 Industries created");
-    } else if (existingIndustries.length !== EXPECTED_INDUSTRY_COUNT) {
-      console.log(`⚠️  Warning: Found ${existingIndustries.length} industries, expected ${EXPECTED_INDUSTRY_COUNT}. Database may have legacy industry data.`);
+    } else {
+      // Check if "Other" industry exists and add it if missing
+      const otherIndustry = existingIndustries.find(i => i.name === "Other");
+      if (!otherIndustry) {
+        await db.insert(industries).values({
+          id: generateId(),
+          name: "Other",
+          description: "Other business types",
+          icon: "ellipsis",
+          status: "active"
+        });
+        console.log("✅ Added missing 'Other' industry category");
+      }
+      
+      if (existingIndustries.length !== EXPECTED_INDUSTRY_COUNT && existingIndustries.length !== EXPECTED_INDUSTRY_COUNT - 1) {
+        console.log(`⚠️  Warning: Found ${existingIndustries.length} industries, expected ${EXPECTED_INDUSTRY_COUNT}. Database may have legacy industry data.`);
+      }
     }
 
     // Seed industry subcategories after industries are created

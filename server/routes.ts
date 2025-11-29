@@ -2458,6 +2458,11 @@ export function registerRoutes(app: Express): Server {
           return res.status(403).json({ message: "Not authorized to submit design brief for this booking" });
         }
 
+        // Only allow design brief submission for PAID bookings
+        if (booking.paymentStatus !== 'paid') {
+          return res.status(403).json({ message: "Payment must be completed before submitting design brief" });
+        }
+
         const briefData = JSON.parse(req.body.briefData);
         
         const updatedBooking = await storage.updateBooking(bookingId, {
@@ -3169,9 +3174,9 @@ export function registerRoutes(app: Express): Server {
       // Total customers (excluding admin users)
       const totalCustomers = allUsers.filter(u => u.role === 'customer').length;
       
-      // Calculate occupancy rate (across all campaigns)
+      // Calculate occupancy rate (across all campaigns) - only count paid bookings
       const totalSlots = campaigns.reduce((sum, c) => sum + c.totalSlots, 0);
-      const bookedSlots = allBookings.filter(b => b.status !== 'cancelled').length;
+      const bookedSlots = allBookings.filter(b => b.status !== 'cancelled' && b.paymentStatus === 'paid').length;
       const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
       
       // Calculate average booking value (from paid bookings)

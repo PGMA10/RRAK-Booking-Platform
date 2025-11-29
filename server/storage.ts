@@ -871,8 +871,11 @@ export class MemStorage implements IStorage {
     // Use campaign-specific routes
     const routes = await this.getCampaignRoutes(campaignId);
     const allIndustries = await this.getAllIndustries();
+    // Filter out cancelled bookings - only show confirmed/pending bookings that are paid or pending payment
     const bookings = Array.from(this.bookings.values()).filter(b => 
-      b.campaignId === campaignId && b.status !== 'cancelled'
+      b.campaignId === campaignId && 
+      b.status !== 'cancelled' &&
+      (b.paymentStatus === 'paid' || b.paymentStatus === 'pending')
     );
     
     const slots: Array<{
@@ -905,11 +908,12 @@ export class MemStorage implements IStorage {
         
         if (booking) {
           const industry = allIndustries.find(i => i.id === booking.industryId);
-          const status: 'available' | 'booked' | 'pending' = booking.status === 'pending' ? 'pending' : 'booked';
+          // Use paymentStatus to determine if slot is booked (paid) or pending (awaiting payment)
+          const status: 'available' | 'booked' | 'pending' = booking.paymentStatus === 'paid' ? 'booked' : 'pending';
           
           if (status === 'booked') {
             bookedSlots += (booking.quantity || 1);
-            totalRevenue += booking.amount;
+            totalRevenue += booking.amountPaid || booking.amount;
           } else {
             pendingSlots += (booking.quantity || 1);
           }
@@ -2092,8 +2096,11 @@ export class DbStorage implements IStorage {
     const allIndustries = await this.getAllIndustries();
     const allBookings = await this.getBookingsByCampaign(campaignId);
     
-    // Filter out cancelled bookings
-    const bookings = allBookings.filter(b => b.status !== 'cancelled');
+    // Filter out cancelled bookings - only show confirmed/pending bookings that are paid or pending payment
+    const bookings = allBookings.filter(b => 
+      b.status !== 'cancelled' && 
+      (b.paymentStatus === 'paid' || b.paymentStatus === 'pending')
+    );
 
     const slots: Array<{
       slotIndex: number;
@@ -2125,11 +2132,12 @@ export class DbStorage implements IStorage {
         
         if (booking) {
           const industry = allIndustries.find(i => i.id === booking.industryId);
-          const status: 'available' | 'booked' | 'pending' = booking.status === 'pending' ? 'pending' : 'booked';
+          // Use paymentStatus to determine if slot is booked (paid) or pending (awaiting payment)
+          const status: 'available' | 'booked' | 'pending' = booking.paymentStatus === 'paid' ? 'booked' : 'pending';
           
           if (status === 'booked') {
             bookedSlots += (booking.quantity || 1);
-            totalRevenue += booking.amount;
+            totalRevenue += booking.amountPaid || booking.amount;
           } else {
             pendingSlots += (booking.quantity || 1);
           }
