@@ -495,7 +495,22 @@ export default function AdminNotificationsPage() {
                             </Badge>
                           </div>
                           <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Booking ID: {notification.bookingId.slice(0, 8)}...</p>
+                            {notification.booking && (
+                              <>
+                                <p>
+                                  Campaign: {(notification.booking as any).campaign?.name || 'N/A'}
+                                </p>
+                                <p>
+                                  Route: {(notification.booking as any).route?.zipCode || 'N/A'} - {(notification.booking as any).route?.name || 'N/A'}
+                                </p>
+                                <p>
+                                  Industry: {(notification.booking as any).industry?.name || 'N/A'}
+                                  {notification.booking.industrySubcategoryLabel && (
+                                    <> → {notification.booking.industrySubcategoryLabel}</>
+                                  )}
+                                </p>
+                              </>
+                            )}
                             <div className="flex items-center">
                               <Clock className="h-3 w-3 mr-1" />
                               <span className="text-xs">
@@ -507,6 +522,20 @@ export default function AdminNotificationsPage() {
                             </div>
                           </div>
                         </div>
+                        {notification.booking && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setSelectedBooking(notification.booking as BookingWithDetails);
+                              setIsModalOpen(true);
+                            }}
+                            data-testid={`button-view-history-${notification.id}`}
+                          >
+                            View Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
