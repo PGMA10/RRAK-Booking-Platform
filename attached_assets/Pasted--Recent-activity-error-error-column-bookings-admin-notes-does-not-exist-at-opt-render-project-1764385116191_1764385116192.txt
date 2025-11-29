@@ -1,0 +1,101 @@
+
+Recent activity error: error: column bookings.admin_notes does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.getAllBookings (file:///opt/render/project/src/dist/index.js:2032:21)
+    at async file:///opt/render/project/src/dist/index.js:5704:27 {
+  length: 120,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '1706',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3822',
+  routine: 'errorMissingColumn'
+}
+👤 Deserialized user: { id: 'admin-001', role: 'admin' }
+👤 Deserialized user: { id: 'admin-001', role: 'admin' }
+2:57:21 AM [express] GET /api/admin/recent-activity 500 in 94ms :: {"message":"Failed to fetch recen…
+2:57:21 AM [express] GET /api/notifications/count 500 in 181ms :: {"message":"Failed to fetch notifi…
+2:57:21 AM [express] GET /api/notifications/summary 500 in 178ms :: {"message":"Failed to fetch noti…
+2:57:21 AM [express] GET /api/bookings/artwork/review 500 in 179ms :: {"message":"Failed to fetch bo…
+Business metrics error: error: column bookings.admin_notes does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.getAllBookings (file:///opt/render/project/src/dist/index.js:2032:21)
+    at async file:///opt/render/project/src/dist/index.js:5754:27 {
+  length: 120,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+     [GET]500rrak-booking-platform.onrender.com/api/admin/dashboard-statsclientIP="157.97.134.17" requestID="814798f0-dc52-4c7b" responseTimeMS=345 responseBytes=317 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     [GET]500rrak-booking-platform.onrender.com/api/bookings/artwork/reviewclientIP="157.97.134.17" requestID="b04f976a-aa00-4ee2" responseTimeMS=179 responseBytes=322 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     [GET]500rrak-booking-platform.onrender.com/api/notifications/countclientIP="157.97.134.17" requestID="4e66ce08-7324-4fdf" responseTimeMS=182 responseBytes=315 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     [GET]500rrak-booking-platform.onrender.com/api/notifications/summaryclientIP="157.97.134.17" requestID="99388bba-7c54-4da6" responseTimeMS=180 responseBytes=318 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     [GET]500rrak-booking-platform.onrender.com/api/admin/business-metricsclientIP="157.97.134.17" requestID="4e9cccd0-1078-4102" responseTimeMS=217 responseBytes=316 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     [GET]500rrak-booking-platform.onrender.com/api/admin/recent-activityclientIP="157.97.134.17" requestID="d8e374f2-645d-482c" responseTimeMS=97 responseBytes=317 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+  position: '1706',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3822',
+  routine: 'errorMissingColumn'
+}
+2:57:21 AM [express] GET /api/admin/business-metrics 500 in 215ms :: {"message":"Failed to fetch bus…
+👤 Deserialized user: { id: 'admin-001', role: 'admin' }
+Dashboard stats error: error: column bookings.admin_notes does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.getAllBookings (file:///opt/render/project/src/dist/index.js:2032:21)
+    at async file:///opt/render/project/src/dist/index.js:5649:27 {
+  length: 120,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '1706',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3822',
+  routine: 'errorMissingColumn'
+}
+2:57:21 AM [express] GET /api/admin/dashboard-stats 500 in 343ms :: {"message":"Failed to fetch dash…
+     [GET]500rrak-booking-platform.onrender.com/api/slots/db5d13eb385040dd8f0a98699acd182eclientIP="157.97.134.17" requestID="62c54dc7-c3ea-48e3" responseTimeMS=131 responseBytes=314 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+🔓 Deserializing user: admin-001
+👤 Deserialized user: { id: 'admin-001', role: 'admin' }
+2:57:24 AM [express] GET /api/slots/db5d13eb385040dd8f0a98699acd182e 500 in 129ms :: {"message":"Fai…
+❌ Error in booking expiration check: error: column bookings.admin_notes does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.getAllBookings (file:///opt/render/project/src/dist/index.js:2032:21)
+    at async Timeout.checkExpiredBookings [as _onTimeout] (file:///opt/render/project/src/dist/index.js:6312:27) {
+  length: 120,
+  severity: 'ERROR',
+  code: '42703',

@@ -183,10 +183,22 @@ async function seedProduction() {
         refund_status TEXT,
         contract_accepted_at BIGINT,
         contract_version TEXT,
+        admin_notes TEXT,
         created_at BIGINT
       )
     `);
     console.log("  ✅ bookings table");
+    
+    // Add admin_notes column to existing bookings table (for existing databases)
+    try {
+      await pool.query(`ALTER TABLE bookings ADD COLUMN admin_notes TEXT`);
+      console.log("  ✅ Added admin_notes column");
+    } catch (e: any) {
+      // Column already exists, ignore
+      if (!e.message?.includes('already exists')) {
+        console.log("  ℹ️  admin_notes column already exists");
+      }
+    }
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_settings (

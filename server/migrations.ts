@@ -149,8 +149,20 @@ CREATE TABLE IF NOT EXISTS "bookings" (
   "contract_accepted" BOOLEAN NOT NULL DEFAULT false,
   "contract_accepted_at" BIGINT,
   "contract_version" TEXT,
+  "admin_notes" TEXT,
   "created_at" BIGINT
 );
+
+-- Add admin_notes column to existing bookings table (for existing databases)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'bookings' AND column_name = 'admin_notes'
+  ) THEN
+    ALTER TABLE "bookings" ADD COLUMN "admin_notes" TEXT;
+  END IF;
+END $$;
 
 -- Admin notifications table
 CREATE TABLE IF NOT EXISTS "admin_notifications" (
