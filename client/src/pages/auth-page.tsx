@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building, Calendar, ArrowRight, Star } from "lucide-react";
+import { Loader2, Building, Calendar, ArrowRight, Star, ExternalLink } from "lucide-react";
 import { DemoBanner } from "@/components/demo-banner";
 
 export default function AuthPage() {
@@ -114,6 +114,19 @@ export default function AuthPage() {
                       <li>✓ QR code tracking to measure results</li>
                       <li>✓ Priority access to new routes and campaigns</li>
                     </ul>
+                  </div>
+                  
+                  <div className="mt-6 text-center">
+                    <a 
+                      href="https://routereachak.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
+                      data-testid="link-visit-rrak"
+                    >
+                      Visit Route Reach AK
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
                   </div>
                 </div>
               </CardContent>
