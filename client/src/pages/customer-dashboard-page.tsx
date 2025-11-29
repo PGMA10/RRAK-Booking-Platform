@@ -536,8 +536,8 @@ export default function CustomerDashboardPage() {
             ) : bookings && bookings.length > 0 ? (
               <div className="space-y-4">
                 {bookings.filter(booking => {
-                  // Cancelled bookings should only appear in "All History", never in "Current & Upcoming"
-                  if (booking.status === 'cancelled' && !showAllHistory) return false;
+                  // Never show cancelled bookings in customer view
+                  if (booking.status === 'cancelled') return false;
                   
                   if (showAllHistory) return true;
                   
@@ -652,7 +652,7 @@ export default function CustomerDashboardPage() {
           <CardContent>
             {bookings && bookings.length > 0 ? (
               <div className="space-y-3">
-                {bookings.filter(b => b.status === 'confirmed').map((booking) => (
+                {bookings.filter(b => b.status === 'confirmed' && b.paymentStatus === 'paid').map((booking) => (
                   <div 
                     key={booking.id} 
                     className="flex items-center justify-between p-3 border rounded-lg"
@@ -699,14 +699,14 @@ export default function CustomerDashboardPage() {
             <CardDescription>Upload and track your campaign artwork files for review</CardDescription>
           </CardHeader>
           <CardContent>
-            {bookings && bookings.length > 0 ? (
+            {bookings && bookings.filter(b => b.status !== 'cancelled').length > 0 ? (
               <div className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <p className="text-sm text-blue-800">
                     💡 <strong>Note:</strong> If you booked multiple slots, upload one design. This artwork will be printed across all slots in your booking for maximum impact.
                   </p>
                 </div>
-                {bookings.map((booking) => (
+                {bookings.filter(b => b.status !== 'cancelled').map((booking) => (
                   <div 
                     key={booking.id} 
                     className="border rounded-lg p-4"

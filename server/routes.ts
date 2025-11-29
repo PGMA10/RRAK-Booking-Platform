@@ -2987,6 +2987,93 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin endpoint to clean up orphaned files from cancelled bookings
+  app.post("/api/admin/cleanup-cancelled-files", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const allBookings = await storage.getAllBookings();
+      const cancelledBookings = allBookings.filter(b => b.status === 'cancelled');
+      
+      let filesDeleted = 0;
+      let bookingsProcessed = 0;
+      const errors: string[] = [];
+
+      for (const booking of cancelledBookings) {
+        const filesToDelete: string[] = [];
+        
+        // Collect file paths from booking
+        if (booking.artworkFilePath) filesToDelete.push(booking.artworkFilePath);
+        if (booking.logoFilePath) filesToDelete.push(booking.logoFilePath);
+        if (booking.optionalImagePath) filesToDelete.push(booking.optionalImagePath);
+        
+        // Collect design revision files
+        try {
+          const designRevisions = await storage.getDesignRevisionsByBooking(booking.id);
+          for (const revision of designRevisions) {
+            if (revision.designFilePath) {
+              filesToDelete.push(revision.designFilePath);
+            }
+          }
+        } catch (err) {
+          errors.push(`Failed to fetch design revisions for booking ${booking.id}`);
+        }
+        
+        // Delete files
+        for (const filePath of filesToDelete) {
+          try {
+            const fullPath = path.join(process.cwd(), filePath);
+            if (fs.existsSync(fullPath)) {
+              await fs.promises.unlink(fullPath);
+              filesDeleted++;
+              console.log(`🗑️  [Cleanup] Deleted orphaned file: ${filePath}`);
+            }
+          } catch (fileError) {
+            errors.push(`Failed to delete ${filePath}`);
+          }
+        }
+        
+        // Clear file paths in database to prevent future confusion
+        if (booking.artworkFilePath || booking.logoFilePath || booking.optionalImagePath) {
+          await storage.updateBooking(booking.id, {
+            artworkFilePath: null,
+            logoFilePath: null,
+            optionalImagePath: null,
+          });
+        }
+        
+        // Always delete design revision records from database for cancelled bookings
+        try {
+          const deletedCount = await storage.deleteDesignRevisionsByBooking(booking.id);
+          if (deletedCount > 0) {
+            console.log(`🗑️  [Cleanup] Deleted ${deletedCount} design revision record(s) for booking ${booking.id}`);
+          }
+        } catch (err) {
+          errors.push(`Failed to delete design revision records for booking ${booking.id}`);
+        }
+        
+        if (filesToDelete.length > 0) {
+          bookingsProcessed++;
+        }
+      }
+
+      console.log(`✅ [Cleanup] Processed ${bookingsProcessed} cancelled bookings, deleted ${filesDeleted} files`);
+      
+      res.json({
+        message: `Cleaned up ${filesDeleted} files from ${bookingsProcessed} cancelled bookings`,
+        cancelledBookingsTotal: cancelledBookings.length,
+        bookingsProcessed,
+        filesDeleted,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error("❌ [Cleanup] Error:", error);
+      res.status(500).json({ message: "Failed to clean up cancelled booking files" });
+    }
+  });
+
   // Mock payment processing
   app.post("/api/process-payment", async (req, res) => {
     if (!req.isAuthenticated()) {

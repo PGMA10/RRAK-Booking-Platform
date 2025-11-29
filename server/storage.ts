@@ -205,6 +205,7 @@ export interface IStorage {
   getDesignRevisionsByBooking(bookingId: string): Promise<DesignRevision[]>;
   getLatestDesignRevision(bookingId: string): Promise<DesignRevision | undefined>;
   updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined>;
+  deleteDesignRevisionsByBooking(bookingId: string): Promise<number>;
   
   // Admin Settings
   getAllAdminSettings(): Promise<AdminSetting[]>;
@@ -1249,6 +1250,10 @@ export class MemStorage implements IStorage {
 
   async updateDesignRevisionStatus(id: string, status: string, customerFeedback?: string): Promise<DesignRevision | undefined> {
     throw new Error("updateDesignRevisionStatus not implemented in MemStorage");
+  }
+
+  async deleteDesignRevisionsByBooking(bookingId: string): Promise<number> {
+    throw new Error("deleteDesignRevisionsByBooking not implemented in MemStorage");
   }
 
   async getAllAdminSettings(): Promise<AdminSetting[]> {
@@ -2790,6 +2795,13 @@ export class DbStorage implements IStorage {
       .where(eq(designRevisionsTable.id, id))
       .returning();
     return result[0];
+  }
+
+  async deleteDesignRevisionsByBooking(bookingId: string): Promise<number> {
+    const result = await db.delete(designRevisionsTable)
+      .where(eq(designRevisionsTable.bookingId, bookingId))
+      .returning();
+    return result.length;
   }
 
   // Admin Settings
