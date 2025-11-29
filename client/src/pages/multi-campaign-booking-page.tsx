@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Calendar, MapPin, Briefcase, Trash2, Plus, CreditCard, Tag, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Briefcase, Trash2, Plus, CreditCard, Tag, CheckCircle, AlertCircle, ExternalLink, Lightbulb } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
-import type { Campaign, Route, Industry } from "@shared/schema";
+import type { Campaign, Route, Industry, IndustrySubcategory } from "@shared/schema";
 import { DemoBanner } from "@/components/demo-banner";
 import { Navigation } from "@/components/navigation";
 
@@ -29,8 +30,12 @@ export default function MultiCampaignBookingPage() {
   }
 
   const [sharedIndustryId, setSharedIndustryId] = useState<string>("");
+  const [sharedIndustrySubcategoryId, setSharedIndustrySubcategoryId] = useState<string>("");
   const [sharedIndustryDescription, setSharedIndustryDescription] = useState<string>("");
+  // Start with all 3 campaigns expanded for better UX
   const [selections, setSelections] = useState<CampaignSelection[]>([
+    { campaignId: "", routeId: "" },
+    { campaignId: "", routeId: "" },
     { campaignId: "", routeId: "" }
   ]);
   const [contractAccepted, setContractAccepted] = useState(false);
@@ -46,6 +51,17 @@ export default function MultiCampaignBookingPage() {
   const { data: industries = [] } = useQuery<Industry[]>({
     queryKey: ["/api/industries"],
   });
+
+  // Fetch subcategories when industry is selected
+  const { data: subcategories = [] } = useQuery<IndustrySubcategory[]>({
+    queryKey: [`/api/industries/${sharedIndustryId}/subcategories`],
+    enabled: !!sharedIndustryId,
+  });
+
+  // Reset subcategory when industry changes
+  useEffect(() => {
+    setSharedIndustrySubcategoryId("");
+  }, [sharedIndustryId]);
 
   const availableCampaigns = campaigns.filter(c => 
     c.status === "booking_open" || c.status === "planning"
@@ -100,6 +116,7 @@ export default function MultiCampaignBookingPage() {
   useEffect(() => {
     if (sharedIndustryId && !activeIndustries.some(i => i.id === sharedIndustryId)) {
       setSharedIndustryId("");
+      setSharedIndustrySubcategoryId("");
       setSharedIndustryDescription("");
     }
   }, [activeIndustries, sharedIndustryId]);
@@ -131,10 +148,15 @@ export default function MultiCampaignBookingPage() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
+      // Get subcategory label for display purposes
+      const selectedSubcategory = subcategories.find(s => s.id === sharedIndustrySubcategoryId);
+      
       const response = await apiRequest("POST", "/api/multi-campaign-checkout", {
         selections: selections.map(s => ({
           ...s,
           industryId: sharedIndustryId,
+          industrySubcategoryId: sharedIndustrySubcategoryId || null,
+          industrySubcategoryLabel: selectedSubcategory?.name || null,
           industryDescription: sharedIndustryDescription,
           businessName: user?.businessName || user?.username || "Unknown Business",
           contactEmail: user?.email || "",
@@ -166,6 +188,16 @@ export default function MultiCampaignBookingPage() {
       return;
     }
 
+    // Validation for campaigns - must have at least one complete
+    const validSelections = selections.filter(s => s.campaignId && s.routeId);
+    if (validSelections.length === 0) {
+      toast({
+        variant: "destructive",
+        description: "Please complete at least one campaign selection",
+      });
+      return;
+    }
+
     // Validation for shared industry
     if (!sharedIndustryId) {
       toast({
@@ -185,24 +217,21 @@ export default function MultiCampaignBookingPage() {
       return;
     }
     
+    // Validate subcategory is selected when required
+    if (selectedIndustry.name.toLowerCase() !== "other" && subcategories.length > 0 && !sharedIndustrySubcategoryId) {
+      toast({
+        variant: "destructive",
+        description: "Please select your specialization",
+      });
+      return;
+    }
+    
     if (selectedIndustry.name.toLowerCase() === "other" && !sharedIndustryDescription?.trim()) {
       toast({
         variant: "destructive",
         description: "Please describe your business type",
       });
       return;
-    }
-    
-    // Validation for campaigns
-    for (let i = 0; i < selections.length; i++) {
-      const sel = selections[i];
-      if (!sel.campaignId || !sel.routeId) {
-        toast({
-          variant: "destructive",
-          description: `Please complete all selections for Campaign ${i + 1}`,
-        });
-        return;
-      }
     }
 
     checkoutMutation.mutate();
@@ -216,25 +245,31 @@ export default function MultiCampaignBookingPage() {
     });
   };
 
+  // Count only filled-in campaign selections
+  const validSelections = selections.filter(s => s.campaignId && s.routeId);
+  const validSelectionsCount = validSelections.length;
+  
   // Calculate pricing correctly: $600 first slot + $450 each additional if 3 campaigns
   const calculateTotal = () => {
-    if (selections.length === 1) return 600;
-    if (selections.length === 2) return 1200;
-    if (selections.length === 3) return 1500; // $600 + $450 + $450 - $300 discount = $1500
-    return 600;
+    if (validSelectionsCount === 1) return 600;
+    if (validSelectionsCount === 2) return 1200;
+    if (validSelectionsCount === 3) return 1500; // $600 + $450 + $450 - $300 discount = $1500
+    return 0;
   };
   
-  const subtotal = selections.length === 3 ? 1800 : selections.length * 600; // Show what it would cost without discount
-  const bulkDiscount = selections.length === 3 ? 300 : 0;
+  const subtotal = validSelectionsCount === 3 ? 1800 : validSelectionsCount * 600; // Show what it would cost without discount
+  const bulkDiscount = validSelectionsCount === 3 ? 300 : 0;
   const finalTotal = calculateTotal();
 
   const selectedIndustry = industries.find(i => i.id === sharedIndustryId);
   const isOtherIndustry = selectedIndustry?.name.toLowerCase() === "other";
+  const requiresSubcategory = selectedIndustry && !isOtherIndustry && subcategories.length > 0;
   
   const isFormValid = 
+    validSelectionsCount > 0 &&
     sharedIndustryId &&
-    (!isOtherIndustry || sharedIndustryDescription?.trim()) &&
-    selections.every(s => s.campaignId && s.routeId);
+    (!requiresSubcategory || sharedIndustrySubcategoryId) &&
+    (!isOtherIndustry || sharedIndustryDescription?.trim());
 
   return (
     <div className="min-h-screen bg-background">
@@ -259,7 +294,7 @@ export default function MultiCampaignBookingPage() {
                 Book 3 campaigns and save $300 with our bulk discount!
               </p>
             </div>
-            {selections.length === 3 && (
+            {validSelectionsCount === 3 && (
               <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white text-lg py-2 px-4">
                 <Tag className="h-4 w-4 mr-2" />
                 $300 Bulk Discount Applied!
@@ -268,54 +303,13 @@ export default function MultiCampaignBookingPage() {
           </div>
         </div>
 
-        {/* Shared Industry Selection */}
-        <Card className="mb-6 border-2 border-primary/20 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5" />
-              Your Industry
-            </CardTitle>
-            <CardDescription>
-              This industry will apply to all campaigns in this booking
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Your Industry</label>
-              <Select
-                value={sharedIndustryId}
-                onValueChange={setSharedIndustryId}
-              >
-                <SelectTrigger data-testid="select-shared-industry">
-                  <SelectValue placeholder="Choose your industry..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeIndustries.map(industry => (
-                    <SelectItem key={industry.id} value={industry.id}>
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4" />
-                        {industry.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isOtherIndustry && (
-              <div>
-                <label className="text-sm font-medium mb-2 block">Describe Your Business</label>
-                <Textarea
-                  placeholder="Please describe your business type..."
-                  value={sharedIndustryDescription}
-                  onChange={(e) => setSharedIndustryDescription(e.target.value)}
-                  className="min-h-[80px]"
-                  data-testid="textarea-shared-industry-description"
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Recommendation Note */}
+        <Alert className="mb-6 border-amber-200 bg-amber-50">
+          <Lightbulb className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Pro Tip:</strong> I recommend sticking to one area code for the three months because it's more effective to be seen by a select number of people many times than a lot of people once.
+          </AlertDescription>
+        </Alert>
 
         <div className="space-y-6">
           {selections.map((selection, index) => {
@@ -330,10 +324,10 @@ export default function MultiCampaignBookingPage() {
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5" />
                       Campaign {index + 1}
-                      {selections.length === 3 && index === 0 && (
+                      {validSelectionsCount === 3 && index === 0 && selection.campaignId && selection.routeId && (
                         <Badge variant="secondary" className="ml-2">First Slot: $600</Badge>
                       )}
-                      {selections.length === 3 && index > 0 && (
+                      {validSelectionsCount === 3 && index > 0 && selection.campaignId && selection.routeId && (
                         <Badge variant="secondary" className="ml-2">Additional: $450</Badge>
                       )}
                     </CardTitle>
@@ -403,17 +397,82 @@ export default function MultiCampaignBookingPage() {
             );
           })}
 
-          {selections.length < 3 && (
-            <Button
-              variant="outline"
-              onClick={addCampaignSelection}
-              className="w-full"
-              data-testid="button-add-campaign"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Another Campaign {selections.length === 2 && "(Get $300 Bulk Discount!)"}
-            </Button>
-          )}
+          {/* Shared Industry Selection - positioned after all campaigns */}
+          <Card className="border-2 border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5" />
+                Your Industry
+              </CardTitle>
+              <CardDescription>
+                This industry will apply to all campaigns in this booking
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Select Your Industry</label>
+                <Select
+                  value={sharedIndustryId}
+                  onValueChange={setSharedIndustryId}
+                  disabled={validSelectionsCount === 0}
+                >
+                  <SelectTrigger data-testid="select-shared-industry">
+                    <SelectValue placeholder={validSelectionsCount === 0 ? "Complete campaign selections first..." : "Choose your industry..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeIndustries.map(industry => (
+                      <SelectItem key={industry.id} value={industry.id}>
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4" />
+                          {industry.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {validSelectionsCount === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Please select at least one campaign above to see available industries.
+                  </p>
+                )}
+              </div>
+
+              {/* Specialization/Subcategory Selection */}
+              {selectedIndustry && !isOtherIndustry && subcategories.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Select Your Specialization</label>
+                  <Select
+                    value={sharedIndustrySubcategoryId}
+                    onValueChange={setSharedIndustrySubcategoryId}
+                  >
+                    <SelectTrigger data-testid="select-shared-subcategory">
+                      <SelectValue placeholder="Choose your specialization..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories.map(subcategory => (
+                        <SelectItem key={subcategory.id} value={subcategory.id}>
+                          {subcategory.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {isOtherIndustry && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Describe Your Business</label>
+                  <Textarea
+                    placeholder="Please describe your business type..."
+                    value={sharedIndustryDescription}
+                    onChange={(e) => setSharedIndustryDescription(e.target.value)}
+                    className="min-h-[80px]"
+                    data-testid="textarea-shared-industry-description"
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-2">
             <CardHeader>
@@ -425,30 +484,34 @@ export default function MultiCampaignBookingPage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between text-lg">
                 <span>Campaigns Selected:</span>
-                <span className="font-semibold">{selections.length}</span>
+                <span className="font-semibold">{validSelectionsCount}</span>
               </div>
-              <div className="flex justify-between text-lg">
-                <span>Subtotal:</span>
-                <span className="font-semibold">${subtotal.toFixed(2)}</span>
-              </div>
-              {bulkDiscount > 0 && (
-                <div className="flex justify-between text-lg text-green-600">
-                  <span className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    Bulk Discount (3 campaigns):
-                  </span>
-                  <span className="font-semibold">-${bulkDiscount.toFixed(2)}</span>
-                </div>
+              {validSelectionsCount > 0 && (
+                <>
+                  <div className="flex justify-between text-lg">
+                    <span>Subtotal:</span>
+                    <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  </div>
+                  {bulkDiscount > 0 && (
+                    <div className="flex justify-between text-lg text-green-600">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Bulk Discount (3 campaigns):
+                      </span>
+                      <span className="font-semibold">-${bulkDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-3 flex justify-between text-2xl font-bold">
+                    <span>Total:</span>
+                    <span className="text-primary">${finalTotal.toFixed(2)}</span>
+                  </div>
+                </>
               )}
-              <div className="border-t pt-3 flex justify-between text-2xl font-bold">
-                <span>Total:</span>
-                <span className="text-primary">${finalTotal.toFixed(2)}</span>
-              </div>
-              {selections.length === 2 && (
+              {validSelectionsCount === 2 && (
                 <div className="mt-4 p-3 bg-purple-100 rounded-lg flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-purple-800">
-                    <strong>Tip:</strong> Add one more campaign to unlock the $300 bulk discount and pay only $1,500 total (save $300!)
+                    <strong>Tip:</strong> Complete one more campaign selection to unlock the $300 bulk discount and pay only $1,500 total (save $300!)
                   </p>
                 </div>
               )}
