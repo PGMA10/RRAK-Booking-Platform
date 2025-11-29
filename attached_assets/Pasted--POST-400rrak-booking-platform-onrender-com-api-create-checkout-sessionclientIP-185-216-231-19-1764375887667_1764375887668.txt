@@ -1,0 +1,46 @@
+     [POST]400rrak-booking-platform.onrender.com/api/create-checkout-sessionclientIP="185.216.231.19" requestID="2ec02bf3-6441-4a0a" responseTimeMS=131 responseBytes=312 userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+🔓 Deserializing user: 1f2246d8d8c943ce9809d1aeee59f13d
+👤 Deserialized user: { id: '1f2246d8d8c943ce9809d1aeee59f13d', role: 'customer' }
+Booking creation error: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "date",
+    "received": "number",
+    "path": [
+      "contractAcceptedAt"
+    ],
+    "message": "Expected date, received number"
+  }
+]
+    at get error (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:663:22)
+    at file:///opt/render/project/src/dist/index.js:4104:49
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at next (/opt/render/project/src/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/opt/render/project/src/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at /opt/render/project/src/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/opt/render/project/src/node_modules/express/lib/router/index.js:346:12)
+    at next (/opt/render/project/src/node_modules/express/lib/router/index.js:280:10) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'date',
+      received: 'number',
+      path: [Array],
+      message: 'Expected date, received number'
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'date',
+      received: 'number',
+      path: [Array],
+      message: 'Expected date, received number'
+    }
+  ]
+}
+12:24:07 AM [express] POST /api/create-checkout-session 400 in 123ms :: {"message":"Failed to create …

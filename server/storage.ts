@@ -1810,11 +1810,19 @@ export class DbStorage implements IStorage {
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const now = getTimestamp();
     const quantity = booking.quantity || 1;
+    
+    // Convert all timestamp fields to the proper format for the current database
     const bookingWithId = {
       ...booking,
       id: (booking as any).id || randomUUID().replace(/-/g, ''),
       createdAt: now,
       quantity,
+      // Convert Date objects to proper format (number for PostgreSQL, Date for SQLite)
+      contractAcceptedAt: booking.contractAcceptedAt ? getTimestamp(booking.contractAcceptedAt) : undefined,
+      pendingSince: booking.pendingSince ? getTimestamp(booking.pendingSince) : undefined,
+      paidAt: (booking as any).paidAt ? getTimestamp((booking as any).paidAt) : undefined,
+      artworkUploadedAt: (booking as any).artworkUploadedAt ? getTimestamp((booking as any).artworkUploadedAt) : undefined,
+      artworkReviewedAt: (booking as any).artworkReviewedAt ? getTimestamp((booking as any).artworkReviewedAt) : undefined,
     };
     
     const result = await db.insert(bookingsTable).values(bookingWithId).returning();
@@ -1863,7 +1871,25 @@ export class DbStorage implements IStorage {
   }
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
-    const result = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
+    // Convert timestamp fields to proper format for the current database
+    const convertedUpdates = { ...updates } as any;
+    if (updates.contractAcceptedAt) {
+      convertedUpdates.contractAcceptedAt = getTimestamp(updates.contractAcceptedAt);
+    }
+    if (updates.pendingSince) {
+      convertedUpdates.pendingSince = getTimestamp(updates.pendingSince);
+    }
+    if ((updates as any).paidAt) {
+      convertedUpdates.paidAt = getTimestamp((updates as any).paidAt);
+    }
+    if ((updates as any).artworkUploadedAt) {
+      convertedUpdates.artworkUploadedAt = getTimestamp((updates as any).artworkUploadedAt);
+    }
+    if ((updates as any).artworkReviewedAt) {
+      convertedUpdates.artworkReviewedAt = getTimestamp((updates as any).artworkReviewedAt);
+    }
+    
+    const result = await db.update(bookingsTable).set(convertedUpdates).where(eq(bookingsTable.id, id)).returning();
     return result[0] ? this.convertBookingTimestamps(result[0]) : undefined;
   }
 
@@ -1890,7 +1916,7 @@ export class DbStorage implements IStorage {
         status: paymentStatus === 'paid' ? 'confirmed' : booking.status,
         stripePaymentIntentId: paymentData.stripePaymentIntentId,
         amountPaid: paymentData.amountPaid,
-        paidAt: paymentData.paidAt,
+        paidAt: paymentData.paidAt ? getTimestamp(paymentData.paidAt) : undefined,
         pendingSince: paymentStatus === 'paid' ? null : booking.pendingSince, // Clear pending timer when paid
       })
       .where(eq(bookingsTable.id, id))

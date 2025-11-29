@@ -1044,7 +1044,7 @@ export function registerRoutes(app: Express): Server {
         ...req.body,
         userId: req.user.id,
         contractAccepted: true,
-        contractAcceptedAt: getTimestamp(),
+        contractAcceptedAt: new Date(),
         contractVersion: "v2025",
       });
 
@@ -1153,7 +1153,7 @@ export function registerRoutes(app: Express): Server {
         countsTowardLoyalty,
         status: "pending",
         paymentStatus: "pending",
-        pendingSince: getTimestamp(), // Track when booking entered pending status for expiration
+        pendingSince: new Date(), // Track when booking entered pending status for expiration
         // Contract acceptance fields already in validatedData (injected before validation)
       };
       
@@ -1301,9 +1301,9 @@ export function registerRoutes(app: Express): Server {
       await storage.updateBooking(booking.id, {
         stripeCheckoutSessionId: session.id,
         contractAccepted: true,
-        contractAcceptedAt: getTimestamp(),
+        contractAcceptedAt: new Date(),
         contractVersion: "v2025",
-        pendingSince: getTimestamp(), // Reset 15-minute expiration timer when retrying payment
+        pendingSince: new Date(), // Reset 15-minute expiration timer when retrying payment
       });
       
       console.log(`📋 [Contract] Refreshed contract acceptance and reset payment timer for booking ${bookingId}`);
@@ -1389,7 +1389,7 @@ export function registerRoutes(app: Express): Server {
           status: "confirmed",
           paymentStatus: "pending",
           contractAccepted: true, // Contract must be accepted via frontend checkbox
-          contractAcceptedAt: getTimestamp(),
+          contractAcceptedAt: new Date(),
           contractVersion: "v2025",
         });
 
@@ -1503,12 +1503,12 @@ export function registerRoutes(app: Express): Server {
                 await storage.updateBookingPaymentStatus(bookingId, 'paid', {
                   stripePaymentIntentId: session.payment_intent as string,
                   amountPaid: booking.amount, // Each booking has its own amount
-                  paidAt: getTimestamp(),
+                  paidAt: new Date(),
                 });
                 
                 // Refresh contract acceptance timestamp for legal compliance
                 await storage.updateBooking(bookingId, {
-                  contractAcceptedAt: getTimestamp(),
+                  contractAcceptedAt: new Date(),
                   pendingSince: null, // Clear pending status since payment is complete
                 });
                 
@@ -1534,12 +1534,12 @@ export function registerRoutes(app: Express): Server {
             await storage.updateBookingPaymentStatus(bookingId, 'paid', {
               stripePaymentIntentId: session.payment_intent as string,
               amountPaid: session.amount_total,
-              paidAt: getTimestamp(),
+              paidAt: new Date(),
             });
             
             // Refresh contract acceptance timestamp for legal compliance
             await storage.updateBooking(bookingId, {
-              contractAcceptedAt: getTimestamp(),
+              contractAcceptedAt: new Date(),
               pendingSince: null, // Clear pending status since payment is complete
             });
             
@@ -1652,7 +1652,7 @@ export function registerRoutes(app: Express): Server {
               await storage.updateBookingPaymentStatus(bookingId, 'paid', {
                 stripePaymentIntentId: session.payment_intent as string,
                 amountPaid: booking.amount,
-                paidAt: getTimestamp(),
+                paidAt: new Date(),
               });
               updated = true;
               console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
@@ -1690,7 +1690,7 @@ export function registerRoutes(app: Express): Server {
           await storage.updateBookingPaymentStatus(bookingId, 'paid', {
             stripePaymentIntentId: session.payment_intent as string,
             amountPaid: session.amount_total ?? 0,
-            paidAt: getTimestamp(),
+            paidAt: new Date(),
           });
 
           console.log(`✅ [Stripe Verify] Booking ${bookingId} payment status updated to paid`);
@@ -1788,7 +1788,7 @@ export function registerRoutes(app: Express): Server {
         countsTowardLoyalty: true, // Legacy bookings count toward loyalty
         status: "confirmed",
         contractAccepted: true, // Contract must be accepted via frontend checkbox
-        contractAcceptedAt: getTimestamp(),
+        contractAcceptedAt: new Date(),
         contractVersion: "v2025",
       });
 
@@ -2279,7 +2279,7 @@ export function registerRoutes(app: Express): Server {
         artworkFilePath: file.path,
         artworkFileName: file.originalname,
         artworkStatus: 'under_review',
-        artworkUploadedAt: getTimestamp(),
+        artworkUploadedAt: new Date(),
       });
 
         res.json(updatedBooking);
@@ -2322,7 +2322,7 @@ export function registerRoutes(app: Express): Server {
 
       const updatedBooking = await storage.updateBooking(bookingId, {
         artworkStatus: 'approved',
-        artworkReviewedAt: getTimestamp(),
+        artworkReviewedAt: new Date(),
         artworkRejectionReason: null,
       });
 
@@ -2353,7 +2353,7 @@ export function registerRoutes(app: Express): Server {
 
       const updatedBooking = await storage.updateBooking(bookingId, {
         artworkStatus: 'rejected',
-        artworkReviewedAt: getTimestamp(),
+        artworkReviewedAt: new Date(),
         artworkRejectionReason: reason,
       });
 
