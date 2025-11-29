@@ -3408,6 +3408,86 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Notification History (dismissed notifications)
+  app.get("/api/notifications/history", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const history = await storage.getDismissedNotificationsHistory(req.user.id);
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching notification history:', error);
+      res.status(500).json({ message: "Failed to fetch notification history" });
+    }
+  });
+
+  // Mark booking as paid (admin only)
+  app.patch("/api/bookings/:id/mark-paid", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { id } = req.params;
+      const { amountPaid } = req.body;
+
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.paymentStatus === 'paid') {
+        return res.status(400).json({ message: "Booking is already marked as paid" });
+      }
+
+      const paidAmount = amountPaid ?? booking.amount;
+      
+      const updatedBooking = await storage.updateBookingPaymentStatus(id, 'paid', {
+        amountPaid: paidAmount,
+        paidAt: new Date(),
+      });
+
+      if (!updatedBooking) {
+        return res.status(500).json({ message: "Failed to update booking" });
+      }
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error('Error marking booking as paid:', error);
+      res.status(500).json({ message: "Failed to mark booking as paid" });
+    }
+  });
+
+  // Update admin notes on a booking
+  app.patch("/api/bookings/:id/admin-notes", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { id } = req.params;
+      const { adminNotes } = req.body;
+
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const updatedBooking = await storage.updateBooking(id, { adminNotes });
+
+      if (!updatedBooking) {
+        return res.status(500).json({ message: "Failed to update booking" });
+      }
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error('Error updating admin notes:', error);
+      res.status(500).json({ message: "Failed to update admin notes" });
+    }
+  });
+
   // Public Loyalty Settings Route (for customer dashboard display)
   app.get("/api/loyalty-settings", async (req, res) => {
     try {

@@ -136,6 +136,7 @@ export const bookings = pgTable("bookings", {
   contractAccepted: boolean("contract_accepted").notNull().default(false),
   contractAcceptedAt: bigint("contract_accepted_at", { mode: 'number' }),
   contractVersion: text("contract_version"),
+  adminNotes: text("admin_notes"),
   createdAt: bigint("created_at", { mode: 'number' }),
 });
 

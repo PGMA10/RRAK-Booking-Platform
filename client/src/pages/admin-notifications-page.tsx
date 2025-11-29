@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Navigation } from "@/components/navigation";
 import { DemoBanner } from "@/components/demo-banner";
 import { BookingDetailsModal } from "@/components/booking-details-modal";
@@ -19,11 +20,12 @@ import {
   DollarSign,
   CheckCircle,
   XCircle,
-  X
+  X,
+  History
 } from "lucide-react";
 import { Redirect, Link } from "wouter";
-import { formatDistanceToNow } from "date-fns";
-import type { BookingWithDetails } from "@shared/schema";
+import { formatDistanceToNow, format } from "date-fns";
+import type { BookingWithDetails, Booking } from "@shared/schema";
 
 interface Notification {
   id: string;
@@ -34,11 +36,20 @@ interface Notification {
   isHandled: boolean;
 }
 
+interface DismissedNotification {
+  id: string;
+  bookingId: string;
+  notificationType: string;
+  dismissedAt: Date | number | null;
+  booking?: Booking;
+}
+
 export default function AdminNotificationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
 
   const dismissMutation = useMutation({
     mutationFn: async ({bookingId, notificationType}: {bookingId: string, notificationType: string}) => {
@@ -48,6 +59,7 @@ export default function AdminNotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications/summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/history'] });
     },
     onError: (error: any) => {
       toast({
@@ -56,6 +68,12 @@ export default function AdminNotificationsPage() {
         variant: "destructive",
       });
     },
+  });
+
+  // Query for notification history
+  const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery<DismissedNotification[]>({
+    queryKey: ['/api/notifications/history'],
+    enabled: activeTab === 'history',
   });
 
   const handleDismiss = (bookingId: string, notificationType: string) => {
@@ -107,7 +125,7 @@ export default function AdminNotificationsPage() {
           <div className="flex items-center space-x-3 mb-2">
             <Bell className="h-8 w-8 text-primary" />
             <h2 className="text-3xl font-bold text-foreground">Notifications</h2>
-            {notifications && notifications.length > 0 && (
+            {notifications && notifications.length > 0 && activeTab === "active" && (
               <Badge variant="destructive" className="text-lg" data-testid="badge-total-notifications">
                 {notifications.length}
               </Badge>
@@ -118,6 +136,22 @@ export default function AdminNotificationsPage() {
           </p>
         </div>
 
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "history")} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="active" className="flex items-center gap-2" data-testid="tab-active">
+              <Bell className="h-4 w-4" />
+              Active
+              {notifications && notifications.length > 0 && (
+                <Badge variant="destructive" className="ml-1 text-xs">{notifications.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history">
+              <History className="h-4 w-4" />
+              History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active">
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
@@ -422,6 +456,77 @@ export default function AdminNotificationsPage() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="history">
+            {isLoadingHistory ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : notificationHistory && notificationHistory.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <History className="h-5 w-5 text-muted-foreground" />
+                    <span>Dismissed Notifications</span>
+                    <Badge variant="outline">{notificationHistory.length}</Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Previously dismissed notifications
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {notificationHistory.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="flex items-center justify-between p-4 border border-border rounded-lg bg-muted/30"
+                        data-testid={`history-notification-${notification.id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-medium text-foreground">
+                              {notification.booking?.businessName || 'Unknown Business'}
+                            </h4>
+                            <Badge variant="outline" className="text-xs">
+                              {notification.notificationType.replace(/_/g, ' ')}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p>Booking ID: {notification.bookingId.slice(0, 8)}...</p>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span className="text-xs">
+                                Dismissed {notification.dismissedAt ? format(
+                                  new Date(typeof notification.dismissedAt === 'number' ? notification.dismissedAt : notification.dismissedAt),
+                                  'MMM d, yyyy h:mm a'
+                                ) : 'Unknown'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <History className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No history yet
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Dismissed notifications will appear here.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <BookingDetailsModal

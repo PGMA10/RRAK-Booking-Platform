@@ -28,7 +28,7 @@ import {
   SLOTS_PER_ROUTE,
 } from "@shared/schema";
 import { db, schema, isProduction } from "./db-config";
-import { eq, and, sql, ne, isNull } from "drizzle-orm";
+import { eq, and, sql, ne, isNull, inArray, desc } from "drizzle-orm";
 
 // Helper function to get timestamp in the right format for the current database
 // SQLite timestamp_ms mode expects Date objects, PostgreSQL bigint mode expects numbers
@@ -157,6 +157,13 @@ export interface IStorage {
   // Dismissed Notifications
   createDismissedNotification(bookingId: string, notificationType: string, userId: string): Promise<void>;
   getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>>;
+  getDismissedNotificationsHistory(userId: string): Promise<Array<{
+    id: string;
+    bookingId: string;
+    notificationType: string;
+    dismissedAt: Date | number | null;
+    booking?: Booking;
+  }>>;
   
   // CRM - Customer Management
   getCustomers(filters?: {
@@ -1053,6 +1060,17 @@ export class MemStorage implements IStorage {
   }
   
   async getDismissedNotificationsByUser(userId: string): Promise<Array<{bookingId: string, notificationType: string}>> {
+    // In MemStorage, return empty array
+    return [];
+  }
+
+  async getDismissedNotificationsHistory(userId: string): Promise<Array<{
+    id: string;
+    bookingId: string;
+    notificationType: string;
+    dismissedAt: Date | number | null;
+    booking?: Booking;
+  }>> {
     // In MemStorage, return empty array
     return [];
   }
@@ -2384,6 +2402,35 @@ export class DbStorage implements IStorage {
     return dismissed.map(d => ({
       bookingId: d.bookingId,
       notificationType: d.notificationType,
+    }));
+  }
+
+  async getDismissedNotificationsHistory(userId: string): Promise<Array<{
+    id: string;
+    bookingId: string;
+    notificationType: string;
+    dismissedAt: Date | number | null;
+    booking?: Booking;
+  }>> {
+    const dismissed = await db.select()
+      .from(dismissedNotificationsTable)
+      .where(eq(dismissedNotificationsTable.userId, userId))
+      .orderBy(desc(dismissedNotificationsTable.dismissedAt));
+    
+    // Fetch bookings for each dismissed notification
+    const bookingIds = dismissed.map(d => d.bookingId);
+    const bookings = bookingIds.length > 0 
+      ? await db.select().from(bookingsTable).where(inArray(bookingsTable.id, bookingIds))
+      : [];
+    
+    const bookingMap = new Map(bookings.map(b => [b.id, b]));
+    
+    return dismissed.map(d => ({
+      id: d.id,
+      bookingId: d.bookingId,
+      notificationType: d.notificationType,
+      dismissedAt: d.dismissedAt,
+      booking: bookingMap.get(d.bookingId),
     }));
   }
 

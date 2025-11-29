@@ -137,6 +137,7 @@ export const bookings = sqliteTable("bookings", {
   contractAccepted: integer("contract_accepted", { mode: 'boolean' }).notNull().default(false),
   contractAcceptedAt: integer("contract_accepted_at", { mode: 'timestamp_ms' }),
   contractVersion: text("contract_version"), // e.g., "v2025"
+  adminNotes: text("admin_notes"), // Internal admin notes about the booking
   createdAt: integer("created_at", { mode: 'timestamp_ms' }),
 });
 

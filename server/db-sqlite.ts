@@ -440,6 +440,13 @@ export function initializeDatabase() {
     // Column already exists, ignore
   }
   
+  // Add admin_notes column for admin internal notes
+  try {
+    sqlite.exec(`ALTER TABLE bookings ADD COLUMN admin_notes TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  
   // Add base_slot_price to campaigns table if it doesn't exist
   try {
     sqlite.exec(`ALTER TABLE campaigns ADD COLUMN base_slot_price INTEGER`);

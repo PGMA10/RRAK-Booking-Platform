@@ -147,6 +147,44 @@ export default function SlotGridPage() {
     },
   });
 
+  // Mark as Paid mutation
+  const markAsPaidMutation = useMutation({
+    mutationFn: (data: { bookingId: string; amountPaid?: number }) => 
+      apiRequest("PATCH", `/api/bookings/${data.bookingId}/mark-paid`, { amountPaid: data.amountPaid }),
+    onSuccess: () => {
+      toast({ description: "Booking marked as paid!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/slots", selectedCampaignId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      setIsViewDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        description: error.message || "Failed to mark booking as paid",
+      });
+    },
+  });
+
+  // Update admin notes mutation
+  const updateAdminNotesMutation = useMutation({
+    mutationFn: (data: { bookingId: string; adminNotes: string }) =>
+      apiRequest("PATCH", `/api/bookings/${data.bookingId}/admin-notes`, { adminNotes: data.adminNotes }),
+    onSuccess: () => {
+      toast({ description: "Admin notes saved!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/slots", selectedCampaignId] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        description: error.message || "Failed to save admin notes",
+      });
+    },
+  });
+
+  // State for admin notes editing
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [adminNotesInput, setAdminNotesInput] = useState("");
+
   // Event handlers
   const handleSlotClick = (slot: SlotData) => {
     setSelectedSlot(slot);
@@ -163,8 +201,27 @@ export default function SlotGridPage() {
       setIsBookingDialogOpen(true);
     } else {
       // Open view/manage dialog for booked/pending slots
+      setAdminNotesInput((slot.booking as any)?.adminNotes || "");
+      setEditingNotes(false);
       setIsViewDialogOpen(true);
     }
+  };
+
+  const handleMarkAsPaid = () => {
+    if (!selectedSlot?.booking) return;
+    markAsPaidMutation.mutate({ 
+      bookingId: selectedSlot.booking.id, 
+      amountPaid: selectedSlot.booking.amount 
+    });
+  };
+
+  const handleSaveAdminNotes = () => {
+    if (!selectedSlot?.booking) return;
+    updateAdminNotesMutation.mutate({
+      bookingId: selectedSlot.booking.id,
+      adminNotes: adminNotesInput,
+    });
+    setEditingNotes(false);
   };
 
   const handleBookSlot = (data: BookingFormData) => {
@@ -659,6 +716,30 @@ export default function SlotGridPage() {
                       {selectedSlot.booking.status}
                     </Badge>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Payment Status</p>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={selectedSlot.booking.paymentStatus === 'paid' ? 'default' : 'outline'}
+                        className={selectedSlot.booking.paymentStatus === 'paid' ? 'bg-green-600' : 'border-amber-500 text-amber-600'}
+                        data-testid="badge-payment-status"
+                      >
+                        {selectedSlot.booking.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+                      </Badge>
+                      {selectedSlot.booking.paymentStatus !== 'paid' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                          onClick={handleMarkAsPaid}
+                          disabled={markAsPaidMutation.isPending}
+                          data-testid="button-mark-as-paid"
+                        >
+                          {markAsPaidMutation.isPending ? "..." : "Mark as Paid"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   {selectedSlot.subcategoryLabel && (
                     <div className="col-span-2">
                       <p className="text-sm font-medium text-muted-foreground">Industry Category</p>
@@ -693,6 +774,60 @@ export default function SlotGridPage() {
                       {selectedSlot.booking.createdAt ? new Date(selectedSlot.booking.createdAt).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
+                </div>
+                
+                {/* Admin Notes Section */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-muted-foreground">Admin Notes</p>
+                    {!editingNotes && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs"
+                        onClick={() => setEditingNotes(true)}
+                        data-testid="button-edit-notes"
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                  {editingNotes ? (
+                    <div className="space-y-2">
+                      <textarea
+                        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={adminNotesInput}
+                        onChange={(e) => setAdminNotesInput(e.target.value)}
+                        placeholder="Add notes about this booking..."
+                        data-testid="textarea-admin-notes"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAdminNotesInput((selectedSlot.booking as any)?.adminNotes || "");
+                            setEditingNotes(false);
+                          }}
+                          data-testid="button-cancel-notes"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveAdminNotes}
+                          disabled={updateAdminNotesMutation.isPending}
+                          data-testid="button-save-notes"
+                        >
+                          {updateAdminNotesMutation.isPending ? "Saving..." : "Save Notes"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic" data-testid="text-admin-notes">
+                      {(selectedSlot.booking as any)?.adminNotes || "No notes added"}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
