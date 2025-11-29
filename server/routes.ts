@@ -3433,7 +3433,7 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const { amountPaid } = req.body;
 
-      const booking = await storage.getBooking(id);
+      const booking = await storage.getBookingById(id);
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
@@ -3470,7 +3470,7 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const { adminNotes } = req.body;
 
-      const booking = await storage.getBooking(id);
+      const booking = await storage.getBookingById(id);
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
