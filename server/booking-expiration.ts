@@ -111,6 +111,18 @@ export function startBookingExpirationService(storage: IStorage) {
               latestBooking.optionalImagePath,
             ].filter((filePath): filePath is string => !!filePath);
             
+            // Also collect design revision files
+            try {
+              const designRevisions = await storage.getDesignRevisionsByBooking(booking.id);
+              for (const revision of designRevisions) {
+                if (revision.designFilePath) {
+                  filesToDelete.push(revision.designFilePath);
+                }
+              }
+            } catch (err) {
+              console.error(`  ⚠️  Failed to fetch design revisions for cleanup:`, err);
+            }
+            
             // Clean up files safely
             for (const filePath of filesToDelete) {
               try {

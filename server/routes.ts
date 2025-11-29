@@ -2080,6 +2080,18 @@ export function registerRoutes(app: Express): Server {
         booking.optionalImagePath,
       ].filter((filePath): filePath is string => !!filePath);
 
+      // Also collect design revision files
+      try {
+        const designRevisions = await storage.getDesignRevisionsByBooking(bookingId);
+        for (const revision of designRevisions) {
+          if (revision.designFilePath) {
+            filesToDelete.push(revision.designFilePath);
+          }
+        }
+      } catch (err) {
+        console.error(`⚠️  [Cleanup] Failed to fetch design revisions for cleanup:`, err);
+      }
+
       // Clean up files safely
       const deletionPromises = filesToDelete.map(async (filePath) => {
         try {
@@ -2936,6 +2948,18 @@ export function registerRoutes(app: Express): Server {
         booking.logoFilePath,
         booking.optionalImagePath,
       ].filter((filePath): filePath is string => !!filePath);
+
+      // Also collect design revision files
+      try {
+        const designRevisions = await storage.getDesignRevisionsByBooking(bookingId);
+        for (const revision of designRevisions) {
+          if (revision.designFilePath) {
+            filesToDelete.push(revision.designFilePath);
+          }
+        }
+      } catch (err) {
+        console.error(`⚠️  [Cleanup] Failed to fetch design revisions for cleanup:`, err);
+      }
 
       const deletionPromises = filesToDelete.map(async (filePath) => {
         try {
