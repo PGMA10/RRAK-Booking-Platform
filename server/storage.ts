@@ -54,6 +54,9 @@ const waitlistNotificationsTable = schema.waitlistNotifications;
 const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
+  // Migrations
+  ensureOtherIndustryInAllCampaigns(): Promise<void>;
+  
   // Users
   getAllUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
@@ -252,6 +255,29 @@ export class MemStorage implements IStorage {
     });
     
     this.initializeData();
+  }
+  
+  async ensureOtherIndustryInAllCampaigns(): Promise<void> {
+    // MemStorage version: ensure "Other" is in all campaigns
+    const otherIndustry = Array.from(this.industries.values()).find(i => i.name === "Other");
+    if (!otherIndustry) {
+      console.log("ℹ️  'Other' industry not found, skipping migration");
+      return;
+    }
+    
+    let migratedCount = 0;
+    for (const campaign of this.campaigns.values()) {
+      const currentIndustries = this.campaignIndustries.get(campaign.id) || new Set();
+      if (!currentIndustries.has(otherIndustry.id)) {
+        currentIndustries.add(otherIndustry.id);
+        this.campaignIndustries.set(campaign.id, currentIndustries);
+        migratedCount++;
+      }
+    }
+    
+    if (migratedCount > 0) {
+      console.log(`✅ Added 'Other' industry to ${migratedCount} campaign(s)`);
+    }
   }
 
   private initializeData() {
@@ -626,13 +652,19 @@ export class MemStorage implements IStorage {
   }
 
   async setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void> {
-    this.campaignIndustries.set(campaignId, new Set(industryIds));
+    // Ensure "Other" industry is always included
+    const otherIndustry = Array.from(this.industries.values()).find(i => i.name === "Other");
+    const finalIds = otherIndustry && !industryIds.includes(otherIndustry.id)
+      ? [...industryIds, otherIndustry.id]
+      : industryIds;
+    
+    this.campaignIndustries.set(campaignId, new Set(finalIds));
     
     // Update campaign total slots
     const campaign = this.campaigns.get(campaignId);
     if (campaign) {
       const routes = await this.getCampaignRoutes(campaignId);
-      const totalSlots = routes.length * industryIds.length;
+      const totalSlots = routes.length * finalIds.length;
       campaign.totalSlots = totalSlots;
       this.campaigns.set(campaignId, campaign);
     }
@@ -1313,6 +1345,50 @@ export class DbStorage implements IStorage {
       console.log("✅ Using MemoryStore for development sessions");
     }
   }
+  
+  async ensureOtherIndustryInAllCampaigns(): Promise<void> {
+    // PostgreSQL version: ensure "Other" is in all campaigns
+    try {
+      const otherIndustries = await db.select().from(industriesTable).where(eq(industriesTable.name, "Other"));
+      const otherIndustry = otherIndustries[0];
+      
+      if (!otherIndustry) {
+        console.log("ℹ️  'Other' industry not found, skipping migration");
+        return;
+      }
+      
+      // Get all campaigns without "Other" industry
+      const allCampaigns = await db.select().from(campaignsTable);
+      let migratedCount = 0;
+      
+      for (const campaign of allCampaigns) {
+        const existingLink = await db.select()
+          .from(campaignIndustriesTable)
+          .where(and(
+            eq(campaignIndustriesTable.campaignId, campaign.id),
+            eq(campaignIndustriesTable.industryId, otherIndustry.id)
+          ))
+          .limit(1);
+        
+        if (existingLink.length === 0) {
+          await db.insert(campaignIndustriesTable).values({
+            id: randomUUID(),
+            campaignId: campaign.id,
+            industryId: otherIndustry.id,
+            createdAt: Date.now(),
+          });
+          migratedCount++;
+        }
+      }
+      
+      if (migratedCount > 0) {
+        console.log(`✅ Added 'Other' industry to ${migratedCount} campaign(s)`);
+      }
+    } catch (error: any) {
+      console.error("❌ Failed to ensure 'Other' industry in campaigns:", error.message);
+      // Don't throw - migration failure shouldn't block startup
+    }
+  }
 
   // Helper function to convert SQLite INTEGER timestamps to Date objects for bookings
   private convertBookingTimestamps(booking: any): any {
@@ -1593,6 +1669,10 @@ export class DbStorage implements IStorage {
 
   async addIndustryToCampaign(campaignId: string, industryId: string): Promise<void> {
     try {
+      // Ensure "Other" is added if not already present
+      const otherIndustries = await db.select().from(industriesTable).where(eq(industriesTable.name, "Other"));
+      const otherIndustry = otherIndustries[0];
+      
       const id = randomUUID();
       await db.insert(campaignIndustriesTable).values({
         id,
@@ -1600,6 +1680,23 @@ export class DbStorage implements IStorage {
         industryId,
         createdAt: Date.now(),
       });
+      
+      // Also add "Other" if this is a real industry (not "Other" itself)
+      if (otherIndustry && industryId !== otherIndustry.id) {
+        const otherExists = await db.select()
+          .from(campaignIndustriesTable)
+          .where(and(eq(campaignIndustriesTable.campaignId, campaignId), eq(campaignIndustriesTable.industryId, otherIndustry.id)))
+          .limit(1);
+        
+        if (otherExists.length === 0) {
+          await db.insert(campaignIndustriesTable).values({
+            id: randomUUID(),
+            campaignId,
+            industryId: otherIndustry.id,
+            createdAt: Date.now(),
+          });
+        }
+      }
     } catch (error: any) {
       console.error('[DB Error] addIndustryToCampaign failed:', {
         campaignId,
@@ -1663,12 +1760,21 @@ export class DbStorage implements IStorage {
 
   async setCampaignIndustries(campaignId: string, industryIds: string[]): Promise<void> {
     try {
+      // Ensure "Other" industry is always included
+      const otherIndustries = await db.select().from(industriesTable).where(eq(industriesTable.name, "Other"));
+      const otherIndustry = otherIndustries[0];
+      
+      let finalIds = industryIds;
+      if (otherIndustry && !industryIds.includes(otherIndustry.id)) {
+        finalIds = [...industryIds, otherIndustry.id];
+      }
+      
       // Delete all existing industries for this campaign
       await db.delete(campaignIndustriesTable).where(eq(campaignIndustriesTable.campaignId, campaignId));
       
-      // Insert new industries
-      if (industryIds.length > 0) {
-        const values = industryIds.map(industryId => ({
+      // Insert new industries (including "Other")
+      if (finalIds.length > 0) {
+        const values = finalIds.map(industryId => ({
           id: randomUUID(),
           campaignId,
           industryId,

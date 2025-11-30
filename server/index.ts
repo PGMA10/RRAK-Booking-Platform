@@ -83,6 +83,10 @@ app.use((req, res, next) => {
     console.log("🚀 Production mode - PostgreSQL initialized");
   }
   
+  // Ensure "Other" industry is in all campaigns
+  console.log("🔄 Running post-migration: ensuring 'Other' industry is available in all campaigns...");
+  await storage.ensureOtherIndustryInAllCampaigns();
+  
   // Start booking expiration service (auto-cancel unpaid bookings after 15 minutes)
   startBookingExpirationService(storage);
   

@@ -31,6 +31,7 @@ Preferred communication style: Simple, everyday language.
 ### Core Features
 - **Slot-Based Booking**: Allows booking 1-4 slots per transaction with tiered pricing and bulk discounts.
 - **Industry Subcategory System**: Prevents competing businesses from booking the same route/campaign slot, with 13 categories and 56 specific subcategories. An "Other" industry category allows unlimited availability with mandatory business type description.
+- **"Other" Industry Auto-Inclusion**: "Other" industry is automatically included in all campaigns (both new and existing). Storage layer enforces this at write-time for both MemStorage and PostgreSQL. Migration runs on app startup to add "Other" to existing campaigns.
 - **Artwork Upload & Ad Design Brief System**: Comprehensive workflow for customers to submit design briefs and materials, and for admins to manage approvals and revisions (up to 2 revisions).
 - **Customer Self-Service Cancellation**: Allows customers to cancel bookings with automatic Stripe refunds based on a 7-day policy, deducting Stripe processing fees.
 - **Admin Dashboard & Notifications**: Centralized notifications for key events, with action items, current campaign metrics, and real-time data integration. Admins can manually mark bookings as paid and add internal notes.
@@ -38,6 +39,7 @@ Preferred communication style: Simple, everyday language.
 - **Multi-Campaign Bulk Booking**: Allows booking 1-3 different campaigns in a single transaction with a $300 bulk discount for 3 campaigns.
 - **Booking Expiration & Cancellation**: Unpaid bookings expire after 15 minutes, with idempotent cancellation logic and race-condition-free file cleanup.
 - **Customer Relationship Management (CRM)**: Features customer list, profiles, notes, and tagging for segmentation and future marketing/referral programs.
+- **Industry Management**: DELETE endpoint added for industry deletion with protection against deleting "Other" industry.
 
 ### UI/UX
 - Consistent use of Radix UI, Shadcn/UI, and Tailwind CSS.

@@ -29,17 +29,22 @@ function parseDateAtNoonAKST(dateString: string): Date {
 }
 
 // Helper to get the "Other" industry ID (cached for performance)
-let otherIndustryIdCache: string | null = null;
+let otherIndustryIdCache: string | null = undefined as any;
 async function getOtherIndustryId(): Promise<string | null> {
-  if (otherIndustryIdCache) return otherIndustryIdCache;
+  // Only use cache if it's been explicitly set (not undefined)
+  if (otherIndustryIdCache !== undefined) return otherIndustryIdCache;
   
   const allIndustries = await storage.getAllIndustries();
   const otherIndustry = allIndustries.find(i => i.name === "Other");
+  
+  // Cache even if null to prevent repeated searches
   if (otherIndustry) {
     otherIndustryIdCache = otherIndustry.id;
     return otherIndustry.id;
+  } else {
+    otherIndustryIdCache = null;
   }
-  return null;
+  return otherIndustryIdCache;
 }
 
 // Helper to ensure "Other" industry is included in campaign industries
@@ -935,16 +940,39 @@ export function registerRoutes(app: Express): Server {
         });
       }
       
-      // Ensure "Other" industry is always included
-      const otherId = await getOtherIndustryId();
-      const finalIndustryIds = otherId && !industryIds.includes(otherId) 
-        ? [...industryIds, otherId] 
-        : industryIds;
-      
-      await storage.setCampaignIndustries(req.params.id, finalIndustryIds);
+      // Storage layer automatically ensures "Other" is included
+      await storage.setCampaignIndustries(req.params.id, industryIds);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to update campaign industries" });
+    }
+  });
+
+  // Delete industry endpoint
+  app.delete("/api/industries/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const industry = await storage.getIndustry(req.params.id);
+      if (!industry) {
+        return res.status(404).json({ message: "Industry not found" });
+      }
+
+      // Prevent deletion of "Other" industry - it's a system industry
+      if (industry.name === "Other") {
+        return res.status(400).json({ message: "Cannot delete 'Other' industry - it's a required system category" });
+      }
+
+      const deleted = await storage.deleteIndustry(req.params.id);
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete industry" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete industry" });
     }
   });
 
