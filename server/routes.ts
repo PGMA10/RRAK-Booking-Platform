@@ -28,6 +28,34 @@ function parseDateAtNoonAKST(dateString: string): Date {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 21, 0, 0, 0));
 }
 
+// Helper to get the "Other" industry ID (cached for performance)
+let otherIndustryIdCache: string | null = null;
+async function getOtherIndustryId(): Promise<string | null> {
+  if (otherIndustryIdCache) return otherIndustryIdCache;
+  
+  const allIndustries = await storage.getAllIndustries();
+  const otherIndustry = allIndustries.find(i => i.name === "Other");
+  if (otherIndustry) {
+    otherIndustryIdCache = otherIndustry.id;
+    return otherIndustry.id;
+  }
+  return null;
+}
+
+// Helper to ensure "Other" industry is included in campaign industries
+async function ensureOtherIndustryInCampaign(campaignId: string): Promise<void> {
+  const otherId = await getOtherIndustryId();
+  if (!otherId) return;
+  
+  const currentIndustries = await storage.getCampaignIndustries(campaignId);
+  const hasOther = currentIndustries.some(i => i.name === "Other");
+  
+  if (!hasOther) {
+    await storage.addIndustryToCampaign(campaignId, otherId);
+    console.log(`✅ Added 'Other' industry to campaign ${campaignId}`);
+  }
+}
+
 // Helper function to release (refund) a reserved loyalty discount
 // Called when a booking with loyaltyDiscountApplied is cancelled or expires
 async function releaseLoyaltyDiscount(userId: string, bookingId: string): Promise<void> {
@@ -555,6 +583,10 @@ export function registerRoutes(app: Express): Server {
       }
 
       const campaign = await storage.createCampaign(campaignData);
+      
+      // Automatically add "Other" industry to new campaigns
+      await ensureOtherIndustryInCampaign(campaign.id);
+      
       res.status(201).json(campaign);
     } catch (error) {
       console.error("❌ Campaign creation error:", error);
@@ -903,7 +935,13 @@ export function registerRoutes(app: Express): Server {
         });
       }
       
-      await storage.setCampaignIndustries(req.params.id, industryIds);
+      // Ensure "Other" industry is always included
+      const otherId = await getOtherIndustryId();
+      const finalIndustryIds = otherId && !industryIds.includes(otherId) 
+        ? [...industryIds, otherId] 
+        : industryIds;
+      
+      await storage.setCampaignIndustries(req.params.id, finalIndustryIds);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to update campaign industries" });

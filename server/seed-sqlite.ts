@@ -1,8 +1,8 @@
 import { db } from "./db-sqlite";
-import { users, routes, industries, campaigns, campaignRoutes, SLOTS_PER_ROUTE } from "@shared/schema";
+import { users, routes, industries, campaigns, campaignRoutes, campaignIndustries, SLOTS_PER_ROUTE } from "@shared/schema";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -15,6 +15,62 @@ async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
+}
+
+async function migrateOtherIndustryToCampaigns() {
+  try {
+    console.log("🔄 Ensuring 'Other' industry is available in all campaigns...");
+    
+    // Find the "Other" industry
+    const allIndustries = await db.select().from(industries);
+    const otherIndustry = allIndustries.find(i => i.name === "Other");
+    
+    if (!otherIndustry) {
+      console.log("⚠️  'Other' industry not found - skipping campaign migration");
+      return;
+    }
+    
+    // Get all campaigns
+    const allCampaigns = await db.select().from(campaigns);
+    if (allCampaigns.length === 0) {
+      console.log("ℹ️  No campaigns to update");
+      return;
+    }
+    
+    let addedCount = 0;
+    for (const campaign of allCampaigns) {
+      // Check if campaign already has "Other" industry
+      const existingLink = await db
+        .select()
+        .from(campaignIndustries)
+        .where(and(
+          eq(campaignIndustries.campaignId, campaign.id),
+          eq(campaignIndustries.industryId, otherIndustry.id)
+        ))
+        .limit(1);
+      
+      if (existingLink.length === 0) {
+        // Add "Other" industry to this campaign
+        await db.insert(campaignIndustries).values({
+          id: generateId(),
+          campaignId: campaign.id,
+          industryId: otherIndustry.id,
+          createdAt: Date.now(),
+        });
+        console.log(`  ✅ Added 'Other' industry to campaign "${campaign.name}"`);
+        addedCount++;
+      }
+    }
+    
+    if (addedCount > 0) {
+      console.log(`✅ Added 'Other' industry to ${addedCount} campaign(s)`);
+    } else {
+      console.log("ℹ️  All campaigns already have 'Other' industry");
+    }
+  } catch (error) {
+    console.error("❌ Error migrating 'Other' industry to campaigns:", error);
+    // Don't throw - migration failure shouldn't break seed process
+  }
 }
 
 async function migrateCampaignSlots() {
@@ -195,6 +251,9 @@ export async function seedSQLite() {
     
     // Migrate existing campaigns to recalculate totalSlots based on routes × SLOTS_PER_ROUTE
     await migrateCampaignSlots();
+    
+    // Ensure "Other" industry is available in all existing campaigns
+    await migrateOtherIndustryToCampaigns();
 
     console.log("🎉 SQLite database seeding completed successfully!");
   } catch (error) {
