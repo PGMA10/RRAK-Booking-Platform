@@ -3933,6 +3933,62 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin endpoint to add "Other" industry to all campaigns
+  app.post("/api/admin/fix-other-industry", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      // Step 1: Find or create the "Other" industry
+      const allIndustries = await storage.getAllIndustries();
+      let otherIndustry = allIndustries.find(i => i.name === "Other");
+      let created = false;
+      
+      if (!otherIndustry) {
+        // Create the "Other" industry
+        otherIndustry = await storage.createIndustry({
+          name: "Other",
+          icon: "help-circle",
+          status: "active",
+          description: "For businesses that don't fit standard categories",
+        });
+        created = true;
+        console.log("✅ Created 'Other' industry with id:", otherIndustry.id);
+      }
+
+      // Step 2: Get all campaigns
+      const allCampaigns = await storage.getAllCampaigns();
+      let updatedCount = 0;
+
+      // Step 3: Add "Other" to each campaign that doesn't have it
+      for (const campaign of allCampaigns) {
+        const campaignIndustries = await storage.getCampaignIndustries(campaign.id);
+        const hasOther = campaignIndustries.some(ci => ci.id === otherIndustry!.id);
+        
+        if (!hasOther) {
+          await storage.addIndustryToCampaign(campaign.id, otherIndustry.id);
+          updatedCount++;
+          console.log(`✅ Added 'Other' to campaign: ${campaign.name}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        industryCreated: created,
+        industryId: otherIndustry.id,
+        campaignsUpdated: updatedCount,
+        totalCampaigns: allCampaigns.length,
+        message: created 
+          ? `Created "Other" industry and added it to ${updatedCount} campaign(s)`
+          : `Added "Other" industry to ${updatedCount} campaign(s) (${allCampaigns.length - updatedCount} already had it)`,
+      });
+    } catch (error) {
+      console.error("Error fixing Other industry:", error);
+      res.status(500).json({ message: "Failed to fix Other industry" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
