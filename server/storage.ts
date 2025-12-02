@@ -114,6 +114,7 @@ export interface IStorage {
   getBooking(campaignId: string, routeId: string, industryId: string, industrySubcategoryId?: string | null): Promise<Booking | undefined>;
   getBookingById(id: string): Promise<Booking | undefined>;
   getBookingByStripeSessionId(sessionId: string): Promise<BookingWithDetails | undefined>;
+  getBookingByPaymentIntentId(paymentIntentId: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined>;
   updateBookingPaymentStatus(id: string, paymentStatus: string, paymentData: {
@@ -758,6 +759,10 @@ export class MemStorage implements IStorage {
       industry,
       campaign,
     };
+  }
+
+  async getBookingByPaymentIntentId(paymentIntentId: string): Promise<Booking | undefined> {
+    return Array.from(this.bookings.values()).find(b => b.stripePaymentIntentId === paymentIntentId);
   }
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {
@@ -2001,6 +2006,17 @@ export class DbStorage implements IStorage {
         createdAt: r.campaign.createdAt ? new Date(r.campaign.createdAt as any) : null,
       } : undefined,
     } as any;
+  }
+
+  async getBookingByPaymentIntentId(paymentIntentId: string): Promise<Booking | undefined> {
+    const results = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.stripePaymentIntentId, paymentIntentId))
+      .limit(1);
+    
+    if (results.length === 0) return undefined;
+    return this.convertBookingTimestamps(results[0]);
   }
 
   async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | undefined> {

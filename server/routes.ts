@@ -1673,6 +1673,47 @@ export function registerRoutes(app: Express): Server {
         }
         break;
 
+      case 'charge.refunded':
+        const charge = event.data.object;
+        const paymentIntentId = charge.payment_intent;
+        const refundedAmount = charge.amount_refunded; // Amount in cents (same as booking.amount)
+        
+        console.log("💸 [Stripe Webhook] Charge refunded:", {
+          chargeId: charge.id,
+          paymentIntentId,
+          refundedAmountCents: refundedAmount,
+          refundedAmountDollars: refundedAmount / 100,
+        });
+
+        if (paymentIntentId) {
+          // Find booking by payment intent ID
+          const refundedBooking = await storage.getBookingByPaymentIntentId(paymentIntentId);
+          
+          if (refundedBooking) {
+            console.log(`💸 [Stripe Webhook] Found booking ${refundedBooking.id} for refund`);
+            
+            // cancelBooking handles: updating booking status, campaign revenue, and bookedSlots
+            // refundAmount is in cents to match booking.amount storage format
+            const result = await storage.cancelBooking(refundedBooking.id, {
+              refundAmount: refundedAmount,
+              refundStatus: 'processed',
+            });
+            
+            if (result?.cancelledNow) {
+              // Create admin notification about the refund (only if newly cancelled)
+              await storage.createNotification('refund_processed', refundedBooking.id);
+              console.log(`✅ [Stripe Webhook] Refund processed for booking ${refundedBooking.id}: $${(refundedAmount / 100).toFixed(2)}`);
+            } else {
+              console.log(`ℹ️ [Stripe Webhook] Booking ${refundedBooking.id} was already cancelled`);
+            }
+          } else {
+            console.log(`⚠️ [Stripe Webhook] No booking found for payment intent ${paymentIntentId}`);
+          }
+        } else {
+          console.log("⚠️ [Stripe Webhook] No payment intent ID in charge.refunded event");
+        }
+        break;
+
       default:
         console.log(`ℹ️ [Stripe Webhook] Unhandled event type ${event.type}`);
     }
