@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building, Calendar, ArrowRight, Star, ExternalLink } from "lucide-react";
+import { Loader2, Building, Calendar, ArrowRight, Star, ExternalLink, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DemoBanner } from "@/components/demo-banner";
 
 export default function AuthPage() {
@@ -46,6 +47,14 @@ export default function AuthPage() {
                 </div>
                 
                 <form onSubmit={handleLogin} className="space-y-4">
+                      {loginMutation.isError && (
+                        <Alert variant="destructive" data-testid="alert-login-error">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            {loginMutation.error?.message || "Login failed. Please try again."}
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       <div className="space-y-2">
                         <Label htmlFor="login-username">Username</Label>
                         <Input
