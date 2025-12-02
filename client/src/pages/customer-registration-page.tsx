@@ -7,16 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Building, User, Mail, Phone, FileText, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Building, User, Mail, Phone, FileText, CheckCircle, Loader2, Lock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
+import { passwordSchema } from "@/lib/password-validation";
+import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
 
 // Customer registration form schema
 const customerRegistrationSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username too long"),
-  password: z.string().min(6, "Password must be at least 6 characters").max(50, "Password too long"),
+  password: passwordSchema,
   businessName: z.string().min(1, "Business name is required").max(100, "Business name too long"),
   contactPersonName: z.string().optional(),
   email: z.string().email("Valid email address is required"),
@@ -127,7 +129,7 @@ export default function CustomerRegistrationPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
+                          <Lock className="h-4 w-4" />
                           Password
                         </FormLabel>
                         <FormControl>
@@ -138,6 +140,7 @@ export default function CustomerRegistrationPage() {
                             data-testid="input-password"
                           />
                         </FormControl>
+                        <PasswordStrengthIndicator password={field.value || ""} />
                         <FormMessage />
                       </FormItem>
                     )}

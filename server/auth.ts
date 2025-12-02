@@ -130,6 +130,34 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Email is required" });
       }
 
+      // Password strength validation
+      const password = req.body.password;
+      const passwordErrors: string[] = [];
+      
+      if (password.length < 8) {
+        passwordErrors.push("Password must be at least 8 characters");
+      }
+      if (!/\d/.test(password)) {
+        passwordErrors.push("Password must contain at least one number");
+      }
+      if (!/[A-Z]/.test(password)) {
+        passwordErrors.push("Password must contain at least one uppercase letter");
+      }
+      if (!/[a-z]/.test(password)) {
+        passwordErrors.push("Password must contain at least one lowercase letter");
+      }
+      if (!/[!@#$%^&*()_+\-=\[\]{}|;':",./<>?`~\\]/.test(password)) {
+        passwordErrors.push("Password must contain at least one special character (!@#$%^&*...)");
+      }
+      
+      if (passwordErrors.length > 0) {
+        console.log("❌ Weak password:", passwordErrors);
+        return res.status(400).json({ 
+          message: "Password does not meet requirements", 
+          errors: passwordErrors 
+        });
+      }
+
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         console.log("❌ Username already exists:", req.body.username);
