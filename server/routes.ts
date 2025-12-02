@@ -1529,20 +1529,32 @@ export function registerRoutes(app: Express): Server {
     const sig = req.headers['stripe-signature'];
     
     if (!sig) {
-      console.log("❌ [Stripe Webhook] No signature provided");
+      console.log("❌ [Stripe Webhook] REJECTED: No signature provided");
       return res.status(400).send('No signature');
+    }
+
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.log("⚠️ [Stripe Webhook] WARNING: No webhook secret configured - signature verification disabled");
+      console.log("   Set STRIPE_WEBHOOK_SECRET to enable signature verification");
     }
 
     let event;
 
     try {
-      // Note: In production, you should use webhook secrets for verification
-      // For now, we'll parse the event directly
-      event = req.body;
+      if (webhookSecret) {
+        // Verify webhook signature for security
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        console.log("✅ [Stripe Webhook] Signature verified successfully");
+      } else {
+        // Fallback: Parse without verification (development only)
+        event = JSON.parse(req.body.toString());
+        console.log("⚠️ [Stripe Webhook] Parsed without signature verification");
+      }
       console.log("📦 [Stripe Webhook] Event type:", event.type);
     } catch (err) {
-      console.error('❌ [Stripe Webhook] Error parsing event:', err);
-      return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('❌ [Stripe Webhook] REJECTED: Signature verification failed:', err instanceof Error ? err.message : 'Unknown error');
+      return res.status(400).send(`Webhook signature verification failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
 
     // Handle the event

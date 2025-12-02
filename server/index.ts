@@ -7,6 +7,11 @@ import { startBookingExpirationService } from "./booking-expiration";
 import { schemaSQL, seedSQL } from "./migrations";
 
 const app = express();
+
+// Use raw body parser for Stripe webhook endpoint (required for signature verification)
+app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
+
+// Use JSON parser for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
