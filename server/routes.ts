@@ -9,6 +9,20 @@ import path from "path";
 import fs from "fs";
 import Stripe from "stripe";
 import { calculatePricingQuote, recordPricingRuleApplication } from "./pricing-service";
+import { 
+  sanitize, 
+  validate, 
+  sanitizeBookingInput, 
+  sanitizeUserInput, 
+  sanitizeCampaignInput, 
+  sanitizeRouteInput, 
+  sanitizeIndustryInput, 
+  sanitizeNoteInput, 
+  sanitizeTagInput,
+  sanitizeDesignBriefInput,
+  sanitizeWaitlistInput,
+  sanitizeSettingsInput
+} from "./validation";
 
 // Reference: Stripe integration blueprint (javascript_stripe)
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -301,10 +315,11 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      const sanitizedBody = sanitizeRouteInput(req.body);
       const routeValidationSchema = insertRouteSchema.extend({
         householdCount: z.number().int().min(1, "Household count must be at least 1"),
       });
-      const routeData = routeValidationSchema.parse(req.body);
+      const routeData = routeValidationSchema.parse(sanitizedBody);
       
       // Check if zip code already exists
       const allRoutes = await storage.getAllRoutes();
@@ -329,10 +344,11 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      const sanitizedBody = sanitizeRouteInput(req.body);
       const routeValidationSchema = insertRouteSchema.extend({
         householdCount: z.number().int().min(1, "Household count must be at least 1"),
       }).partial();
-      const routeData = routeValidationSchema.parse(req.body);
+      const routeData = routeValidationSchema.parse(sanitizedBody);
       
       // If updating zip code, check for uniqueness
       if (routeData.zipCode) {
@@ -388,12 +404,13 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      const sanitizedBody = sanitizeIndustryInput(req.body);
       const industryValidationSchema = insertIndustrySchema.extend({
         name: z.string().min(1, "Industry name is required"),
         description: z.string().optional(),
         status: z.enum(["active", "inactive"]).default("active"),
       });
-      const industryData = industryValidationSchema.parse(req.body);
+      const industryData = industryValidationSchema.parse(sanitizedBody);
       
       // Check if industry name already exists
       const allIndustries = await storage.getAllIndustries();
@@ -418,12 +435,13 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      const sanitizedBody = sanitizeIndustryInput(req.body);
       const industryValidationSchema = insertIndustrySchema.extend({
         name: z.string().min(1, "Industry name is required"),
         description: z.string().optional(),
         status: z.enum(["active", "inactive"]),
       }).partial();
-      const industryData = industryValidationSchema.parse(req.body);
+      const industryData = industryValidationSchema.parse(sanitizedBody);
       
       // If updating name, check for uniqueness
       if (industryData.name) {
@@ -539,7 +557,8 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      console.log("📅 Received campaign data:", req.body);
+      const sanitizedBody = sanitizeCampaignInput(req.body);
+      console.log("📅 Received campaign data:", sanitizedBody);
       
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
@@ -568,7 +587,7 @@ export function registerRoutes(app: Express): Server {
         path: ["printDeadline"],
       });
       
-      const campaignData = campaignValidationSchema.parse(req.body);
+      const campaignData = campaignValidationSchema.parse(sanitizedBody);
       console.log("📅 Validated campaign data:", {
         mailDate: campaignData.mailDate,
         printDeadline: campaignData.printDeadline,
@@ -618,6 +637,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      const sanitizedBody = sanitizeCampaignInput(req.body);
       const campaignValidationSchema = insertCampaignSchema.extend({
         name: z.string().min(1, "Campaign name is required").max(100, "Campaign name too long"),
         mailDate: z.string().transform((val) => parseDateAtNoonAKST(val)).refine((date) => {
@@ -640,7 +660,7 @@ export function registerRoutes(app: Express): Server {
         path: ["printDeadline"],
       });
       
-      const campaignData = campaignValidationSchema.parse(req.body);
+      const campaignData = campaignValidationSchema.parse(sanitizedBody);
       
       // Validate status transitions and workflow rules
       const existingCampaign = await storage.getCampaign(req.params.id);
@@ -1104,10 +1124,18 @@ export function registerRoutes(app: Express): Server {
     let loyaltyDiscountApplied = false; // Track for rollback in catch block
 
     try {
+      // Sanitize user input before validation
+      const sanitizedBody = sanitizeBookingInput(req.body);
+      
+      // Validate email format if provided
+      if (sanitizedBody.email && !validate.email(sanitizedBody.email as string)) {
+        return res.status(400).json({ message: "Invalid email address format" });
+      }
+      
       // Inject server-side contract acceptance fields before validation
       // The frontend doesn't need to send these - we enforce them server-side
       const validatedData = insertBookingSchema.parse({
-        ...req.body,
+        ...sanitizedBody,
         userId: req.user.id,
         contractAccepted: true,
         contractAcceptedAt: new Date(),
@@ -1837,8 +1865,16 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      // Sanitize user input before validation
+      const sanitizedBody = sanitizeBookingInput(req.body);
+      
+      // Validate email format if provided
+      if (sanitizedBody.email && !validate.email(sanitizedBody.email as string)) {
+        return res.status(400).json({ message: "Invalid email address format" });
+      }
+      
       const validatedData = insertBookingSchema.parse({
-        ...req.body,
+        ...sanitizedBody,
         userId: req.user.id,
       });
 
@@ -3493,13 +3529,16 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { customerId, note } = req.body;
+      const sanitizedBody = sanitizeNoteInput(req.body);
+      const { customerId, content } = sanitizedBody;
+      const note = content || req.body.note; // Support both 'content' and 'note' field names
       
       if (!customerId || !note) {
         return res.status(400).json({ message: "Customer ID and note are required" });
       }
       
-      await storage.addCustomerNote(customerId, note, req.user.id);
+      const sanitizedNote = sanitize.textPreserveNewlines(note as string, 2000);
+      await storage.addCustomerNote(customerId as string, sanitizedNote, req.user.id);
       res.json({ message: "Note added successfully" });
     } catch (error) {
       console.error('Add note error:', error);
@@ -3514,13 +3553,16 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { customerId, tag } = req.body;
+      const sanitizedBody = sanitizeTagInput(req.body);
+      const { customerId } = req.body;
+      const tag = sanitizedBody.name || req.body.tag; // Support both 'name' and 'tag' field names
       
       if (!customerId || !tag) {
         return res.status(400).json({ message: "Customer ID and tag are required" });
       }
       
-      await storage.addCustomerTag(customerId, tag, req.user.id);
+      const sanitizedTag = sanitize.text(tag as string, 50);
+      await storage.addCustomerTag(customerId, sanitizedTag, req.user.id);
       res.json({ message: "Tag added successfully" });
     } catch (error) {
       console.error('Add tag error:', error);
@@ -3535,7 +3577,8 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { customerId, tag } = req.body;
+      const { customerId } = req.body;
+      const tag = sanitize.text(req.body.tag as string, 50);
       
       if (!customerId || !tag) {
         return res.status(400).json({ message: "Customer ID and tag are required" });
@@ -3746,8 +3789,11 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
+      // Sanitize user input before validation
+      const sanitizedBody = sanitizeWaitlistInput(req.body);
+      
       const validatedData = insertWaitlistEntrySchema.parse({
-        ...req.body,
+        ...sanitizedBody,
         userId: req.user.id,
         status: "active",
       });
@@ -3894,14 +3940,18 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { key } = req.params;
-      const { value, description } = req.body;
+      const sanitizedBody = sanitizeSettingsInput(req.body);
+      const { value, description } = sanitizedBody;
 
       if (value === undefined || value === null) {
         return res.status(400).json({ message: "Value is required" });
       }
 
-      await storage.setAdminSetting(key, String(value), description, req.user.id);
-      res.json({ success: true, key, value });
+      const sanitizedKey = sanitize.sqlIdentifier(key);
+      const sanitizedDescription = description ? sanitize.text(description as string, 500) : undefined;
+      
+      await storage.setAdminSetting(sanitizedKey, String(value), sanitizedDescription, req.user.id);
+      res.json({ success: true, key: sanitizedKey, value });
     } catch (error) {
       console.error('Error updating admin setting:', error);
       res.status(500).json({ message: "Failed to update setting" });

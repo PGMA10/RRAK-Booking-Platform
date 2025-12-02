@@ -7,6 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { sanitize, validate, sanitizeUserInput } from "./validation";
 
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -120,24 +121,33 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", authRateLimiter, async (req, res, next) => {
     try {
+      // Sanitize user input before processing
+      const sanitizedBody = sanitizeUserInput(req.body);
+      
       console.log("📝 Registration attempt:", {
-        username: req.body.username,
-        email: req.body.email,
-        businessName: req.body.businessName,
-        phone: req.body.phone,
+        username: sanitizedBody.username,
+        email: sanitizedBody.email,
+        businessName: sanitizedBody.businessName,
+        phone: sanitizedBody.phone,
         hasPassword: !!req.body.password,
         bodyKeys: Object.keys(req.body),
       });
 
       // Validate required fields
-      if (!req.body.username || !req.body.password) {
+      if (!sanitizedBody.username || !req.body.password) {
         console.log("❌ Missing username or password");
         return res.status(400).json({ message: "Username and password are required" });
       }
 
-      if (!req.body.email) {
+      if (!sanitizedBody.email) {
         console.log("❌ Missing email");
         return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Validate email format
+      if (!validate.email(sanitizedBody.email as string)) {
+        console.log("❌ Invalid email format");
+        return res.status(400).json({ message: "Invalid email address format" });
       }
 
       // Password strength validation
@@ -168,21 +178,25 @@ export function setupAuth(app: Express) {
         });
       }
 
-      const existingUser = await storage.getUserByUsername(req.body.username);
+      const existingUser = await storage.getUserByUsername(sanitizedBody.username as string);
       if (existingUser) {
-        console.log("❌ Username already exists:", req.body.username);
+        console.log("❌ Username already exists:", sanitizedBody.username);
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      const existingEmail = await storage.getUserByEmail(req.body.email);
+      const existingEmail = await storage.getUserByEmail(sanitizedBody.email as string);
       if (existingEmail) {
-        console.log("❌ Email already exists:", req.body.email);
+        console.log("❌ Email already exists:", sanitizedBody.email);
         return res.status(400).json({ message: "Email already exists" });
       }
 
       const user = await storage.createUser({
-        ...req.body,
+        username: sanitize.name(sanitizedBody.username as string),
+        email: sanitizedBody.email as string,
         password: await hashPassword(req.body.password),
+        businessName: sanitizedBody.businessName as string | undefined,
+        phone: sanitizedBody.phone as string | undefined,
+        name: sanitize.name(req.body.name || ''),
       });
 
       console.log("✅ User created successfully:", user.id, user.username);
