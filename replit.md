@@ -18,6 +18,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend
 - **Runtime**: Node.js with Express.js
 - **Authentication**: Passport.js with local strategy (Scrypt for password hashing), session-based with PostgreSQL session store, supporting Customer and Admin roles. Password validation requires: 8+ characters, uppercase, lowercase, number, and special character. Rate limiting: 5 failed attempts per IP per 15 minutes on login/register endpoints.
+- **Input Validation & Sanitization**: Comprehensive input sanitization using validator.js (server/validation.ts) applied to all POST/PUT endpoints. Sanitizes usernames, emails, phone numbers, business names, text fields, URLs, and alphanumeric values. HTML tags stripped without escaping to prevent data corruption while maintaining XSS protection.
 - **Stripe Webhook Security**: Webhook signature verification using `stripe.webhooks.constructEvent()` with STRIPE_WEBHOOK_SECRET. Rejected webhooks are logged for monitoring. Handles `charge.refunded` events to automatically update booking status and create admin notifications (full refunds only; partial refund support is a future enhancement).
 - **API**: RESTful API with JSON responses
 - **File Uploads**: Multer middleware for artwork uploads (`uploads/artwork`, `uploads/logos`, `uploads/images`, `uploads/designs`) with validation and workflow (`pending_upload` → `under_review` → `approved`/`rejected`).
