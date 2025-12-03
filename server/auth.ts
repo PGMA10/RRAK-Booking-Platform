@@ -54,7 +54,7 @@ async function comparePasswords(supplied: string, stored: string) {
     
     return timingSafeEqual(hashedBuf, suppliedBuf);
   } catch (error) {
-    console.error("Password comparison error:", error);
+    console.error("❌ [Password Comparison] Error:", error instanceof Error ? error.message : "Unknown error");
     return false; // Return false instead of crashing
   }
 }
@@ -102,7 +102,7 @@ export function setupAuth(app: Express) {
         
         return done(null, user);
       } catch (error) {
-        console.error("Authentication error:", error);
+        console.error("❌ [Authentication] Error:", error instanceof Error ? error.message : error);
         return done(error);
       }
     }),
@@ -210,8 +210,8 @@ export function setupAuth(app: Express) {
         res.status(201).json(user);
       });
     } catch (error) {
-      console.error("❌ Registration error:", error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Registration failed" });
+      console.error("❌ Registration error:", error instanceof Error ? error.message : error);
+      res.status(500).json({ message: "Registration failed. Please try again." });
     }
   });
 

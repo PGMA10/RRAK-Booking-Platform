@@ -364,7 +364,7 @@ async function seedProduction() {
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [adminId, "admin", hashedPassword, "admin@routereach.ak", "Route Reach AK Admin", "admin", Date.now()]
       );
-      console.log("  ✅ Admin user created (username: admin, password: admin123)");
+      console.log("  ✅ Admin user created (username: admin)");
     } else {
       console.log("  ℹ️  Admin user already exists");
     }
@@ -595,7 +595,7 @@ async function seedProduction() {
     console.log("\n🎉 Production database setup completed successfully!");
     
   } catch (error) {
-    console.error("❌ Error setting up production database:", error);
+    console.error("❌ [Production DB] Error:", error instanceof Error ? error.message : error);
     throw error;
   } finally {
     await pool.end();

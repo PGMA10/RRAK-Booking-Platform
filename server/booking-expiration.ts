@@ -136,12 +136,12 @@ export function startBookingExpirationService(storage: IStorage) {
             
             console.log(`  ✅ Expired and cancelled booking ${booking.id} (pending since ${latestBooking.pendingSince?.toISOString()})`);
           } catch (error) {
-            console.error(`  ❌ Error expiring booking ${booking.id}:`, error);
+            console.error(`  ❌ Error expiring booking ${booking.id}:`, error instanceof Error ? error.message : error);
           }
         }
       }
     } catch (error) {
-      console.error("❌ Error in booking expiration check:", error);
+      console.error("❌ [Booking Expiration] Error:", error instanceof Error ? error.message : error);
     }
   };
   

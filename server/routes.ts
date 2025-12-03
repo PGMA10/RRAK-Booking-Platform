@@ -119,7 +119,7 @@ async function releaseLoyaltyDiscount(userId: string, bookingId: string): Promis
     
     console.log(`🎟️ [Loyalty] Released reserved loyalty discount for booking ${bookingId}. User ${userId} now has ${user.loyaltyDiscountsAvailable + 1} available`);
   } catch (error) {
-    console.error(`❌ [Loyalty] Failed to release discount for booking ${bookingId}:`, error);
+    console.error(`❌ [Loyalty] Failed to release discount for booking ${bookingId}:`, error instanceof Error ? error.message : error);
   }
 }
 
@@ -648,11 +648,11 @@ export function registerRoutes(app: Express): Server {
       
       res.status(201).json(campaign);
     } catch (error) {
-      console.error("❌ Campaign creation error:", error);
+      console.error("❌ Campaign creation error:", error instanceof Error ? error.message : error);
       if ((error as Error).name === "ZodError") {
-        return res.status(400).json({ message: "Invalid campaign data", errors: (error as any).errors });
+        return res.status(400).json({ message: "Invalid campaign data. Please check your input." });
       }
-      res.status(500).json({ message: "Failed to create campaign", error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ message: "Failed to create campaign. Please try again." });
     }
   });
 
@@ -796,7 +796,7 @@ export function registerRoutes(app: Express): Server {
       }
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting campaign:", error);
+      console.error("❌ [Campaign Delete] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to delete campaign" });
     }
   });
@@ -814,7 +814,7 @@ export function registerRoutes(app: Express): Server {
       }
       res.json(campaign);
     } catch (error) {
-      console.error("❌ Campaign recalculate error:", error);
+      console.error("❌ [Campaign Recalculate] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to recalculate campaign stats" });
     }
   });
@@ -835,7 +835,7 @@ export function registerRoutes(app: Express): Server {
         campaigns: results.filter(Boolean)
       });
     } catch (error) {
-      console.error("❌ Batch campaign recalculate error:", error);
+      console.error("❌ [Batch Recalculate] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to recalculate campaign stats" });
     }
   });
@@ -884,7 +884,7 @@ export function registerRoutes(app: Express): Server {
         existingBookingsCount
       });
     } catch (error) {
-      console.error("❌ Campaign reopen error:", error);
+      console.error("❌ [Campaign Reopen] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to reopen campaign" });
     }
   });
@@ -1078,7 +1078,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(booking);
     } catch (error) {
-      console.error("❌ [Booking Retrieval] Error:", error);
+      console.error("❌ [Booking Retrieval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch booking" });
     }
   });
@@ -1114,7 +1114,7 @@ export function registerRoutes(app: Express): Server {
       console.log("✅ [Availability] Result:", { available: !booking, bookingFound: !!booking });
       res.json({ available: !booking });
     } catch (error) {
-      console.error("❌ [Availability] Error:", error);
+      console.error("❌ [Availability] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to check availability" });
     }
   });
@@ -1145,7 +1145,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(quote);
     } catch (error) {
-      console.error("❌ [Pricing Quote] Error:", error);
+      console.error("❌ [Pricing Quote] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to calculate pricing quote" });
     }
   });
@@ -1313,7 +1313,7 @@ export function registerRoutes(app: Express): Server {
         }
       });
     } catch (error) {
-      console.error("Booking creation error:", error);
+      console.error("❌ [Booking Creation] Error:", error instanceof Error ? error.message : error);
       
       // ROLLBACK: If we reserved a loyalty discount but booking creation failed, release it back
       if (loyaltyDiscountApplied) {
@@ -1440,7 +1440,7 @@ export function registerRoutes(app: Express): Server {
       console.log(`✅ [Checkout] Created session ${session.id} for booking ${bookingId}, amount: $${(finalAmount / 100).toFixed(2)}`);
       res.json({ sessionUrl: session.url });
     } catch (error) {
-      console.error("❌ [Checkout] Session creation error:", error);
+      console.error("❌ [Checkout] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to create checkout session" });
     }
   });
@@ -1581,7 +1581,7 @@ export function registerRoutes(app: Express): Server {
       console.log(`✅ [Multi-Campaign Checkout] Created session ${session.id} for ${bookingIds.length} bookings, total: $${(finalTotal / 100).toFixed(2)}`);
       res.json({ sessionUrl: session.url, bookingIds });
     } catch (error) {
-      console.error("❌ [Multi-Campaign Checkout] Error:", error);
+      console.error("❌ [Multi-Campaign Checkout] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to create multi-campaign checkout session" });
     }
   });
@@ -1889,7 +1889,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
     } catch (error) {
-      console.error("❌ [Stripe Verify] Error verifying session:", error);
+      console.error("❌ [Stripe Verify] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to verify payment session" });
     }
   });
@@ -1989,7 +1989,7 @@ export function registerRoutes(app: Express): Server {
 
       res.status(201).json(booking);
     } catch (error) {
-      console.error("Booking error:", error);
+      console.error("❌ [Booking] Error:", error instanceof Error ? error.message : error);
       res.status(400).json({ message: "Invalid booking data" });
     }
   });
@@ -2074,7 +2074,7 @@ export function registerRoutes(app: Express): Server {
         daysUntilDeadline,
       });
     } catch (error) {
-      console.error("Refund preview error:", error);
+      console.error("❌ [Refund Preview] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to calculate refund preview" });
     }
   });
@@ -2318,7 +2318,7 @@ export function registerRoutes(app: Express): Server {
         }
       });
     } catch (error) {
-      console.error("❌ [Cancellation] Error:", error);
+      console.error("❌ [Cancellation] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to cancel booking" });
     }
   });
@@ -2349,7 +2349,7 @@ export function registerRoutes(app: Express): Server {
       console.log(`✅ [Approval] Booking ${bookingId} approved by admin ${req.user.username}`);
       res.json({ message: "Booking approved successfully", booking: approvedBooking });
     } catch (error) {
-      console.error("❌ [Approval] Error:", error);
+      console.error("❌ [Approval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to approve booking" });
     }
   });
@@ -2385,7 +2385,7 @@ export function registerRoutes(app: Express): Server {
       console.log(`❌ [Rejection] Booking ${bookingId} rejected by admin ${req.user.username}`);
       res.json({ message: "Booking rejected successfully", booking: rejectedBooking });
     } catch (error) {
-      console.error("❌ [Rejection] Error:", error);
+      console.error("❌ [Rejection] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to reject booking" });
     }
   });
@@ -2425,7 +2425,7 @@ export function registerRoutes(app: Express): Server {
       console.log(`💲 [Price Override] Booking ${bookingId} price ${priceOverride ? 'set to $' + (priceOverride/100).toFixed(2) : 'cleared'} by admin ${req.user.username}`);
       res.json({ message: "Price override updated successfully", booking: updatedBooking });
     } catch (error) {
-      console.error("❌ [Price Override] Error:", error);
+      console.error("❌ [Price Override] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to update price override" });
     }
   });
@@ -2486,7 +2486,7 @@ export function registerRoutes(app: Express): Server {
 
         res.json(updatedBooking);
       } catch (error) {
-        console.error("Artwork upload error:", error);
+        console.error("❌ [Artwork Upload] Error:", error instanceof Error ? error.message : error);
         // Clean up file if error occurs
         if (req.file && req.file.path && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
@@ -2530,7 +2530,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(updatedBooking);
     } catch (error) {
-      console.error("Artwork approval error:", error);
+      console.error("❌ [Artwork Approval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to approve artwork" });
     }
   });
@@ -2561,7 +2561,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(updatedBooking);
     } catch (error) {
-      console.error("Artwork rejection error:", error);
+      console.error("❌ [Artwork Rejection] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to reject artwork" });
     }
   });
@@ -2591,7 +2591,7 @@ export function registerRoutes(app: Express): Server {
       // Send the file
       res.sendFile(path.resolve(booking.artworkFilePath));
     } catch (error) {
-      console.error("Artwork file retrieval error:", error);
+      console.error("❌ [Artwork Retrieval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to retrieve artwork file" });
     }
   });
@@ -2688,7 +2688,7 @@ export function registerRoutes(app: Express): Server {
 
         res.json(updatedBooking);
       } catch (error) {
-        console.error("Design brief submission error:", error);
+        console.error("❌ [Design Brief] Error:", error instanceof Error ? error.message : error);
         res.status(500).json({ message: "Failed to submit design brief" });
       }
     });
@@ -2753,7 +2753,7 @@ export function registerRoutes(app: Express): Server {
 
         res.json({ designRevisions, booking: updatedBooking });
       } catch (error) {
-        console.error("Design upload error:", error);
+        console.error("❌ [Design Upload] Error:", error instanceof Error ? error.message : error);
         res.status(500).json({ message: "Failed to upload design" });
       }
     });
@@ -2779,7 +2779,7 @@ export function registerRoutes(app: Express): Server {
       const designs = await storage.getDesignRevisionsByBooking(bookingId);
       res.json(designs);
     } catch (error) {
-      console.error("Design retrieval error:", error);
+      console.error("❌ [Design Retrieval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to retrieve designs" });
     }
   });
@@ -2821,7 +2821,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(design);
     } catch (error) {
-      console.error("Design approval error:", error);
+      console.error("❌ [Design Approval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to approve design" });
     }
   });
@@ -2877,7 +2877,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(design);
     } catch (error) {
-      console.error("Design revision request error:", error);
+      console.error("❌ [Design Revision] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to request design revision" });
     }
   });
@@ -2913,7 +2913,7 @@ export function registerRoutes(app: Express): Server {
       // Send the file
       res.sendFile(path.resolve(design.designFilePath));
     } catch (error) {
-      console.error("Design file retrieval error:", error);
+      console.error("❌ [Design File] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to retrieve design file" });
     }
   });
@@ -2944,7 +2944,7 @@ export function registerRoutes(app: Express): Server {
       // Send the file
       res.sendFile(path.resolve(booking.logoFilePath));
     } catch (error) {
-      console.error("Logo file retrieval error:", error);
+      console.error("❌ [Logo File] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to retrieve logo file" });
     }
   });
@@ -2975,7 +2975,7 @@ export function registerRoutes(app: Express): Server {
       // Send the file
       res.sendFile(path.resolve(booking.optionalImagePath));
     } catch (error) {
-      console.error("Optional image retrieval error:", error);
+      console.error("❌ [Image Retrieval] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to retrieve optional image file" });
     }
   });
@@ -3082,7 +3082,7 @@ export function registerRoutes(app: Express): Server {
       if ((error as Error).name === "ZodError") {
         return res.status(400).json({ message: "Invalid booking data", errors: (error as any).errors });
       }
-      console.error("Failed to create slot booking:", error);
+      console.error("❌ [Slot Booking] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to create slot booking" });
     }
   });
@@ -3172,7 +3172,7 @@ export function registerRoutes(app: Express): Server {
         booking: cancelledBooking 
       });
     } catch (error) {
-      console.error("❌ [Admin Delete] Error:", error);
+      console.error("❌ [Admin Delete] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to cancel booking" });
     }
   });
@@ -3259,7 +3259,7 @@ export function registerRoutes(app: Express): Server {
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
-      console.error("❌ [Cleanup] Error:", error);
+      console.error("❌ [Cleanup] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to clean up cancelled booking files" });
     }
   });
@@ -3374,7 +3374,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
     } catch (error) {
-      console.error('Dashboard stats error:', error);
+      console.error('❌ [Dashboard Stats] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
@@ -3456,7 +3456,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(sortedActivities);
     } catch (error) {
-      console.error('Recent activity error:', error);
+      console.error('❌ [Recent Activity] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch recent activity" });
     }
   });
@@ -3491,7 +3491,7 @@ export function registerRoutes(app: Express): Server {
         avgBookingValue: Math.round(avgBookingValue / 100), // Convert to dollars
       });
     } catch (error) {
-      console.error('Business metrics error:', error);
+      console.error('❌ [Business Metrics] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch business metrics" });
     }
   });
@@ -3522,7 +3522,7 @@ export function registerRoutes(app: Express): Server {
       
       res.json(customersWithDollars);
     } catch (error) {
-      console.error('Get customers error:', error);
+      console.error('❌ [Get Customers] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch customers" });
     }
   });
@@ -3552,7 +3552,7 @@ export function registerRoutes(app: Express): Server {
         })),
       });
     } catch (error) {
-      console.error('Get customer details error:', error);
+      console.error('❌ [Customer Details] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch customer details" });
     }
   });
@@ -3576,7 +3576,7 @@ export function registerRoutes(app: Express): Server {
       await storage.addCustomerNote(customerId as string, sanitizedNote, req.user.id);
       res.json({ message: "Note added successfully" });
     } catch (error) {
-      console.error('Add note error:', error);
+      console.error('❌ [Add Note] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to add note" });
     }
   });
@@ -3600,7 +3600,7 @@ export function registerRoutes(app: Express): Server {
       await storage.addCustomerTag(customerId, sanitizedTag, req.user.id);
       res.json({ message: "Tag added successfully" });
     } catch (error) {
-      console.error('Add tag error:', error);
+      console.error('❌ [Add Tag] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to add tag" });
     }
   });
@@ -3622,7 +3622,7 @@ export function registerRoutes(app: Express): Server {
       await storage.removeCustomerTag(customerId, tag);
       res.json({ message: "Tag removed successfully" });
     } catch (error) {
-      console.error('Remove tag error:', error);
+      console.error('❌ [Remove Tag] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to remove tag" });
     }
   });
@@ -3711,7 +3711,7 @@ export function registerRoutes(app: Express): Server {
       await storage.createDismissedNotification(bookingId, notificationType, req.user.id);
       res.json({ success: true });
     } catch (error) {
-      console.error('Error dismissing notification:', error);
+      console.error('❌ [Dismiss Notification] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to dismiss notification" });
     }
   });
@@ -3726,7 +3726,7 @@ export function registerRoutes(app: Express): Server {
       const history = await storage.getDismissedNotificationsHistory(req.user.id);
       res.json(history);
     } catch (error) {
-      console.error('Error fetching notification history:', error);
+      console.error('❌ [Notification History] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch notification history" });
     }
   });
@@ -3763,7 +3763,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(updatedBooking);
     } catch (error) {
-      console.error('Error marking booking as paid:', error);
+      console.error('❌ [Mark Paid] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to mark booking as paid" });
     }
   });
@@ -3791,7 +3791,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(updatedBooking);
     } catch (error) {
-      console.error('Error updating admin notes:', error);
+      console.error('❌ [Admin Notes] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to update admin notes" });
     }
   });
@@ -3812,7 +3812,7 @@ export function registerRoutes(app: Express): Server {
       
       res.json(response);
     } catch (error) {
-      console.error('Error fetching loyalty settings:', error);
+      console.error('❌ [Loyalty Settings] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch loyalty settings" });
     }
   });
@@ -3886,7 +3886,7 @@ export function registerRoutes(app: Express): Server {
       const entry = await storage.createWaitlistEntry(validatedData);
       res.json(entry);
     } catch (error) {
-      console.error("Error creating waitlist entry:", error);
+      console.error("❌ [Waitlist Create] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to join waitlist" });
     }
   });
@@ -3900,7 +3900,7 @@ export function registerRoutes(app: Express): Server {
       const entries = await storage.getWaitlistEntriesByUser(req.user.id);
       res.json(entries);
     } catch (error) {
-      console.error("Error fetching waitlist entries:", error);
+      console.error("❌ [Waitlist Fetch] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch waitlist entries" });
     }
   });
@@ -3928,7 +3928,7 @@ export function registerRoutes(app: Express): Server {
         res.status(404).json({ message: "Waitlist entry not found" });
       }
     } catch (error) {
-      console.error("Error deleting waitlist entry:", error);
+      console.error("❌ [Waitlist Delete] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to remove from waitlist" });
     }
   });
@@ -3943,7 +3943,7 @@ export function registerRoutes(app: Express): Server {
       const settings = await storage.getAllAdminSettings();
       res.json(settings);
     } catch (error) {
-      console.error('Error fetching admin settings:', error);
+      console.error('❌ [Admin Settings Fetch] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch settings" });
     }
   });
@@ -3963,7 +3963,7 @@ export function registerRoutes(app: Express): Server {
       
       res.json(setting);
     } catch (error) {
-      console.error('Error fetching admin setting:', error);
+      console.error('❌ [Admin Setting Fetch] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch setting" });
     }
   });
@@ -3988,7 +3988,7 @@ export function registerRoutes(app: Express): Server {
       await storage.setAdminSetting(sanitizedKey, String(value), sanitizedDescription, req.user.id);
       res.json({ success: true, key: sanitizedKey, value });
     } catch (error) {
-      console.error('Error updating admin setting:', error);
+      console.error('❌ [Admin Setting Update] Error:', error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to update setting" });
     }
   });
@@ -4017,7 +4017,7 @@ export function registerRoutes(app: Express): Server {
       const entries = await storage.getAllWaitlistEntries(filters);
       res.json(entries);
     } catch (error) {
-      console.error("Error fetching waitlist entries:", error);
+      console.error("❌ [Waitlist Fetch] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fetch waitlist entries" });
     }
   });
@@ -4061,13 +4061,11 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Validation error", 
-          errors: error.errors.map(e => e.message).join(", ")
-        });
+        console.error("❌ [Waitlist Notify] Validation error:", error.errors);
+        return res.status(400).json({ message: "Invalid request. Please check your input." });
       }
-      console.error("Error sending waitlist notifications:", error);
-      res.status(500).json({ message: "Failed to send notifications" });
+      console.error("❌ [Waitlist Notify] Error:", error instanceof Error ? error.message : error);
+      res.status(500).json({ message: "Failed to send notifications. Please try again." });
     }
   });
 
@@ -4122,7 +4120,7 @@ export function registerRoutes(app: Express): Server {
           : `Added "Other" industry to ${updatedCount} campaign(s) (${allCampaigns.length - updatedCount} already had it)`,
       });
     } catch (error) {
-      console.error("Error fixing Other industry:", error);
+      console.error("❌ [Fix Other Industry] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ message: "Failed to fix Other industry" });
     }
   });

@@ -200,7 +200,7 @@ export async function seed() {
 
     console.log("🎉 Database seeding completed successfully!");
   } catch (error) {
-    console.error("❌ Error seeding database:", error);
+    console.error("❌ [Seed] Error:", error instanceof Error ? error.message : error);
     throw error;
   }
 }

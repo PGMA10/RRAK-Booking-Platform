@@ -68,7 +68,7 @@ async function migrateOtherIndustryToCampaigns() {
       console.log("ℹ️  All campaigns already have 'Other' industry");
     }
   } catch (error) {
-    console.error("❌ Error migrating 'Other' industry to campaigns:", error);
+    console.error("❌ [Migration] Other industry error:", error instanceof Error ? error.message : error);
     // Don't throw - migration failure shouldn't break seed process
   }
 }
@@ -114,7 +114,7 @@ async function migrateCampaignSlots() {
       console.log("ℹ️  All campaigns already using correct slot calculation");
     }
   } catch (error) {
-    console.error("❌ Error migrating campaign slots:", error);
+    console.error("❌ [Migration] Campaign slots error:", error instanceof Error ? error.message : error);
     // Don't throw - migration failure shouldn't break seed process
   }
 }
@@ -257,7 +257,7 @@ export async function seedSQLite() {
 
     console.log("🎉 SQLite database seeding completed successfully!");
   } catch (error) {
-    console.error("❌ Error seeding SQLite database:", error);
+    console.error("❌ [SQLite Seed] Error:", error instanceof Error ? error.message : error);
     throw error;
   }
 }
