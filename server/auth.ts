@@ -216,28 +216,68 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", authRateLimiter, passport.authenticate("local"), (req, res) => {
-    console.log("✅ Login successful:", {
-      userId: req.user?.id,
-      userRole: req.user?.role,
-      sessionID: req.sessionID,
-      cookies: req.headers.cookie,
-    });
+    const user = req.user;
     
-    // Force session save before responding
-    req.session.save((err) => {
+    // Regenerate session to prevent session fixation attacks
+    req.session.regenerate((err) => {
       if (err) {
-        console.error("❌ Session save error:", err);
-        return res.status(500).json({ message: "Session save failed" });
+        console.error("❌ Session regeneration error:", err);
+        return res.status(500).json({ message: "Session regeneration failed" });
       }
-      console.log("💾 Session saved successfully, cookie should be set");
-      res.status(200).json(req.user);
+      
+      // Re-establish user in new session
+      req.login(user!, (loginErr) => {
+        if (loginErr) {
+          console.error("❌ Re-login after regeneration error:", loginErr);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        
+        console.log("✅ Login successful with regenerated session:", {
+          userId: req.user?.id,
+          userRole: req.user?.role,
+          sessionID: req.sessionID,
+        });
+        
+        // Force session save before responding
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return res.status(500).json({ message: "Session save failed" });
+          }
+          console.log("💾 Session saved successfully, cookie should be set");
+          res.status(200).json(req.user);
+        });
+      });
     });
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const sessionID = req.sessionID;
+    
     req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
+      if (err) {
+        console.error("❌ Logout error:", err);
+        return next(err);
+      }
+      
+      // Destroy the session completely
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("❌ Session destroy error:", destroyErr);
+          return next(destroyErr);
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('connect.sid', {
+          path: '/',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        });
+        
+        console.log("✅ Logout successful, session destroyed:", sessionID);
+        res.sendStatus(200);
+      });
     });
   });
 
