@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { isProduction, pool } from "./db-config";
@@ -7,6 +8,51 @@ import { startBookingExpirationService } from "./booking-expiration";
 import { schemaSQL, seedSQL } from "./migrations";
 
 const app = express();
+
+// Trust proxy in production for proper HTTPS detection behind reverse proxy
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+// HTTPS enforcement - redirect HTTP to HTTPS in production
+app.use((req, res, next) => {
+  if (isProduction && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// Security headers using helmet
+app.use(helmet({
+  // Prevents clickjacking by disallowing the page to be framed
+  frameguard: { action: 'deny' },
+  // Prevents MIME type sniffing
+  noSniff: true,
+  // Strict Transport Security - enforces HTTPS for 1 year
+  hsts: isProduction ? {
+    maxAge: 31536000, // 1 year in seconds
+    includeSubDomains: true,
+    preload: true,
+  } : false,
+  // Content Security Policy
+  contentSecurityPolicy: isProduction ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.stripe.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://api.stripe.com", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  } : false,
+  // Referrer policy
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  // XSS filter (legacy browsers)
+  xssFilter: true,
+}));
 
 // Use raw body parser for Stripe webhook endpoint (required for signature verification)
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
