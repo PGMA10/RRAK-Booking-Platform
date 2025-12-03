@@ -8,6 +8,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import Stripe from "stripe";
+import rateLimit from "express-rate-limit";
 import { calculatePricingQuote, recordPricingRuleApplication } from "./pricing-service";
 import { 
   sanitize, 
@@ -23,6 +24,36 @@ import {
   sanitizeWaitlistInput,
   sanitizeSettingsInput
 } from "./validation";
+
+// Rate limiting configurations
+// General API rate limiter: 100 requests per 15 minutes per IP
+// Exempts Stripe webhook endpoint to avoid missing payment events
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { message: "Too many requests. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/api/stripe-webhook',
+});
+
+// Booking creation rate limiter: 10 bookings per hour per IP (prevents spam bookings)
+const bookingCreationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { message: "Too many booking attempts. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Contact/submission rate limiter: 5 submissions per hour per IP
+const submissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { message: "Too many submissions. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Reference: Stripe integration blueprint (javascript_stripe)
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -298,6 +329,10 @@ const upload = multer({
 export function registerRoutes(app: Express): Server {
   // sets up /api/register, /api/login, /api/logout, /api/user
   setupAuth(app);
+
+  // Apply general rate limiting to all API routes (100 requests per 15 minutes per IP)
+  // Note: Auth endpoints have their own stricter rate limiting in auth.ts
+  app.use("/api", generalApiLimiter);
 
   // Routes
   app.get("/api/routes", async (req, res) => {
@@ -1859,7 +1894,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/bookings", async (req, res) => {
+  app.post("/api/bookings", bookingCreationLimiter, async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -3783,7 +3818,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Waitlist Routes
-  app.post("/api/waitlist", async (req, res) => {
+  app.post("/api/waitlist", submissionLimiter, async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
