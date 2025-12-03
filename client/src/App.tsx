@@ -16,6 +16,7 @@ import AdminDesignBriefsPage from "@/pages/admin-design-briefs-page";
 import AdminSettingsPage from "@/pages/admin-settings-page";
 import AdminWaitlistPage from "@/pages/admin-waitlist-page";
 import AdminFixOtherPage from "@/pages/admin-fix-other-page";
+import AdminAuditLogsPage from "@/pages/admin-audit-logs-page";
 import RouteManagementPage from "@/pages/route-management-page";
 import IndustryManagementPage from "@/pages/industry-management-page";
 import CampaignManagementPage from "@/pages/campaign-management-page";
@@ -44,6 +45,7 @@ function Router() {
       <ProtectedRoute path="/admin/settings" component={AdminSettingsPage} />
       <ProtectedRoute path="/admin/waitlist" component={AdminWaitlistPage} />
       <ProtectedRoute path="/admin/fix-other" component={AdminFixOtherPage} />
+      <ProtectedRoute path="/admin/audit-logs" component={AdminAuditLogsPage} />
       <ProtectedRoute path="/admin/routes" component={RouteManagementPage} />
       <ProtectedRoute path="/admin/industries" component={IndustryManagementPage} />
       <ProtectedRoute path="/admin/campaigns" component={CampaignManagementPage} />

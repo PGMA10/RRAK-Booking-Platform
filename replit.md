@@ -44,6 +44,7 @@ Preferred communication style: Simple, everyday language.
 - **Booking Expiration & Cancellation**: Unpaid bookings expire after 15 minutes, with idempotent cancellation logic and race-condition-free file cleanup.
 - **Customer Relationship Management (CRM)**: Features customer list, profiles, notes, and tagging for segmentation and future marketing/referral programs.
 - **Industry Management**: DELETE endpoint added for industry deletion with protection against deleting "Other" industry.
+- **Admin Audit Logging**: Comprehensive audit trail for admin actions with 90-day retention policy. Tracks action type (create/update/delete/approve/reject), resource type (campaign/booking/user/route/industry/settings), IP address, and user agent. Admin-only viewing interface with filtering, search, and pagination at `/admin/audit-logs`. Schema: `admin_audit_logs` table in shared/schema.ts and shared/schema-pg.ts.
 
 ### UI/UX
 - Consistent use of Radix UI, Shadcn/UI, and Tailwind CSS.

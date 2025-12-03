@@ -30,7 +30,8 @@ export function Navigation() {
     ...(user?.role === "admin" ? [
       { path: "/admin/waitlist", label: "Waitlist" },
       { path: "/admin/settings", label: "Settings" },
-      { path: "/admin/fix-other", label: "Fix Other" }
+      { path: "/admin/audit-logs", label: "Audit Logs" },
+      { path: "/admin/fix-other", label: "Fix Other" },
     ] : []),
   ];
 
