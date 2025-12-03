@@ -258,6 +258,18 @@ export const waitlistNotifications = sqliteTable("waitlist_notifications", {
   sentAt: integer("sent_at", { mode: 'timestamp_ms' }),
 });
 
+export const adminAuditLogs = sqliteTable("admin_audit_logs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  actionType: text("action_type").notNull(), // 'create', 'update', 'delete', 'approve', 'reject', 'login', 'logout'
+  resourceType: text("resource_type").notNull(), // 'campaign', 'booking', 'user', 'route', 'industry', 'settings', etc.
+  resourceId: text("resource_id"), // ID of the affected resource (nullable for bulk actions)
+  details: text("details"), // JSON string with additional action details
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: integer("created_at", { mode: 'timestamp_ms' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -361,6 +373,11 @@ export const insertWaitlistNotificationSchema = createInsertSchema(waitlistNotif
   sentAt: true,
 });
 
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Route = typeof routes.$inferSelect;
@@ -399,6 +416,8 @@ export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
 export type InsertWaitlistEntry = z.infer<typeof insertWaitlistEntrySchema>;
 export type WaitlistNotification = typeof waitlistNotifications.$inferSelect;
 export type InsertWaitlistNotification = z.infer<typeof insertWaitlistNotificationSchema>;
+export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
 
 // Extended Booking type with joined route, industry, and campaign data
 export type BookingWithDetails = Booking & {
