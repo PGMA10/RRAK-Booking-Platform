@@ -257,6 +257,18 @@ export const waitlistNotifications = pgTable("waitlist_notifications", {
   sentAt: bigint("sent_at", { mode: 'number' }),
 });
 
+export const adminAuditLogs = pgTable("admin_audit_logs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  actionType: text("action_type").notNull(),
+  resourceType: text("resource_type").notNull(),
+  resourceId: text("resource_id"),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: bigint("created_at", { mode: 'number' }),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -284,6 +296,7 @@ export const insertCampaignRouteSchema = createInsertSchema(campaignRoutes).omit
 export const insertCampaignIndustrySchema = createInsertSchema(campaignIndustries).omit({ id: true, createdAt: true });
 export const insertWaitlistEntrySchema = createInsertSchema(waitlistEntries).omit({ id: true, createdAt: true, notifiedCount: true, lastNotifiedAt: true, lastNotifiedChannels: true });
 export const insertWaitlistNotificationSchema = createInsertSchema(waitlistNotifications).omit({ id: true, sentAt: true });
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLogs).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -323,6 +336,8 @@ export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
 export type InsertWaitlistEntry = z.infer<typeof insertWaitlistEntrySchema>;
 export type WaitlistNotification = typeof waitlistNotifications.$inferSelect;
 export type InsertWaitlistNotification = z.infer<typeof insertWaitlistNotificationSchema>;
+export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
 
 export type BookingWithDetails = Booking & {
   route?: Route;

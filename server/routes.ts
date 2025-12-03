@@ -4125,6 +4125,159 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ============================================
+  // ADMIN AUDIT LOGS
+  // ============================================
+
+  // Helper function to log admin actions
+  async function logAdminAction(
+    userId: string,
+    actionType: string,
+    resourceType: string,
+    resourceId: string | null,
+    details: Record<string, any> | null,
+    req: Express.Request
+  ): Promise<void> {
+    try {
+      await storage.createAuditLog({
+        userId,
+        actionType,
+        resourceType,
+        resourceId,
+        details: details ? JSON.stringify(details) : null,
+        ipAddress: (req as any).ip || (req as any).connection?.remoteAddress || null,
+        userAgent: req.get('User-Agent') || null,
+      });
+    } catch (error) {
+      console.error("❌ [Audit Log] Failed to create audit log:", error instanceof Error ? error.message : error);
+    }
+  }
+
+  // Get audit logs with filters and pagination
+  app.get("/api/admin/audit-logs", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const {
+        userId,
+        actionType,
+        resourceType,
+        startDate,
+        endDate,
+        limit = "50",
+        offset = "0",
+      } = req.query;
+
+      const filters: {
+        userId?: string;
+        actionType?: string;
+        resourceType?: string;
+        startDate?: Date;
+        endDate?: Date;
+        limit?: number;
+        offset?: number;
+      } = {
+        limit: Math.min(parseInt(limit as string) || 50, 100),
+        offset: parseInt(offset as string) || 0,
+      };
+
+      if (userId && typeof userId === 'string') filters.userId = userId;
+      if (actionType && typeof actionType === 'string') filters.actionType = actionType;
+      if (resourceType && typeof resourceType === 'string') filters.resourceType = resourceType;
+      if (startDate && typeof startDate === 'string') filters.startDate = new Date(startDate);
+      if (endDate && typeof endDate === 'string') filters.endDate = new Date(endDate);
+
+      const [logs, totalCount] = await Promise.all([
+        storage.getAuditLogs(filters),
+        storage.getAuditLogCount(filters),
+      ]);
+
+      // Enrich logs with admin usernames
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+      const enrichedLogs = logs.map(log => ({
+        ...log,
+        userName: userMap.get(log.userId)?.username || 'Unknown',
+        details: log.details ? JSON.parse(log.details) : null,
+      }));
+
+      res.json({
+        logs: enrichedLogs,
+        totalCount,
+        limit: filters.limit,
+        offset: filters.offset,
+      });
+    } catch (error) {
+      console.error("❌ [Audit Logs] Error:", error instanceof Error ? error.message : error);
+      res.status(500).json({ message: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Cleanup old audit logs (90-day retention)
+  app.post("/api/admin/audit-logs/cleanup", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const RETENTION_DAYS = 90;
+      const deletedCount = await storage.cleanupOldAuditLogs(RETENTION_DAYS);
+      
+      // Log the cleanup action itself
+      await logAdminAction(
+        req.user.id,
+        'cleanup',
+        'audit_log',
+        null,
+        { deletedCount, retentionDays: RETENTION_DAYS },
+        req as any
+      );
+
+      res.json({
+        success: true,
+        deletedCount,
+        message: `Cleaned up ${deletedCount} audit log(s) older than ${RETENTION_DAYS} days`,
+      });
+    } catch (error) {
+      console.error("❌ [Audit Log Cleanup] Error:", error instanceof Error ? error.message : error);
+      res.status(500).json({ message: "Failed to cleanup audit logs" });
+    }
+  });
+
+  // Get audit log statistics
+  app.get("/api/admin/audit-logs/stats", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const now = new Date();
+      const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const [last24HoursCount, last7DaysCount, last30DaysCount, totalCount] = await Promise.all([
+        storage.getAuditLogCount({ startDate: last24Hours }),
+        storage.getAuditLogCount({ startDate: last7Days }),
+        storage.getAuditLogCount({ startDate: last30Days }),
+        storage.getAuditLogCount({}),
+      ]);
+
+      res.json({
+        last24Hours: last24HoursCount,
+        last7Days: last7DaysCount,
+        last30Days: last30DaysCount,
+        total: totalCount,
+      });
+    } catch (error) {
+      console.error("❌ [Audit Log Stats] Error:", error instanceof Error ? error.message : error);
+      res.status(500).json({ message: "Failed to fetch audit log stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
