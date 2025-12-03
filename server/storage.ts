@@ -25,6 +25,8 @@ import {
   type WaitlistEntryWithDetails,
   type WaitlistNotification,
   type InsertWaitlistNotification,
+  type AdminAuditLog,
+  type InsertAdminAuditLog,
   SLOTS_PER_ROUTE,
 } from "@shared/schema";
 import { db, schema, isProduction } from "./db-config";
@@ -50,6 +52,7 @@ const designRevisionsTable = schema.designRevisions;
 const adminSettingsTable = schema.adminSettings;
 const waitlistEntriesTable = schema.waitlistEntries;
 const waitlistNotificationsTable = schema.waitlistNotifications;
+const adminAuditLogsTable = schema.adminAuditLogs;
 
 const MemoryStore = createMemoryStore(session);
 
@@ -235,6 +238,26 @@ export interface IStorage {
   }): Promise<{ notifiedCount: number }>;
   markWaitlistAsConverted(userId: string, campaignId: string, routeId: string, industrySubcategoryId: string): Promise<void>;
   
+  // Admin Audit Logs
+  createAuditLog(log: InsertAdminAuditLog): Promise<AdminAuditLog>;
+  getAuditLogs(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<AdminAuditLog[]>;
+  getAuditLogCount(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<number>;
+  cleanupOldAuditLogs(retentionDays: number): Promise<number>;
+  
   sessionStore: session.Store;
 }
 
@@ -248,6 +271,7 @@ export class MemStorage implements IStorage {
   private bookings: Map<string, Booking> = new Map();
   private waitlistEntries: Map<string, WaitlistEntry> = new Map();
   private waitlistNotifications: Map<string, WaitlistNotification> = new Map();
+  private auditLogs: Map<string, AdminAuditLog> = new Map();
   public sessionStore: session.Store;
 
   constructor() {
@@ -1312,6 +1336,101 @@ export class MemStorage implements IStorage {
     const updatedUser: User = { ...user, ...loyalty };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async createAuditLog(log: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const id = randomUUID();
+    const auditLog: AdminAuditLog = {
+      ...log,
+      id,
+      resourceId: log.resourceId ?? null,
+      details: log.details ?? null,
+      ipAddress: log.ipAddress ?? null,
+      userAgent: log.userAgent ?? null,
+      createdAt: new Date(),
+    };
+    this.auditLogs.set(id, auditLog);
+    return auditLog;
+  }
+
+  async getAuditLogs(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<AdminAuditLog[]> {
+    let logs = Array.from(this.auditLogs.values());
+    
+    if (filters?.userId) {
+      logs = logs.filter(l => l.userId === filters.userId);
+    }
+    if (filters?.actionType) {
+      logs = logs.filter(l => l.actionType === filters.actionType);
+    }
+    if (filters?.resourceType) {
+      logs = logs.filter(l => l.resourceType === filters.resourceType);
+    }
+    if (filters?.startDate) {
+      logs = logs.filter(l => l.createdAt && new Date(l.createdAt) >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      logs = logs.filter(l => l.createdAt && new Date(l.createdAt) <= filters.endDate!);
+    }
+    
+    logs.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+    
+    const offset = filters?.offset || 0;
+    const limit = filters?.limit || 50;
+    return logs.slice(offset, offset + limit);
+  }
+
+  async getAuditLogCount(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<number> {
+    let logs = Array.from(this.auditLogs.values());
+    
+    if (filters?.userId) {
+      logs = logs.filter(l => l.userId === filters.userId);
+    }
+    if (filters?.actionType) {
+      logs = logs.filter(l => l.actionType === filters.actionType);
+    }
+    if (filters?.resourceType) {
+      logs = logs.filter(l => l.resourceType === filters.resourceType);
+    }
+    if (filters?.startDate) {
+      logs = logs.filter(l => l.createdAt && new Date(l.createdAt) >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      logs = logs.filter(l => l.createdAt && new Date(l.createdAt) <= filters.endDate!);
+    }
+    
+    return logs.length;
+  }
+
+  async cleanupOldAuditLogs(retentionDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    
+    let deletedCount = 0;
+    for (const [id, log] of this.auditLogs.entries()) {
+      if (log.createdAt && new Date(log.createdAt) < cutoffDate) {
+        this.auditLogs.delete(id);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
   }
 }
 
@@ -3175,6 +3294,114 @@ export class DbStorage implements IStorage {
         eq(waitlistEntriesTable.industrySubcategoryId, industrySubcategoryId),
         eq(waitlistEntriesTable.status, 'active')
       ));
+  }
+
+  async createAuditLog(log: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const now = getTimestamp();
+    const logWithId = {
+      ...log,
+      id: randomUUID().replace(/-/g, ''),
+      createdAt: now,
+    };
+    const result = await db.insert(adminAuditLogsTable).values(logWithId).returning();
+    return this.convertAuditLogTimestamps(result[0]);
+  }
+
+  private convertAuditLogTimestamps(log: any): AdminAuditLog {
+    return {
+      ...log,
+      createdAt: log.createdAt ? new Date(log.createdAt) : null,
+    };
+  }
+
+  async getAuditLogs(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<AdminAuditLog[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(adminAuditLogsTable.userId, filters.userId));
+    }
+    if (filters?.actionType) {
+      conditions.push(eq(adminAuditLogsTable.actionType, filters.actionType));
+    }
+    if (filters?.resourceType) {
+      conditions.push(eq(adminAuditLogsTable.resourceType, filters.resourceType));
+    }
+    if (filters?.startDate) {
+      const startMs = filters.startDate.getTime();
+      conditions.push(sql`${adminAuditLogsTable.createdAt} >= ${startMs}`);
+    }
+    if (filters?.endDate) {
+      const endMs = filters.endDate.getTime();
+      conditions.push(sql`${adminAuditLogsTable.createdAt} <= ${endMs}`);
+    }
+    
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
+    let query = db.select().from(adminAuditLogsTable);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const results = await query.orderBy(desc(adminAuditLogsTable.createdAt)).limit(limit).offset(offset);
+    return results.map(log => this.convertAuditLogTimestamps(log));
+  }
+
+  async getAuditLogCount(filters?: {
+    userId?: string;
+    actionType?: string;
+    resourceType?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<number> {
+    const conditions: any[] = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(adminAuditLogsTable.userId, filters.userId));
+    }
+    if (filters?.actionType) {
+      conditions.push(eq(adminAuditLogsTable.actionType, filters.actionType));
+    }
+    if (filters?.resourceType) {
+      conditions.push(eq(adminAuditLogsTable.resourceType, filters.resourceType));
+    }
+    if (filters?.startDate) {
+      const startMs = filters.startDate.getTime();
+      conditions.push(sql`${adminAuditLogsTable.createdAt} >= ${startMs}`);
+    }
+    if (filters?.endDate) {
+      const endMs = filters.endDate.getTime();
+      conditions.push(sql`${adminAuditLogsTable.createdAt} <= ${endMs}`);
+    }
+    
+    let result: any[];
+    if (conditions.length > 0) {
+      result = await db.select({ count: sql`count(*)` }).from(adminAuditLogsTable).where(and(...conditions));
+    } else {
+      result = await db.select({ count: sql`count(*)` }).from(adminAuditLogsTable);
+    }
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  async cleanupOldAuditLogs(retentionDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    const cutoffMs = cutoffDate.getTime();
+    
+    const result = await db.delete(adminAuditLogsTable)
+      .where(sql`${adminAuditLogsTable.createdAt} < ${cutoffMs}`);
+    
+    return (result as any).changes || (result as any).rowCount || 0;
   }
 }
 
